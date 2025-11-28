@@ -17,11 +17,20 @@ export async function GET(req: Request) {
         // 统计标签使用频率
         const tagStats: Record<string, number> = {};
 
-        errorItems.forEach((item: any) => {
-            if (item.knowledgePoints && Array.isArray(item.knowledgePoints)) {
-                (item.knowledgePoints as string[]).forEach((tag: string) => {
-                    tagStats[tag] = (tagStats[tag] || 0) + 1;
-                });
+        errorItems.forEach((item) => {
+            if (item.knowledgePoints) {
+                try {
+                    const tags = JSON.parse(item.knowledgePoints);
+                    if (Array.isArray(tags)) {
+                        tags.forEach((tag: string) => {
+                            if (tag && typeof tag === 'string') {
+                                tagStats[tag] = (tagStats[tag] || 0) + 1;
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn("Failed to parse knowledgePoints for item:", item.knowledgePoints);
+                }
             }
         });
 
