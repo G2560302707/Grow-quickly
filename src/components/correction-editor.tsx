@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ParsedQuestion } from "@/lib/gemini";
+import { ParsedQuestion } from "@/lib/ai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";

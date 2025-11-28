@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { analyzeImage } from "@/lib/gemini";
+import { getAIService } from "@/lib/ai";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { normalizeTags } from "@/lib/knowledge-tags";
@@ -35,8 +35,9 @@ export async function POST(req: Request) {
             }
         }
 
-        console.log("[API] Calling Gemini analyzeImage...");
-        const analysisResult = await analyzeImage(imageBase64, mimeType, language);
+        console.log("[API] Calling AI service analyzeImage...");
+        const aiService = getAIService();
+        const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language);
 
         // 标准化知识点标签
         if (analysisResult.knowledgePoints && analysisResult.knowledgePoints.length > 0) {
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
             console.log("[API] Normalized tags:", analysisResult.knowledgePoints);
         }
 
-        console.log("[API] Gemini analysis successful");
+        console.log("[API] AI analysis successful");
 
         return NextResponse.json(analysisResult);
     } catch (error: any) {

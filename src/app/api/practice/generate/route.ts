@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { generateSimilarQuestion } from "@/lib/gemini";
+import { getAIService } from "@/lib/ai";
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -25,7 +25,8 @@ export async function POST(req: Request) {
             tags = [];
         }
 
-        const similarQuestion = await generateSimilarQuestion(
+        const aiService = getAIService();
+        const similarQuestion = await aiService.generateSimilarQuestion(
             errorItem.questionText || "",
             tags,
             language

@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 
-import { Loader2, TrendingUp, CheckCircle, BookOpen, LogOut, User } from "lucide-react";
+import { Loader2, TrendingUp, CheckCircle, BookOpen } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useSession, signOut } from "next-auth/react";
-import { Button } from "@/components/ui/button";
 
 interface AnalyticsData {
     totalErrors: number;
@@ -20,7 +18,7 @@ export function Dashboard() {
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const { t, language } = useLanguage();
-    const { data: session } = useSession();
+
 
     useEffect(() => {
         fetchAnalytics();
@@ -52,19 +50,7 @@ export function Dashboard() {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="flex justify-between items-center bg-card p-4 rounded-lg border shadow-sm">
-                <div className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-primary" />
-                    <span className="font-medium">
-                        {language === 'zh' ? '欢迎回来，' : 'Welcome back, '}
-                        {session?.user?.name || session?.user?.email || 'User'}
-                    </span>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/login' })}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {language === 'zh' ? '退出登录' : 'Logout'}
-                </Button>
-            </div>
+
 
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>

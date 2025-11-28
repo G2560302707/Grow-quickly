@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, Suspense, useEffect } from "react";
-
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { UploadZone } from "@/components/upload-zone";
-
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ImageCropper } from "@/components/image-cropper";
-import { ParsedQuestion } from "@/lib/gemini";
+import { ParsedQuestion } from "@/lib/ai";
 import { Dashboard } from "@/components/dashboard";
-import Link from "next/link";
+import { UserWelcome } from "@/components/user-welcome";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
+import { Upload, BookOpen, Tags } from "lucide-react";
 
 function HomeContent() {
   const [step, setStep] = useState<"upload" | "review">("upload");
@@ -164,21 +164,47 @@ function HomeContent() {
           </p>
         </div>
 
-        {/* Dashboard Section */}
-        <Dashboard />
+        {/* User Welcome Section - At the top */}
+        <UserWelcome />
 
-        <div className="flex justify-center gap-4">
+        {/* Action Center */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Button
-            variant={step === "upload" ? "default" : "outline"}
+            size="lg"
+            className="h-auto py-4 text-base shadow-sm hover:shadow-md transition-all"
+            variant={step === "upload" ? "default" : "secondary"}
             onClick={() => setStep("upload")}
           >
-            {t.app.uploadNew}
+            <div className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              <span>{t.app.uploadNew}</span>
+            </div>
           </Button>
-          <Link href="/notebooks">
-            <Button variant="outline">{t.app.viewNotebook}</Button>
+
+          <Link href="/notebooks" className="w-full">
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full h-auto py-4 text-base shadow-sm hover:shadow-md transition-all border hover:border-primary/50 hover:bg-accent/50"
+            >
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                <span>{t.app.viewNotebook}</span>
+              </div>
+            </Button>
           </Link>
-          <Link href="/tags">
-            <Button variant="outline">🏷️ {language === 'zh' ? '标签管理' : 'Tags'}</Button>
+
+          <Link href="/tags" className="w-full">
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full h-auto py-4 text-base shadow-sm hover:shadow-md transition-all border hover:border-primary/50 hover:bg-accent/50"
+            >
+              <div className="flex items-center gap-2">
+                <Tags className="h-5 w-5" />
+                <span>{language === 'zh' ? '标签管理' : 'Tags'}</span>
+              </div>
+            </Button>
           </Link>
         </div>
 
@@ -204,6 +230,9 @@ function HomeContent() {
             initialSubjectId={initialNotebookId || autoSelectedNotebookId || undefined}
           />
         )}
+
+        {/* Dashboard Section - At the bottom */}
+        <Dashboard />
       </div>
     </main>
   );
