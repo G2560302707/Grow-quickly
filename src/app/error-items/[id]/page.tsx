@@ -359,18 +359,7 @@ export default function ErrorDetailPage() {
                                 <CardTitle>{t.detail.analysis}</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {item.originalImageUrl && (
-                                    <div>
-                                        <p className="text-sm font-medium mb-2 text-muted-foreground">
-                                            {t.detail.referenceDiagram || "参考图形"}
-                                        </p>
-                                        <img
-                                            src={item.originalImageUrl}
-                                            alt={t.detail.originalProblem || "Original Problem"}
-                                            className="w-full max-w-md rounded-lg border"
-                                        />
-                                    </div>
-                                )}
+
                                 <MarkdownRenderer content={item.analysis} />
                             </CardContent>
                         </Card>
@@ -386,8 +375,8 @@ export default function ErrorDetailPage() {
                                 </Link>
                                 <Button
                                     size="lg"
-                                    variant={item.masteryLevel > 0 ? "outline" : "default"}
-                                    className={`flex-1 ${item.masteryLevel > 0 ? "text-green-600 border-green-600 hover:bg-green-50" : ""}`}
+                                    variant={item.masteryLevel > 0 ? "default" : "default"}
+                                    className={`flex-1 ${item.masteryLevel > 0 ? "bg-green-600 hover:bg-green-700 text-white" : ""}`}
                                     onClick={toggleMastery}
                                 >
                                     {item.masteryLevel > 0 ? (

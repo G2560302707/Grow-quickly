@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wrong-notebook
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - NEXTAUTH_URL=http://localhost:3000
+      # You should provide these in a .env file or here
+      # - GOOGLE_API_KEY=your_key_here
+      # - NEXTAUTH_SECRET=your_secret_here
+    env_file:
+      - .env
+    volumes:
+      # Persist the SQLite database
+      - ./prisma/dev.db:/app/prisma/dev.db

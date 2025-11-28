@@ -1,36 +1,91 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Wrong Notebook (智能错题本)
 
-## Getting Started
+一个基于 AI 的智能错题管理系统，帮助学生高效整理、分析和复习错题。
 
-First, run the development server:
+## ✨ 主要功能
+
+- **🤖 AI 智能分析**：自动识别题目内容，生成解析、知识点标签和同类练习题。
+- **📚 多错题本管理**：支持按科目（如数学、物理、英语）创建和管理多个错题本。
+- **🏷️ 智能标签系统**：自动提取知识点标签，支持自定义标签管理。
+- **📝 智能练习**：基于错题生成相似的练习题，巩固薄弱环节。
+- **📊 数据统计**：可视化展示错题掌握情况和学习进度。
+- **🔐 用户管理**：支持多用户注册、登录，数据安全隔离。
+
+## 🛠️ 技术栈
+
+- **框架**: [Next.js 14](https://nextjs.org/) (App Router)
+- **数据库**: [SQLite](https://www.sqlite.org/) (via [Prisma](https://www.prisma.io/))
+- **样式**: [Tailwind CSS](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
+- **AI**: Google Gemini API
+- **认证**: [NextAuth.js](https://next-auth.js.org/)
+
+## 🚀 快速开始
+
+### 1. 环境准备
+
+确保已安装 Node.js (v18+) 和 npm。
+
+### 2. 安装依赖
+
+```bash
+npm install
+```
+
+### 3. 配置环境变量
+
+复制 `.env.example` 为 `.env` 并填入必要的配置：
+
+```env
+DATABASE_URL="file:./dev.db"
+GOOGLE_API_KEY="your_gemini_api_key"
+NEXTAUTH_SECRET="your_secret_key"
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+### 4. 初始化数据库
+
+```bash
+npx prisma migrate dev
+```
+
+### 5. 启动开发服务器
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+访问 [http://localhost:3000](http://localhost:3000) 开始使用。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🔑 密码重置指南
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+如果您忘记了登录密码，可以通过以下步骤重置：
 
-## Learn More
+### 方法一：使用内置脚本（推荐）
 
-To learn more about Next.js, take a look at the following resources:
+我们在项目根目录提供了一个重置脚本 `reset-password.js`。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1.  打开终端，进入项目根目录。
+2.  运行以下命令（替换 `<邮箱>` 和 `<新密码>`）：
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+    ```bash
+    node reset-password.js <您的注册邮箱> <新密码>
+    ```
 
-## Deploy on Vercel
+    **示例：**
+    ```bash
+    node reset-password.js user@example.com 123456
+    ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3.  脚本运行成功后，您可以使用新密码登录。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 方法二：数据库直接修改
+
+如果您熟悉数据库操作，也可以直接修改 SQLite 数据库：
+
+1.  打开 `prisma/dev.db`。
+2.  找到 `User` 表。
+3.  更新对应用户的 `password` 字段（注意：密码必须是 bcrypt 哈希值，不能是明文）。
+
+## 📄 许可证
+
+MIT License

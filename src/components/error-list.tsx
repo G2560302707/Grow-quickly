@@ -167,7 +167,10 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                             <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer">
                                 <CardHeader className="pb-2">
                                     <div className="flex justify-between items-start">
-                                        <Badge variant={item.masteryLevel > 0 ? "default" : "secondary"}>
+                                        <Badge
+                                            variant={item.masteryLevel > 0 ? "default" : "secondary"}
+                                            className={item.masteryLevel > 0 ? "bg-green-600 hover:bg-green-700" : ""}
+                                        >
                                             {item.masteryLevel > 0 ? (
                                                 <span className="flex items-center gap-1">
                                                     <CheckCircle className="h-3 w-3" /> {t.notebook.mastered}
