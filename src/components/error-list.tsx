@@ -163,7 +163,7 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                         tags = [];
                     }
                     return (
-                        <Link key={item.id} href={`/notebook/${item.id}`}>
+                        <Link key={item.id} href={`/error-items/${item.id}`}>
                             <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer">
                                 <CardHeader className="pb-2">
                                     <div className="flex justify-between items-start">
