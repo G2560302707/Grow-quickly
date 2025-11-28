@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { analyzeImage } from "@/lib/gemini";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { normalizeTags } from "@/lib/knowledge-tags";
 
 export async function POST(req: Request) {
     console.log("[API] /api/analyze called");
@@ -21,16 +22,13 @@ export async function POST(req: Request) {
 
         if (!imageBase64) {
             console.log("[API] Missing image data");
-            return NextResponse.json(
-                { message: "Image data is required" },
-                { status: 400 }
-            );
+            return NextResponse.json({ message: "Missing image data" }, { status: 400 });
         }
 
-        // Handle data URL if present (e.g. "data:image/jpeg;base64,...")
-        if (imageBase64.startsWith("data:")) {
-            const matches = imageBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-            if (matches && matches.length === 3) {
+        // Parse Data URL if present
+        if (imageBase64.startsWith('data:')) {
+            const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
                 mimeType = matches[1];
                 imageBase64 = matches[2];
                 console.log(`[API] Parsed Data URL. New MimeType: ${mimeType}, Base64 length: ${imageBase64.length}`);
@@ -39,6 +37,13 @@ export async function POST(req: Request) {
 
         console.log("[API] Calling Gemini analyzeImage...");
         const analysisResult = await analyzeImage(imageBase64, mimeType, language);
+
+        // 标准化知识点标签
+        if (analysisResult.knowledgePoints && analysisResult.knowledgePoints.length > 0) {
+            analysisResult.knowledgePoints = normalizeTags(analysisResult.knowledgePoints);
+            console.log("[API] Normalized tags:", analysisResult.knowledgePoints);
+        }
+
         console.log("[API] Gemini analysis successful");
 
         return NextResponse.json(analysisResult);

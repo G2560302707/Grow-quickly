@@ -25,15 +25,46 @@ export async function analyzeImage(imageBase64: string, mimeType: string = "imag
     ${langInstruction}
     
     Please extract the following information and return it in valid JSON format:
-    1. "questionText": The full text of the question, including any formulas (use LaTeX for formulas).
-    2. "answerText": The correct answer to the question.
-    3. "analysis": A step-by-step explanation of how to solve the problem.
-    4. "knowledgePoints": An array of specific knowledge points or concepts tested in this question (e.g., "Pythagorean Theorem", "Linear Equations").
+    1. "questionText": The full text of the question. Use Markdown format for better readability. Use LaTeX notation for mathematical formulas (inline: $formula$, block: $$formula$$).
+    2. "answerText": The correct answer to the question. Use Markdown and LaTeX where appropriate.
+    3. "analysis": A step-by-step explanation of how to solve the problem. 
+       - Use Markdown formatting (headings, lists, bold, etc.) for clarity
+       - Use LaTeX for all mathematical formulas and expressions
+       - Example: "The solution is $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$"
+       - For block formulas, use $$...$$
+    4. "knowledgePoints": An array of knowledge points. STRICTLY use EXACT terms from the standard list below:
+       
+       **数学标签 (Math Tags):**
+       - 方程: "一元一次方程", "一元二次方程", "二元一次方程组", "分式方程"
+       - 几何: "勾股定理", "相似三角形", "全等三角形", "圆", "三视图", "平行四边形", "矩形", "菱形"
+       - 函数: "二次函数", "一次函数", "反比例函数", "二次函数的图像", "二次函数的性质"
+       - 数值: "绝对值", "有理数", "实数", "科学计数法"
+       - 统计: "概率", "平均数", "中位数", "方差"
+       
+       **物理标签 (Physics Tags):**
+       - 力学: "匀速直线运动", "变速运动", "牛顿第一定律", "牛顿第二定律", "牛顿第三定律", "力", "压强", "浮力"
+       - 电学: "欧姆定律", "串联电路", "并联电路", "电功率", "电功"
+       - 光学: "光的反射", "光的折射", "凸透镜", "凹透镜"
+       - 热学: "温度", "内能", "比热容", "热机效率"
+       
+       **化学标签 (Chemistry Tags):**
+       - "化学方程式", "氧化还原反应", "酸碱盐", "中和反应", "金属", "非金属", "溶解度"
+       
+       **IMPORTANT RULES:**
+       - Use EXACT matches from the list above - do NOT create variations
+       - For "三视图" questions, use ONLY "三视图", NOT "左视图", "主视图", or "俯视图"
+       - For force questions, use specific tags like "力", "牛顿第一定律", NOT generic "力学"
+       - Maximum 5 tags per question
+       - Each tag must be from the standard list
 
+    IMPORTANT:  
+    - Ensure all backslashes in LaTeX are properly escaped (use \\\\ instead of \\)
+    - Return ONLY valid JSON
+    - Do not wrap the JSON in markdown code blocks
+    - Ensure all strings are properly escaped
+    
     If the image contains multiple questions, only analyze the first complete one.
     If the image is unclear or does not contain a question, return empty strings but valid JSON.
-    
-    Output ONLY the JSON object, no markdown formatting.
   `;
 
     const contents = [

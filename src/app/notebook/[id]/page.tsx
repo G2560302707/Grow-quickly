@@ -285,20 +285,12 @@ export default function ErrorDetailPage() {
                                 <MarkdownRenderer content={item.analysis} />
                             </CardContent>
                         </Card>
-
-                        <div className="flex justify-between items-center gap-3">
-                            <Button
-                                variant="destructive"
-                                size="lg"
-                                onClick={deleteItem}
-                            >
-                                <Trash2 className="mr-2 h-5 w-5" />
-                                {t.detail.delete || "删除"}
-                            </Button>
-
-                            <div className="flex gap-3">
-                                <Link href={`/practice?id=${item.id}`}>
-                                    <Button variant="secondary" size="lg">
+                        {/* 操作按钮 */}
+                        <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                            {/* 主要操作 - 左侧 */}
+                            <div className="flex gap-3 flex-1">
+                                <Link href={`/practice?id=${item.id}`} className="flex-1">
+                                    <Button variant="secondary" size="lg" className="w-full">
                                         <RefreshCw className="mr-2 h-5 w-5" />
                                         {t.detail.practice}
                                     </Button>
@@ -306,7 +298,7 @@ export default function ErrorDetailPage() {
                                 <Button
                                     size="lg"
                                     variant={item.masteryLevel > 0 ? "outline" : "default"}
-                                    className={item.masteryLevel > 0 ? "text-green-600 border-green-600" : ""}
+                                    className={`flex-1 ${item.masteryLevel > 0 ? "text-green-600 border-green-600 hover:bg-green-50" : ""}`}
                                     onClick={toggleMastery}
                                 >
                                     {item.masteryLevel > 0 ? (
@@ -322,6 +314,17 @@ export default function ErrorDetailPage() {
                                     )}
                                 </Button>
                             </div>
+
+                            {/* 删除按钮 - 右侧，使用 ghost 样式降低视觉重量 */}
+                            <Button
+                                variant="ghost"
+                                size="lg"
+                                onClick={deleteItem}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {t.detail.delete || "删除"}
+                            </Button>
                         </div>
                     </div>
                 </div>
