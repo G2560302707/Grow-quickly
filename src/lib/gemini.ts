@@ -55,6 +55,7 @@ export async function analyzeImage(imageBase64: string, mimeType: string = "imag
         // Safe text extraction for @google/genai SDK
         let text = "";
         if (response.text) {
+            // @ts-ignore - SDK type inference issue
             text = typeof response.text === 'function' ? response.text() : response.text;
         } else if (response.candidates && response.candidates.length > 0) {
             const candidate = response.candidates[0];
@@ -107,7 +108,28 @@ export async function analyzeImage(imageBase64: string, mimeType: string = "imag
         }
     } catch (error) {
         console.error("Error analyzing image with Gemini:", error);
-        throw new Error("Failed to analyze image");
+
+        // Provide more specific error messages
+        if (error instanceof Error) {
+            const errorMessage = error.message.toLowerCase();
+
+            if (errorMessage.includes('fetch failed') ||
+                errorMessage.includes('network') ||
+                errorMessage.includes('econnrefused') ||
+                errorMessage.includes('ssl_error')) {
+                throw new Error("AI_CONNECTION_FAILED: Unable to connect to AI service. Please check your internet connection or proxy settings.");
+            }
+
+            if (errorMessage.includes('invalid json') || errorMessage.includes('parse')) {
+                throw new Error("AI_RESPONSE_ERROR: AI returned invalid response. Please try again.");
+            }
+
+            if (errorMessage.includes('api key') || errorMessage.includes('unauthorized')) {
+                throw new Error("AI_AUTH_ERROR: Invalid API key. Please check your configuration.");
+            }
+        }
+
+        throw new Error("AI_UNKNOWN_ERROR: Failed to analyze image. Please try again later.");
     }
 }
 
@@ -145,9 +167,10 @@ export async function generateSimilarQuestion(originalQuestion: string, knowledg
             contents: [{ text: prompt }],
         });
 
-        // Safe text extraction for @google/genai SDK
+        // Safe text extraction
         let text = "";
         if (response.text) {
+            // @ts-ignore - SDK type inference issue
             text = typeof response.text === 'function' ? response.text() : response.text;
         } else if (response.candidates && response.candidates.length > 0) {
             const candidate = response.candidates[0];
@@ -161,9 +184,31 @@ export async function generateSimilarQuestion(originalQuestion: string, knowledg
         }
 
         const jsonString = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
         return JSON.parse(jsonString) as ParsedQuestion;
     } catch (error) {
         console.error("Error generating similar question:", error);
-        throw new Error("Failed to generate question");
+
+        // Provide more specific error messages
+        if (error instanceof Error) {
+            const errorMessage = error.message.toLowerCase();
+
+            if (errorMessage.includes('fetch failed') ||
+                errorMessage.includes('network') ||
+                errorMessage.includes('econnrefused') ||
+                errorMessage.includes('ssl_error')) {
+                throw new Error("AI_CONNECTION_FAILED: Unable to connect to AI service. Please check your internet connection or proxy settings.");
+            }
+
+            if (errorMessage.includes('invalid json') || errorMessage.includes('parse')) {
+                throw new Error("AI_RESPONSE_ERROR: AI returned invalid response. Please try again.");
+            }
+
+            if (errorMessage.includes('api key') || errorMessage.includes('unauthorized')) {
+                throw new Error("AI_AUTH_ERROR: Invalid API key. Please check your configuration.");
+            }
+        }
+
+        throw new Error("AI_UNKNOWN_ERROR: Failed to generate question. Please try again later.");
     }
 }

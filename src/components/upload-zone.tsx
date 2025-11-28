@@ -51,10 +51,10 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
                 </div>
                 <div className="space-y-1">
                     <h3 className="font-semibold text-lg">
-                        {isAnalyzing ? t.upload.analyzing : t.upload.analyze}
+                        {isAnalyzing ? t.app.analyzing : t.upload.analyze}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                        {isAnalyzing ? t.upload.analyzing : t.upload.dragDrop}
+                        {isAnalyzing ? t.app.analyzing : t.app.dragDrop}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
                         {t.upload.support}

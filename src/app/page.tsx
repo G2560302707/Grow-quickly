@@ -39,7 +39,25 @@ export default function Home() {
       if (!res.ok) {
         const errorText = await res.text();
         console.error("API 错误:", res.status, errorText);
-        alert(language === 'zh' ? '分析失败，请重试' : 'Analysis failed, please try again');
+
+        // Parse error message for user-friendly display
+        let userMessage = language === 'zh' ? '分析失败，请重试' : 'Analysis failed, please try again';
+
+        if (errorText.includes('AI_CONNECTION_FAILED')) {
+          userMessage = language === 'zh'
+            ? '⚠️ 无法连接到 AI 服务\n\n请检查：\n• 网络连接是否正常\n• 是否需要配置代理\n• 防火墙设置'
+            : '⚠️ Cannot connect to AI service\n\nPlease check:\n• Internet connection\n• Proxy settings\n• Firewall configuration';
+        } else if (errorText.includes('AI_RESPONSE_ERROR')) {
+          userMessage = language === 'zh'
+            ? '⚠️ AI 返回了无效的响应\n\n请重试，如果问题持续请联系支持'
+            : '⚠️ AI returned invalid response\n\nPlease try again, contact support if issue persists';
+        } else if (errorText.includes('AI_AUTH_ERROR')) {
+          userMessage = language === 'zh'
+            ? '⚠️ API 密钥无效\n\n请检查环境变量 GOOGLE_API_KEY'
+            : '⚠️ Invalid API key\n\nPlease check GOOGLE_API_KEY environment variable';
+        }
+
+        alert(userMessage);
         throw new Error(`Analysis failed: ${res.status} ${errorText}`); // Keep throwing for catch block
       }
 
@@ -48,7 +66,7 @@ export default function Home() {
       setStep("review");
     } catch (error) {
       console.error('分析错误:', error);
-      alert(language === 'zh' ? '发生错误，请重试' : 'An error occurred, please try again');
+      // Error already shown to user via alert
     } finally {
       setAnalyzing(false);
     }

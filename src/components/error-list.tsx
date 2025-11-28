@@ -17,6 +17,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 interface ErrorItem {
     id: string;
@@ -165,11 +166,15 @@ export function ErrorList() {
                                         </span>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <p className="line-clamp-3 text-sm font-medium">
-                                        {item.questionText}
-                                    </p>
-                                    <div className="flex flex-wrap gap-1">
+                                <CardContent>
+                                    <MarkdownRenderer
+                                        content={item.questionText.length > 150
+                                            ? item.questionText.substring(0, 150) + "..."
+                                            : item.questionText
+                                        }
+                                        className="text-sm"
+                                    />
+                                    <div className="flex flex-wrap gap-2 mt-3">
                                         {tags.slice(0, 3).map((tag: string) => (
                                             <Badge
                                                 key={tag}

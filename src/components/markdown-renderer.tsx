@@ -11,6 +11,19 @@ interface MarkdownRendererProps {
 }
 
 export function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
+    // Preprocess content to ensure proper paragraph breaks
+    // Convert single line breaks to double line breaks for better readability
+    const processedContent = content
+        // Preserve existing double line breaks
+        .replace(/\n\n/g, '\n\n__PRESERVE__\n\n')
+        // Convert patterns that should be new paragraphs
+        .replace(/([。！？；])\n(?!\n)/g, '$1\n\n')  // Chinese punctuation followed by single newline
+        .replace(/([.!?;])\s*\n(?!\n)/g, '$1\n\n')   // English punctuation followed by single newline
+        .replace(/(\d+\))\s*\n(?!\n)/g, '$1\n\n')    // Numbered items like (1), (2)
+        .replace(/([\u2460-\u2473])\s*\n(?!\n)/g, '$1\n\n')  // Circled numbers ①②③
+        // Restore preserved double line breaks
+        .replace(/\n\n__PRESERVE__\n\n/g, '\n\n');
+
     return (
         <div className={`markdown-content ${className}`}>
             <ReactMarkdown
@@ -53,7 +66,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
                     em: ({ node, ...props }) => <em className="italic" {...props} />,
                 }}
             >
-                {content}
+                {processedContent}
             </ReactMarkdown>
         </div>
     );
