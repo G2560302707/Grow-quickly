@@ -30,7 +30,11 @@ interface ErrorItem {
     };
 }
 
-export function ErrorList() {
+interface ErrorListProps {
+    subjectId?: string;
+}
+
+export function ErrorList({ subjectId }: ErrorListProps = {}) {
     const [items, setItems] = useState<ErrorItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -60,11 +64,13 @@ export function ErrorList() {
 
     useEffect(() => {
         fetchItems();
-    }, [search, masteryFilter, timeFilter, selectedTag]);
+    }, [search, masteryFilter, timeFilter, selectedTag, subjectId]);
 
     const fetchItems = async () => {
+        setLoading(true);
         try {
             const params = new URLSearchParams();
+            if (subjectId) params.append("subjectId", subjectId);
             if (search) params.append("query", search);
             if (masteryFilter !== "all") {
                 params.append("mastery", masteryFilter === "mastered" ? "1" : "0");

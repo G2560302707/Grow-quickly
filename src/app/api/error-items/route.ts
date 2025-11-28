@@ -14,6 +14,7 @@ export async function POST(req: Request) {
             analysis,
             knowledgePoints,
             originalImageUrl, // We'll need to handle image storage properly later, for now assuming URL or base64
+            subjectId,
         } = body;
 
         let user;
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: "Unauthorized - No user found in DB" }, { status: 401 });
         }
 
-        const errorItemData = {
+        const errorItemData: any = {
             userId: user.id,
             questionText: questionText || "",
             answerText: answerText || "",
@@ -41,6 +42,10 @@ export async function POST(req: Request) {
             originalImageUrl: originalImageUrl || "",
             masteryLevel: 0,
         };
+
+        if (subjectId) {
+            errorItemData.subjectId = subjectId;
+        }
 
         console.log("[API] Creating ErrorItem with data:", {
             ...errorItemData,

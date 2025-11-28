@@ -7,6 +7,7 @@ export interface ParsedQuestion {
     answerText: string;
     analysis: string;
     knowledgePoints: string[];
+    subject?: string;
 }
 
 export async function analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh'): Promise<ParsedQuestion> {
@@ -15,7 +16,7 @@ export async function analyzeImage(imageBase64: string, mimeType: string = "imag
     }
 
     const langInstruction = language === 'zh'
-        ? "Please ensure all text fields (questionText, answerText, analysis) are in Simplified Chinese."
+        ? "For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', keep the original language of the question (e.g. if the question is in English, keep it in English). Do NOT translate the question text."
         : "Please ensure all text fields are in English.";
 
     const prompt = `
@@ -32,7 +33,8 @@ export async function analyzeImage(imageBase64: string, mimeType: string = "imag
        - Use LaTeX for all mathematical formulas and expressions
        - Example: "The solution is $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$"
        - For block formulas, use $$...$$
-    4. "knowledgePoints": An array of knowledge points. STRICTLY use EXACT terms from the standard list below:
+    4. "subject": The subject of the question. Choose ONE from: "数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他".
+    5. "knowledgePoints": An array of knowledge points. STRICTLY use EXACT terms from the standard list below:
        
        **数学标签 (Math Tags):**
        - 方程: "一元一次方程", "一元二次方程", "二元一次方程组", "分式方程"
@@ -170,7 +172,7 @@ export async function generateSimilarQuestion(originalQuestion: string, knowledg
     }
 
     const langInstruction = language === 'zh'
-        ? "Please ensure all text fields are in Simplified Chinese."
+        ? "For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', keep the same language as the Original Question (e.g. if Original Question is in English, the new question must be in English). Do NOT translate the question text."
         : "Please ensure all text fields are in English.";
 
     const prompt = `
@@ -184,7 +186,7 @@ export async function generateSimilarQuestion(originalQuestion: string, knowledg
     Knowledge Points: ${knowledgePoints.join(", ")}
     
     Return the result in valid JSON format with the following fields:
-    1. "questionText": The text of the new question.
+    1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., on new lines).
     2. "answerText": The correct answer.
     3. "analysis": Step-by-step solution.
     4. "knowledgePoints": The knowledge points (should match input).

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, RefreshCw, CheckCircle, Eye, Send, XCircle } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle, Eye, Send, XCircle, ArrowLeft } from "lucide-react";
 import { ParsedQuestion } from "@/lib/gemini";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 export default function PracticePage() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const errorItemId = searchParams.get("id");
     const { t, language } = useLanguage();
 
@@ -65,9 +66,25 @@ export default function PracticePage() {
         if (!userAnswer.trim() || !question) return;
 
         setIsSubmitted(true);
-        // Simple comparison - could be enhanced with AI
-        const correct = userAnswer.trim().toLowerCase() === question.answerText.trim().toLowerCase();
-        setIsCorrect(correct);
+
+        const normalize = (str: string) => str.trim().toLowerCase().replace(/[.,;!]/g, '');
+        const user = normalize(userAnswer);
+        const correct = normalize(question.answerText);
+
+        // Enhanced comparison logic
+        let isMatch = user === correct;
+
+        // Handle multiple choice (e.g. user enters "A" but answer is "A. some text")
+        if (!isMatch && /^[a-d]$/.test(user)) {
+            isMatch = correct.startsWith(user);
+        }
+
+        // Handle case where answer contains the user input (e.g. answer is "The answer is 5" and user enters "5")
+        if (!isMatch && correct.includes(user) && user.length > 1) {
+            isMatch = true;
+        }
+
+        setIsCorrect(isMatch);
         setShowAnswer(true);
     };
 
@@ -78,6 +95,10 @@ export default function PracticePage() {
     return (
         <main className="min-h-screen p-8 bg-background">
             <div className="max-w-3xl mx-auto space-y-8">
+                <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    {t.common?.back || "返回"}
+                </Button>
                 <div className="text-center space-y-4">
                     <h1 className="text-3xl font-bold">{t.practice.title}</h1>
                     <p className="text-muted-foreground">

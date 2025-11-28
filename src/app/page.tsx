@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense, useEffect } from "react";
+
+import { useSearchParams, useRouter } from "next/navigation";
 import { UploadZone } from "@/components/upload-zone";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ParsedQuestion } from "@/lib/gemini";
@@ -11,12 +13,25 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
 
-export default function Home() {
+function HomeContent() {
   const [step, setStep] = useState<"upload" | "review">("upload");
   const [analyzing, setAnalyzing] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedQuestion | null>(null);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const { t, language } = useLanguage();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const initialNotebookId = searchParams.get("notebook");
+  const [notebooks, setNotebooks] = useState<{ id: string; name: string }[]>([]);
+  const [autoSelectedNotebookId, setAutoSelectedNotebookId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch notebooks for auto-selection
+    fetch("/api/notebooks")
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setNotebooks(data))
+      .catch(err => console.error("Failed to fetch notebooks:", err));
+  }, []);
 
   const handleAnalyze = async (file: File) => {
     setAnalyzing(true);
@@ -62,6 +77,18 @@ export default function Home() {
       }
 
       const data = await res.json();
+
+      // Auto-select notebook based on subject
+      if (data.subject) {
+        const matchedNotebook = notebooks.find(n =>
+          n.name.includes(data.subject!) || data.subject!.includes(n.name)
+        );
+        if (matchedNotebook) {
+          setAutoSelectedNotebookId(matchedNotebook.id);
+          console.log(`Auto-selected notebook: ${matchedNotebook.name} for subject: ${data.subject}`);
+        }
+      }
+
       setParsedData(data);
       setStep("review");
     } catch (error) {
@@ -72,7 +99,7 @@ export default function Home() {
     }
   };
 
-  const handleSave = async (finalData: ParsedQuestion) => {
+  const handleSave = async (finalData: ParsedQuestion & { subjectId?: string }) => {
     try {
       const res = await fetch("/api/error-items", {
         method: "POST",
@@ -88,6 +115,11 @@ export default function Home() {
         setParsedData(null);
         setCurrentImage(null);
         alert(language === 'zh' ? '保存成功！' : 'Saved successfully!');
+
+        // Redirect to notebook page if subjectId is present
+        if (finalData.subjectId) {
+          router.push(`/notebooks/${finalData.subjectId}`);
+        }
       } else {
         alert(language === 'zh' ? '保存失败' : 'Failed to save');
       }
@@ -123,7 +155,7 @@ export default function Home() {
           >
             {t.app.uploadNew}
           </Button>
-          <Link href="/notebook">
+          <Link href="/notebooks">
             <Button variant="outline">{t.app.viewNotebook}</Button>
           </Link>
           <Link href="/tags">
@@ -141,9 +173,18 @@ export default function Home() {
             onSave={handleSave}
             onCancel={() => setStep("upload")}
             imagePreview={currentImage}
+            initialSubjectId={initialNotebookId || autoSelectedNotebookId || undefined}
           />
         )}
       </div>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

@@ -10,16 +10,25 @@ import { Save } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TagInput } from "@/components/tag-input";
+import { NotebookSelector } from "@/components/notebook-selector";
+
+interface ParsedQuestionWithSubject extends ParsedQuestion {
+    subjectId?: string;
+}
 
 interface CorrectionEditorProps {
     initialData: ParsedQuestion;
-    onSave: (data: ParsedQuestion) => void;
+    onSave: (data: ParsedQuestionWithSubject) => void;
     onCancel: () => void;
     imagePreview?: string | null;
+    initialSubjectId?: string;
 }
 
-export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview }: CorrectionEditorProps) {
-    const [data, setData] = useState<ParsedQuestion>(initialData);
+export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, initialSubjectId }: CorrectionEditorProps) {
+    const [data, setData] = useState<ParsedQuestionWithSubject>({
+        ...initialData,
+        subjectId: initialSubjectId
+    });
     const { t } = useLanguage();
 
     return (
@@ -47,6 +56,14 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview }
                             </CardContent>
                         </Card>
                     )}
+
+                    <div className="space-y-2">
+                        <Label>选择错题本</Label>
+                        <NotebookSelector
+                            value={data.subjectId}
+                            onChange={(id) => setData({ ...data, subjectId: id })}
+                        />
+                    </div>
 
                     <div className="space-y-2">
                         <Label>{t.editor.question}</Label>

@@ -30,6 +30,9 @@ model Subject {
 
   errorItems ErrorItem[]
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([name, userId])
 }
 

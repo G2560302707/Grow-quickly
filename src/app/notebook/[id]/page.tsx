@@ -21,6 +21,7 @@ interface ErrorItemDetail {
     masteryLevel: number;
     originalImageUrl: string;
     userNotes: string | null;
+    subjectId?: string | null;
 }
 
 export default function ErrorDetailPage() {
@@ -49,7 +50,7 @@ export default function ErrorDetailPage() {
                 setItem(data);
             } else {
                 alert(language === 'zh' ? '加载失败' : 'Failed to load item');
-                router.push("/notebook");
+                router.push("/notebooks");
             }
         } catch (error) {
             console.error(error);
@@ -95,7 +96,11 @@ export default function ErrorDetailPage() {
 
             if (res.ok) {
                 alert(language === 'zh' ? '删除成功' : 'Deleted successfully');
-                router.push('/notebook');
+                if (item.subjectId) {
+                    router.push(`/notebooks/${item.subjectId}`);
+                } else {
+                    router.push('/notebooks');
+                }
             } else {
                 alert(language === 'zh' ? '删除失败' : 'Delete failed');
             }
@@ -192,7 +197,7 @@ export default function ErrorDetailPage() {
         <main className="min-h-screen p-8 bg-background">
             <div className="max-w-4xl mx-auto space-y-6">
                 <div className="flex items-center gap-4">
-                    <Link href="/notebook">
+                    <Link href={item.subjectId ? `/notebooks/${item.subjectId}` : "/notebooks"}>
                         <Button variant="ghost" size="icon">
                             <ArrowLeft className="w-4 h-4" />
                         </Button>

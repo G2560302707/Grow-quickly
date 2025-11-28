@@ -1,0 +1,86 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Plus } from "lucide-react";
+import Link from "next/link";
+import { ErrorList } from "@/components/error-list";
+
+interface Notebook {
+    id: string;
+    name: string;
+    _count: {
+        errorItems: number;
+    };
+}
+
+export default function NotebookDetailPage() {
+    const params = useParams();
+    const router = useRouter();
+    const [notebook, setNotebook] = useState<Notebook | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (params.id) {
+            fetchNotebook(params.id as string);
+        }
+    }, [params.id]);
+
+    const fetchNotebook = async (id: string) => {
+        try {
+            const res = await fetch(`/api/notebooks/${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setNotebook(data);
+            } else {
+                alert("错题本不存在");
+                router.push("/notebooks");
+            }
+        } catch (error) {
+            console.error("Failed to fetch notebook:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <p className="text-muted-foreground">加载中...</p>
+            </div>
+        );
+    }
+
+    if (!notebook) return null;
+
+    return (
+        <main className="min-h-screen p-8 bg-background">
+            <div className="max-w-6xl mx-auto space-y-8">
+                <div className="flex items-center gap-4">
+                    <Link href="/notebooks">
+                        <Button variant="ghost" size="icon">
+                            <ArrowLeft className="h-5 w-5" />
+                        </Button>
+                    </Link>
+                    <div className="flex-1 flex justify-between items-center">
+                        <div className="space-y-1">
+                            <h1 className="text-3xl font-bold tracking-tight">{notebook.name}</h1>
+                            <p className="text-muted-foreground">
+                                共 {notebook._count.errorItems} 道错题
+                            </p>
+                        </div>
+                        <Link href={`/?notebook=${notebook.id}`}>
+                            <Button>
+                                <Plus className="mr-2 h-4 w-4" />
+                                添加错题
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                <ErrorList subjectId={notebook.id} />
+            </div>
+        </main>
+    );
+}
