@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { ParsedQuestion } from "@/lib/gemini";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { X, Plus, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { TagInput } from "@/components/tag-input";
 
 interface CorrectionEditorProps {
     initialData: ParsedQuestion;
@@ -20,28 +20,7 @@ interface CorrectionEditorProps {
 
 export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview }: CorrectionEditorProps) {
     const [data, setData] = useState<ParsedQuestion>(initialData);
-    const [newTag, setNewTag] = useState("");
     const { t } = useLanguage();
-
-    const handleAddTag = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter" && newTag.trim()) {
-            e.preventDefault();
-            if (!data.knowledgePoints.includes(newTag.trim())) {
-                setData({
-                    ...data,
-                    knowledgePoints: [...data.knowledgePoints, newTag.trim()],
-                });
-            }
-            setNewTag("");
-        }
-    };
-
-    const removeTag = (tagToRemove: string) => {
-        setData({
-            ...data,
-            knowledgePoints: data.knowledgePoints.filter((tag) => tag !== tagToRemove),
-        });
-    };
 
     return (
         <div className="space-y-6">
@@ -58,7 +37,8 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview }
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-2">
+                {/* 左侧：编辑区 */}
                 <div className="space-y-6">
                     {imagePreview && (
                         <Card>
@@ -67,70 +47,78 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview }
                             </CardContent>
                         </Card>
                     )}
+
                     <div className="space-y-2">
                         <Label>{t.editor.question}</Label>
                         <Textarea
                             value={data.questionText}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData({ ...data, questionText: e.target.value })}
-                            className="min-h-[150px]"
+                            className="min-h-[150px] font-mono text-sm"
+                            placeholder="支持 Markdown 和 LaTeX..."
                         />
                     </div>
+
                     <div className="space-y-2">
                         <Label>{t.editor.answer}</Label>
                         <Textarea
                             value={data.answerText}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData({ ...data, answerText: e.target.value })}
+                            className="min-h-[100px] font-mono text-sm"
+                            placeholder="支持 Markdown 和 LaTeX..."
                         />
                     </div>
-                </div>
 
-                <div className="space-y-6">
                     <div className="space-y-2">
                         <Label>{t.editor.analysis}</Label>
                         <Textarea
                             value={data.analysis}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData({ ...data, analysis: e.target.value })}
-                            className="min-h-[200px]"
+                            className="min-h-[200px] font-mono text-sm"
+                            placeholder="支持 Markdown 和 LaTeX..."
                         />
                     </div>
 
                     <div className="space-y-2">
                         <Label>{t.editor.tags}</Label>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                            {data.knowledgePoints.map((tag) => (
-                                <Badge key={tag} variant="secondary" className="px-2 py-1">
-                                    {tag}
-                                    <button
-                                        onClick={() => removeTag(tag)}
-                                        className="ml-2 hover:text-destructive"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            ))}
-                        </div>
-                        <div className="flex gap-2">
-                            <Input
-                                value={newTag}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTag(e.target.value)}
-                                onKeyDown={handleAddTag}
-                                placeholder={t.editor.addTag}
-                            />
-                            <Button size="icon" variant="ghost" onClick={() => {
-                                if (newTag.trim()) {
-                                    if (!data.knowledgePoints.includes(newTag.trim())) {
-                                        setData({
-                                            ...data,
-                                            knowledgePoints: [...data.knowledgePoints, newTag.trim()],
-                                        });
-                                    }
-                                    setNewTag("");
-                                }
-                            }}>
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </div>
+                        <TagInput
+                            value={data.knowledgePoints}
+                            onChange={(tags) => setData({ ...data, knowledgePoints: tags })}
+                            placeholder="输入知识点标签，可从建议中选择..."
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            💡 输入时会显示标签建议，支持从标准标签库选择
+                        </p>
                     </div>
+                </div>
+
+                {/* 右侧：预览区 */}
+                <div className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>题目预览</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <MarkdownRenderer content={data.questionText} />
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>答案预览</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <MarkdownRenderer content={data.answerText} />
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>解析预览</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <MarkdownRenderer content={data.analysis} />
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>

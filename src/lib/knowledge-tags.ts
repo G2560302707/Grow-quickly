@@ -599,7 +599,7 @@ export function normalizeTags(tags: string[]): string[] {
 /**
  * 获取所有标准标签（扁平化）
  */
-function getAllStandardTags(): string[] {
+export function getAllStandardTags(): string[] {
     const tags: string[] = [];
 
     // 递归提取标签

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { TagInput } from "@/components/tag-input";
 
 interface ErrorItemDetail {
     id: string;
@@ -31,6 +32,8 @@ export default function ErrorDetailPage() {
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [notesInput, setNotesInput] = useState("");
     const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+    const [isEditingTags, setIsEditingTags] = useState(false);
+    const [tagsInput, setTagsInput] = useState<string[]>([]);
 
     useEffect(() => {
         if (params.id) {
@@ -112,6 +115,46 @@ export default function ErrorDetailPage() {
         setNotesInput("");
     };
 
+    const startEditingTags = () => {
+        if (item) {
+            try {
+                const tags = JSON.parse(item.knowledgePoints);
+                setTagsInput(tags);
+            } catch (e) {
+                setTagsInput([]);
+            }
+            setIsEditingTags(true);
+        }
+    };
+
+    const saveTagsHandler = async () => {
+        try {
+            const res = await fetch(`/api/error-items/${item?.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    knowledgePoints: JSON.stringify(tagsInput),
+                }),
+            });
+
+            if (res.ok) {
+                setIsEditingTags(false);
+                fetchItem(params.id as string);
+                alert(language === 'zh' ? '标签更新成功！' : 'Tags updated successfully!');
+            } else {
+                alert(language === 'zh' ? '更新失败' : 'Update failed');
+            }
+        } catch (error) {
+            console.error(error);
+            alert(language === 'zh' ? '更新时出错' : 'Error updating');
+        }
+    };
+
+    const cancelEditingTags = () => {
+        setIsEditingTags(false);
+        setTagsInput([]);
+    };
+
     const saveNotes = async () => {
         if (!item) return;
 
@@ -185,12 +228,53 @@ export default function ErrorDetailPage() {
                                     </div>
                                 )}
                                 <MarkdownRenderer content={item.questionText} />
-                                <div className="flex flex-wrap gap-2">
-                                    {tags.map((tag) => (
-                                        <Badge key={tag} variant="secondary">
-                                            {tag}
-                                        </Badge>
-                                    ))}
+
+                                {/* 知识点标签 */}
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <h4 className="text-sm font-semibold">知识点标签</h4>
+                                        {!isEditingTags && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={startEditingTags}
+                                            >
+                                                <Edit className="h-4 w-4 mr-1" />
+                                                编辑
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {isEditingTags ? (
+                                        <div className="space-y-3">
+                                            <TagInput
+                                                value={tagsInput}
+                                                onChange={setTagsInput}
+                                                placeholder="输入或选择知识点标签..."
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                💡 可以从标准标签库或自定义标签中选择
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Button size="sm" onClick={saveTagsHandler}>
+                                                    <Save className="h-4 w-4 mr-1" />
+                                                    保存
+                                                </Button>
+                                                <Button size="sm" variant="outline" onClick={cancelEditingTags}>
+                                                    <X className="h-4 w-4 mr-1" />
+                                                    取消
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            {tags.map((tag) => (
+                                                <Badge key={tag} variant="secondary">
+                                                    {tag}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

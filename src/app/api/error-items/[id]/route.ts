@@ -54,3 +54,58 @@ export async function GET(
         );
     }
 }
+
+export async function PUT(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const { id } = await params;
+    const session = await getServerSession(authOptions);
+
+    try {
+        let user;
+        if (session?.user?.email) {
+            user = await prisma.user.findUnique({
+                where: { email: session.user.email },
+            });
+        }
+
+        if (!user) {
+            user = await prisma.user.findFirst();
+        }
+
+        if (!user) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const body = await req.json();
+        const { knowledgePoints } = body;
+
+        const errorItem = await prisma.errorItem.findUnique({
+            where: { id },
+        });
+
+        if (!errorItem) {
+            return NextResponse.json({ message: "Item not found" }, { status: 404 });
+        }
+
+        if (errorItem.userId !== user.id) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+        }
+
+        const updated = await prisma.errorItem.update({
+            where: { id },
+            data: {
+                knowledgePoints,
+            },
+        });
+
+        return NextResponse.json(updated);
+    } catch (error) {
+        console.error("Error updating item:", error);
+        return NextResponse.json(
+            { message: "Failed to update error item" },
+            { status: 500 }
+        );
+    }
+}

@@ -126,6 +126,9 @@ export default function Home() {
           <Link href="/notebook">
             <Button variant="outline">{t.app.viewNotebook}</Button>
           </Link>
+          <Link href="/tags">
+            <Button variant="outline">🏷️ {language === 'zh' ? '标签管理' : 'Tags'}</Button>
+          </Link>
         </div>
 
         {step === "upload" && (

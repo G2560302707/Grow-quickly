@@ -34,10 +34,29 @@ export function ErrorList() {
     const [items, setItems] = useState<ErrorItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
-    const [masteryFilter, setMasteryFilter] = useState<"all" | "review" | "mastered">("all");
+    const [masteryFilter, setMasteryFilter] = useState<"all" | "mastered" | "unmastered">("all");
     const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month">("all");
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
     const { t } = useLanguage();
+
+    const handleTagClick = (tag: string) => {
+        setSelectedTag(selectedTag === tag ? null : tag);
+    };
+
+    const toggleTagsExpanded = (itemId: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setExpandedTags(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(itemId)) {
+                newSet.delete(itemId);
+            } else {
+                newSet.add(itemId);
+            }
+            return newSet;
+        });
+    };
 
     useEffect(() => {
         fetchItems();
@@ -69,14 +88,6 @@ export function ErrorList() {
         }
     };
 
-    const handleTagClick = (tag: string) => {
-        if (selectedTag === tag) {
-            setSelectedTag(null); // Toggle off if clicking the same tag
-        } else {
-            setSelectedTag(tag);
-        }
-    };
-
     return (
         <div className="space-y-6">
             <div className="flex gap-4">
@@ -98,12 +109,12 @@ export function ErrorList() {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel>{t.filter.masteryStatus || "掌握状态"}</DropdownMenuLabel>
+                        <DropdownMenuLabel>{t.filter.masteryStatus || "掌握程度"}</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => setMasteryFilter("all")}>
                             {masteryFilter === "all" && "✓ "}{t.filter.all || "全部"}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setMasteryFilter("review")}>
-                            {masteryFilter === "review" && "✓ "}{t.filter.review || "待复习"}
+                        <DropdownMenuItem onClick={() => setMasteryFilter("unmastered")}>
+                            {masteryFilter === "unmastered" && "✓ "}{t.filter.review || "待复习"}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setMasteryFilter("mastered")}>
                             {masteryFilter === "mastered" && "✓ "}{t.filter.mastered || "已掌握"}
@@ -175,7 +186,7 @@ export function ErrorList() {
                                         className="text-sm"
                                     />
                                     <div className="flex flex-wrap gap-2 mt-3">
-                                        {tags.slice(0, 3).map((tag: string) => (
+                                        {(expandedTags.has(item.id) ? tags : tags.slice(0, 3)).map((tag: string) => (
                                             <Badge
                                                 key={tag}
                                                 variant={selectedTag === tag ? "default" : "outline"}
@@ -189,8 +200,17 @@ export function ErrorList() {
                                             </Badge>
                                         ))}
                                         {tags.length > 3 && (
-                                            <Badge variant="outline" className="text-xs">
-                                                +{tags.length - 3}
+                                            <Badge
+                                                variant="secondary"
+                                                className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
+                                                title={expandedTags.has(item.id) ? "点击收起" : `点击展开 ${tags.length - 3} 个标签`}
+                                                onClick={(e) => toggleTagsExpanded(item.id, e)}
+                                            >
+                                                {expandedTags.has(item.id) ? (
+                                                    <>收起 ↑</>
+                                                ) : (
+                                                    <>+{tags.length - 3} 个 ↓</>
+                                                )}
                                             </Badge>
                                         )}
                                     </div>
