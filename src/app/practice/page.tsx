@@ -9,6 +9,7 @@ import { ParsedQuestion } from "@/lib/gemini";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 export default function PracticePage() {
     const searchParams = useSearchParams();
@@ -22,6 +23,7 @@ export default function PracticePage() {
     const [notes, setNotes] = useState("");
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+    const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
 
     const generateQuestion = async () => {
         if (!errorItemId) return;
@@ -42,6 +44,13 @@ export default function PracticePage() {
             if (res.ok) {
                 const data = await res.json();
                 setQuestion(data);
+
+                // Fetch original error item to get image
+                const itemRes = await fetch(`/api/error-items/${errorItemId}`);
+                if (itemRes.ok) {
+                    const itemData = await itemRes.json();
+                    setOriginalImageUrl(itemData.originalImageUrl);
+                }
             } else {
                 alert(language === 'zh' ? '生成失败' : 'Failed to generate question');
             }
@@ -119,9 +128,7 @@ export default function PracticePage() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-lg whitespace-pre-wrap font-medium">
-                                    {question.questionText}
-                                </div>
+                                <MarkdownRenderer content={question.questionText} className="font-medium" />
                             </CardContent>
                         </Card>
 
@@ -213,18 +220,29 @@ export default function PracticePage() {
                                         <CardTitle className="text-green-600">{t.practice.correctAnswer}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="text-xl font-bold">{question.answerText}</div>
+                                        <MarkdownRenderer content={question.answerText} className="font-bold" />
                                     </CardContent>
                                 </Card>
+
 
                                 <Card>
                                     <CardHeader>
                                         <CardTitle>{t.practice.detailedAnalysis}</CardTitle>
                                     </CardHeader>
-                                    <CardContent>
-                                        <div className="whitespace-pre-wrap text-muted-foreground">
-                                            {question.analysis}
-                                        </div>
+                                    <CardContent className="space-y-4">
+                                        {originalImageUrl && (
+                                            <div>
+                                                <p className="text-sm font-medium mb-2 text-muted-foreground">
+                                                    {t.practice.referenceDiagram || "参考图形"}
+                                                </p>
+                                                <img
+                                                    src={originalImageUrl}
+                                                    alt="Reference diagram"
+                                                    className="w-full max-w-md rounded-lg border"
+                                                />
+                                            </div>
+                                        )}
+                                        <MarkdownRenderer content={question.analysis} />
                                     </CardContent>
                                 </Card>
                             </div>

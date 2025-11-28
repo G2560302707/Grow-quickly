@@ -9,6 +9,7 @@ import { ArrowLeft, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Save, X } fro
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 interface ErrorItemDetail {
     id: string;
@@ -29,6 +30,7 @@ export default function ErrorDetailPage() {
     const [loading, setLoading] = useState(true);
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [notesInput, setNotesInput] = useState("");
+    const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
 
     useEffect(() => {
         if (params.id) {
@@ -163,19 +165,26 @@ export default function ErrorDetailPage() {
                                 <CardTitle>{t.detail.question}</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap">
-                                    {item.questionText}
-                                </div>
                                 {item.originalImageUrl && (
-                                    <div>
-                                        <p className="text-sm font-medium mb-2">{t.detail.originalProblem || "Original Problem"}</p>
+                                    <div
+                                        className="cursor-pointer hover:opacity-90 transition-opacity"
+                                        onClick={() => setIsImageViewerOpen(true)}
+                                        title={language === 'zh' ? '点击查看大图' : 'Click to view full image'}
+                                    >
+                                        <p className="text-sm font-medium mb-2 text-muted-foreground">
+                                            {t.detail.originalProblem || "原始问题"}
+                                        </p>
                                         <img
                                             src={item.originalImageUrl}
                                             alt={t.detail.originalProblem || "Original Problem"}
-                                            className="w-full rounded-lg border"
+                                            className="w-full rounded-lg border hover:border-primary/50 transition-colors"
                                         />
+                                        <p className="text-xs text-muted-foreground mt-1 text-center">
+                                            💡 {language === 'zh' ? '点击图片查看大图' : 'Click to enlarge'}
+                                        </p>
                                     </div>
                                 )}
+                                <MarkdownRenderer content={item.questionText} />
                                 <div className="flex flex-wrap gap-2">
                                     {tags.map((tag) => (
                                         <Badge key={tag} variant="secondary">
@@ -252,7 +261,7 @@ export default function ErrorDetailPage() {
                                 <CardTitle className="text-primary">{t.detail.correctAnswer}</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="font-medium text-lg">{item.answerText}</div>
+                                <MarkdownRenderer content={item.answerText} className="font-semibold" />
                             </CardContent>
                         </Card>
 
@@ -260,10 +269,20 @@ export default function ErrorDetailPage() {
                             <CardHeader>
                                 <CardTitle>{t.detail.analysis}</CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <div className="whitespace-pre-wrap text-muted-foreground">
-                                    {item.analysis}
-                                </div>
+                            <CardContent className="space-y-4">
+                                {item.originalImageUrl && (
+                                    <div>
+                                        <p className="text-sm font-medium mb-2 text-muted-foreground">
+                                            {t.detail.referenceDiagram || "参考图形"}
+                                        </p>
+                                        <img
+                                            src={item.originalImageUrl}
+                                            alt={t.detail.originalProblem || "Original Problem"}
+                                            className="w-full max-w-md rounded-lg border"
+                                        />
+                                    </div>
+                                )}
+                                <MarkdownRenderer content={item.analysis} />
                             </CardContent>
                         </Card>
 
@@ -307,6 +326,32 @@ export default function ErrorDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Image Viewer Modal */}
+            {isImageViewerOpen && item?.originalImageUrl && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+                    onClick={() => setIsImageViewerOpen(false)}
+                >
+                    <div className="relative max-w-7xl max-h-full">
+                        <button
+                            className="absolute -top-12 right-0 text-white hover:text-gray-300 text-lg font-semibold bg-black/50 px-4 py-2 rounded"
+                            onClick={() => setIsImageViewerOpen(false)}
+                        >
+                            {language === 'zh' ? '✕ 关闭' : '✕ Close'}
+                        </button>
+                        <img
+                            src={item.originalImageUrl}
+                            alt="Full size"
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <p className="text-center text-white/70 text-sm mt-4">
+                            {language === 'zh' ? '点击图片外部区域关闭' : 'Click outside to close'}
+                        </p>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }

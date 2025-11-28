@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { processImageFile } from "@/lib/image-utils";
 
 export default function Home() {
   const [step, setStep] = useState<"upload" | "review">("upload");
@@ -17,10 +18,15 @@ export default function Home() {
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const { t, language } = useLanguage();
 
-  const handleAnalyze = async (base64Image: string) => {
+  const handleAnalyze = async (file: File) => {
     setAnalyzing(true);
-    setCurrentImage(base64Image);
     try {
+      // 处理图片（压缩如果需要）
+      console.log('开始处理图片...');
+      const base64Image = await processImageFile(file);
+
+      setCurrentImage(base64Image);
+
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -32,16 +38,17 @@ export default function Home() {
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.error("API Error Response:", res.status, errorText);
-        throw new Error(`Analysis failed: ${res.status} ${errorText}`);
+        console.error("API 错误:", res.status, errorText);
+        alert(language === 'zh' ? '分析失败，请重试' : 'Analysis failed, please try again');
+        throw new Error(`Analysis failed: ${res.status} ${errorText}`); // Keep throwing for catch block
       }
 
       const data = await res.json();
       setParsedData(data);
       setStep("review");
     } catch (error) {
-      console.error(error);
-      alert(language === 'zh' ? '分析失败' : 'Analysis failed');
+      console.error('分析错误:', error);
+      alert(language === 'zh' ? '发生错误，请重试' : 'An error occurred, please try again');
     } finally {
       setAnalyzing(false);
     }
@@ -104,7 +111,7 @@ export default function Home() {
         </div>
 
         {step === "upload" && (
-          <UploadZone onAnalyze={handleAnalyze} isAnalyzing={analyzing} />
+          <UploadZone onImageSelect={handleAnalyze} isAnalyzing={analyzing} />
         )}
 
         {step === "review" && parsedData && (

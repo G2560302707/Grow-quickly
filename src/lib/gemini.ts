@@ -67,10 +67,44 @@ export async function analyzeImage(imageBase64: string, mimeType: string = "imag
             throw new Error("Empty response from AI");
         }
 
-        // Clean up potential markdown code blocks
-        const jsonString = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        console.log("[Gemini] Raw response (first 500 chars):", text.substring(0, 500));
 
-        return JSON.parse(jsonString) as ParsedQuestion;
+        // Clean up potential markdown code blocks
+        let jsonString = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+
+        // Try to extract JSON object if embedded in other text
+        const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            jsonString = jsonMatch[0];
+        }
+
+        console.log("[Gemini] Parsed JSON (first 300 chars):", jsonString.substring(0, 300));
+
+        // Fix common JSON escaping issues with LaTeX
+        // LaTeX commands like \frac, \sqrt need to be properly escaped in JSON
+        // But be careful not to break already valid escape sequences
+        try {
+            // First attempt: try parsing as-is
+            return JSON.parse(jsonString) as ParsedQuestion;
+        } catch (firstError) {
+            console.log("[Gemini] First parse attempt failed, trying to fix escaping...");
+
+            try {
+                // Second attempt: fix common LaTeX escaping issues
+                // This is a heuristic fix - replace single backslash with double for LaTeX commands
+                const fixedJson = jsonString
+                    .replace(/\\([a-zA-Z]+)/g, '\\\\$1') // \frac -> \\frac
+                    .replace(/\\\\\\\\/g, '\\\\'); // Fix over-escaping (\\\\ -> \\)
+
+                console.log("[Gemini] Attempting parse with fixed escaping...");
+                return JSON.parse(fixedJson) as ParsedQuestion;
+            } catch (secondError) {
+                console.error("[Gemini] JSON parse failed after fix attempt:", secondError);
+                console.error("[Gemini] Original JSON (first 500):", jsonString.substring(0, 500));
+                console.error("[Gemini] Original JSON (last 500):", jsonString.substring(Math.max(0, jsonString.length - 500)));
+                throw new Error("Invalid JSON response from AI");
+            }
+        }
     } catch (error) {
         console.error("Error analyzing image with Gemini:", error);
         throw new Error("Failed to analyze image");

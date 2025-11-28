@@ -7,26 +7,22 @@ import { UploadCloud, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface UploadZoneProps {
-    onAnalyze: (base64: string) => void;
-    isAnalyzing?: boolean;
+    onImageSelect: (file: File) => void;  // 改为传递 File 对象
+    isAnalyzing: boolean;
 }
 
-export function UploadZone({ onAnalyze, isAnalyzing = false }: UploadZoneProps) {
+export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
     const { t } = useLanguage();
 
     const onDrop = useCallback(
         (acceptedFiles: File[]) => {
             const file = acceptedFiles[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const base64 = reader.result as string;
-                    onAnalyze(base64);
-                };
-                reader.readAsDataURL(file);
+                // 直接传递 File 对象，让父组件处理压缩
+                onImageSelect(file);
             }
         },
-        [onAnalyze]
+        [onImageSelect]
     );
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({

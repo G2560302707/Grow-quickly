@@ -11,7 +11,11 @@ export const translations = {
         },
         app: {
             title: "Smart Error Notebook",
-            subtitle: "Upload your wrong answers, let AI analyze them, and master your weak points.",
+            subtitle: "AI-powered analysis and intelligent review",
+            dragDrop: "Drag and drop an image here, or click to browse",
+            analyzing: "AI is analyzing...",
+            compressing: "Compressing image...",
+            supportedFormats: "Supports JPG, PNG, HEIC",
             uploadNew: "Upload New",
             viewNotebook: "View Notebook",
         },
@@ -25,10 +29,10 @@ export const translations = {
             weeklyActivity: "Weekly Activity",
         },
         upload: {
-            dragDrop: "Click or drag image to upload",
+            // dragDrop: "Click or drag image to upload", // Moved to app
             support: "Support JPG, PNG (Max 5MB)",
             analyze: "Analyze with AI",
-            analyzing: "Analyzing...",
+            // analyzing: "Analyzing...", // Moved to app
         },
         editor: {
             title: "Review & Correct",
@@ -61,6 +65,7 @@ export const translations = {
             notesPlaceholder: "Enter your notes...",
             correctAnswer: "Correct Answer",
             analysis: "Analysis",
+            referenceDiagram: "Reference Diagram",
             markMastered: "Mark as Mastered",
             mastered: "Mastered",
             practice: "Practice Similar",
@@ -86,6 +91,7 @@ export const translations = {
             hideAnswer: "Hide Answer",
             correctAnswer: "Correct Answer",
             detailedAnalysis: "Detailed Analysis",
+            referenceDiagram: "Reference Diagram",
             invalidRequest: "Invalid Request",
         },
         filter: {
@@ -110,9 +116,18 @@ export const translations = {
         },
         app: {
             title: "智能错题本",
-            subtitle: "上传错题，AI 智能解析，助你攻克薄弱点。",
+            subtitle: "AI 驱动的题目分析与智能复习",
+            dragDrop: "拖拽图片到此处，或点击浏览",
+            analyzing: "AI 正在分析...",
+            compressing: "正在压缩图片...",
+            supportedFormats: "支持 JPG、PNG、HEIC 格式",
             uploadNew: "上传新题",
             viewNotebook: "查看错题本",
+            practiceProblem: "练习题",
+            yourAnswer: "你的答案",
+            answerPlaceholder: "输入你的答案...",
+            notesPlaceholder: "记录解题思路（可选）...",
+            submitAnswer: "提交答案",
         },
         dashboard: {
             totalErrors: "累计错题",
@@ -124,10 +139,10 @@ export const translations = {
             weeklyActivity: "本周学习趋势",
         },
         upload: {
-            dragDrop: "点击或拖拽上传图片",
+            // dragDrop: "点击或拖拽上传图片", // Moved to app
             support: "支持 JPG, PNG (最大 5MB)",
             analyze: "AI 智能解析",
-            analyzing: "解析中...",
+            // analyzing: "解析中...", // Moved to app
         },
         editor: {
             title: "校对与保存",
@@ -160,6 +175,7 @@ export const translations = {
             notesPlaceholder: "输入你的笔记...",
             correctAnswer: "参考答案",
             analysis: "解析",
+            referenceDiagram: "参考图形",
             markMastered: "标记为已掌握",
             mastered: "已掌握",
             practice: "举一反三",
@@ -171,11 +187,11 @@ export const translations = {
             generate: "生成练习题",
             generating: "AI 正在出题...",
             regenerate: "重新生成",
-            practiceProblem: "练习题",
-            yourAnswer: "你的答案",
-            answerPlaceholder: "输入你的答案...",
-            notesPlaceholder: "记录解题思路（可选）...",
-            submitAnswer: "提交答案",
+            // practiceProblem: "练习题", // Moved to app
+            // yourAnswer: "你的答案", // Moved to app
+            // answerPlaceholder: "输入你的答案...", // Moved to app
+            // notesPlaceholder: "记录解题思路（可选）...", // Moved to app
+            // submitAnswer: "提交答案", // Moved to app
             correct: "回答正确！",
             correctMessage: "太棒了，继续保持！",
             incorrect: "答案有误",
@@ -185,6 +201,7 @@ export const translations = {
             hideAnswer: "隐藏答案",
             correctAnswer: "参考答案",
             detailedAnalysis: "详细解析",
+            referenceDiagram: "参考图形",
             invalidRequest: "无效请求",
         },
         filter: {
