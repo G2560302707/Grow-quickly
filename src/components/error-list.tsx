@@ -5,10 +5,18 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter, CheckCircle, Clock } from "lucide-react";
+import { Search, Filter, CheckCircle, Clock, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ErrorItem {
     id: string;
@@ -25,16 +33,28 @@ export function ErrorList() {
     const [items, setItems] = useState<ErrorItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    const [masteryFilter, setMasteryFilter] = useState<"all" | "review" | "mastered">("all");
+    const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month">("all");
+    const [selectedTag, setSelectedTag] = useState<string | null>(null);
     const { t } = useLanguage();
 
     useEffect(() => {
         fetchItems();
-    }, [search]);
+    }, [search, masteryFilter, timeFilter, selectedTag]);
 
     const fetchItems = async () => {
         try {
             const params = new URLSearchParams();
             if (search) params.append("query", search);
+            if (masteryFilter !== "all") {
+                params.append("mastery", masteryFilter === "mastered" ? "1" : "0");
+            }
+            if (timeFilter !== "all") {
+                params.append("timeRange", timeFilter);
+            }
+            if (selectedTag) {
+                params.append("tag", selectedTag);
+            }
 
             const res = await fetch(`/api/error-items/list?${params.toString()}`);
             if (res.ok) {
@@ -45,6 +65,14 @@ export function ErrorList() {
             console.error(error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleTagClick = (tag: string) => {
+        if (selectedTag === tag) {
+            setSelectedTag(null); // Toggle off if clicking the same tag
+        } else {
+            setSelectedTag(tag);
         }
     };
 
@@ -60,11 +88,53 @@ export function ErrorList() {
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <Button variant="outline">
-                    <Filter className="mr-2 h-4 w-4" />
-                    {t.notebook.filter}
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline">
+                            <Filter className="mr-2 h-4 w-4" />
+                            {t.notebook.filter}
+                            <ChevronDown className="ml-2 h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel>{t.filter.masteryStatus || "掌握状态"}</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => setMasteryFilter("all")}>
+                            {masteryFilter === "all" && "✓ "}{t.filter.all || "全部"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setMasteryFilter("review")}>
+                            {masteryFilter === "review" && "✓ "}{t.filter.review || "待复习"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setMasteryFilter("mastered")}>
+                            {masteryFilter === "mastered" && "✓ "}{t.filter.mastered || "已掌握"}
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuLabel>{t.filter.timeRange || "时间范围"}</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => setTimeFilter("all")}>
+                            {timeFilter === "all" && "✓ "}{t.filter.allTime || "全部时间"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTimeFilter("week")}>
+                            {timeFilter === "week" && "✓ "}{t.filter.lastWeek || "最近一周"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTimeFilter("month")}>
+                            {timeFilter === "month" && "✓ "}{t.filter.lastMonth || "最近一个月"}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
+
+            {selectedTag && (
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <span className="text-sm text-muted-foreground">
+                        {t.filter.filteringByTag || "筛选标签"}:
+                    </span>
+                    <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedTag(null)}>
+                        {selectedTag}
+                        <span className="ml-1 text-xs">×</span>
+                    </Badge>
+                </div>
+            )}
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {items.map((item) => {
@@ -101,7 +171,15 @@ export function ErrorList() {
                                     </p>
                                     <div className="flex flex-wrap gap-1">
                                         {tags.slice(0, 3).map((tag: string) => (
-                                            <Badge key={tag} variant="outline" className="text-xs">
+                                            <Badge
+                                                key={tag}
+                                                variant={selectedTag === tag ? "default" : "outline"}
+                                                className="text-xs cursor-pointer hover:bg-primary/10 transition-colors"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    handleTagClick(tag);
+                                                }}
+                                            >
                                                 {tag}
                                             </Badge>
                                         ))}

@@ -87,7 +87,18 @@ export const translations = {
             correctAnswer: "Correct Answer",
             detailedAnalysis: "Detailed Analysis",
             invalidRequest: "Invalid Request",
-        }
+        },
+        filter: {
+            masteryStatus: "Mastery Status",
+            all: "All",
+            review: "To Review",
+            mastered: "Mastered",
+            timeRange: "Time Range",
+            allTime: "All Time",
+            lastWeek: "Last Week",
+            lastMonth: "Last Month",
+            filteringByTag: "Filtering by tag",
+        },
     },
     zh: {
         common: {
@@ -175,6 +186,17 @@ export const translations = {
             correctAnswer: "参考答案",
             detailedAnalysis: "详细解析",
             invalidRequest: "无效请求",
-        }
+        },
+        filter: {
+            masteryStatus: "掌握状态",
+            all: "全部",
+            review: "待复习",
+            mastered: "已掌握",
+            timeRange: "时间范围",
+            allTime: "全部时间",
+            lastWeek: "最近一周",
+            lastMonth: "最近一个月",
+            filteringByTag: "筛选标签",
+        },
     }
 };

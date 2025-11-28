@@ -98,9 +98,23 @@ export default function PracticePage() {
                             <CardHeader>
                                 <CardTitle className="flex justify-between items-center">
                                     <span>{t.practice.practiceProblem}</span>
-                                    <Button variant="ghost" size="sm" onClick={generateQuestion} disabled={loading}>
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                        {t.practice.regenerate}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={generateQuestion}
+                                        disabled={loading}
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                {t.practice.generating}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <RefreshCw className="mr-2 h-4 w-4" />
+                                                {t.practice.regenerate}
+                                            </>
+                                        )}
                                     </Button>
                                 </CardTitle>
                             </CardHeader>

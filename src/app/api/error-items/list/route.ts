@@ -9,6 +9,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const subjectId = searchParams.get("subjectId");
     const query = searchParams.get("query");
+    const mastery = searchParams.get("mastery");
+    const timeRange = searchParams.get("timeRange");
+    const tag = searchParams.get("tag");
 
     try {
         let user;
@@ -41,6 +44,34 @@ export async function GET(req: Request) {
                 { analysis: { contains: query } },
                 { knowledgePoints: { contains: query } },
             ];
+        }
+
+        // Mastery filter
+        if (mastery !== null) {
+            whereClause.masteryLevel = mastery === "1" ? { gt: 0 } : 0;
+        }
+
+        // Time range filter
+        if (timeRange && timeRange !== "all") {
+            const now = new Date();
+            let startDate = new Date();
+
+            if (timeRange === "week") {
+                startDate.setDate(now.getDate() - 7);
+            } else if (timeRange === "month") {
+                startDate.setMonth(now.getMonth() - 1);
+            }
+
+            whereClause.createdAt = {
+                gte: startDate,
+            };
+        }
+
+        // Tag filter
+        if (tag) {
+            whereClause.knowledgePoints = {
+                contains: tag,
+            };
         }
 
         const errorItems = await prisma.errorItem.findMany({
