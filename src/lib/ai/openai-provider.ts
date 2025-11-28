@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { AIService, ParsedQuestion } from "./types";
+import { AIService, ParsedQuestion, DifficultyLevel } from "./types";
 
 export class OpenAIProvider implements AIService {
     private openai: OpenAI;
@@ -56,7 +56,7 @@ export class OpenAIProvider implements AIService {
 
     async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh'): Promise<ParsedQuestion> {
         const langInstruction = language === 'zh'
-            ? "For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', keep the original language of the question (e.g. if the question is in English, keep it in English). Do NOT translate the question text."
+            ? "IMPORTANT: For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', YOU MUST USE THE SAME LANGUAGE AS THE ORIGINAL QUESTION. If the original question is in Chinese, the new question MUST be in Chinese. If the original is in English, keep it in English."
             : "Please ensure all text fields are in English.";
 
         const prompt = `
@@ -139,15 +139,24 @@ export class OpenAIProvider implements AIService {
         }
     }
 
-    async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh'): Promise<ParsedQuestion> {
+    async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium'): Promise<ParsedQuestion> {
         const langInstruction = language === 'zh'
-            ? "For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', keep the same language as the Original Question (e.g. if Original Question is in English, the new question must be in English). Do NOT translate the question text."
+            ? "IMPORTANT: For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', YOU MUST USE THE SAME LANGUAGE AS THE ORIGINAL QUESTION. If the original question is in Chinese, the new question MUST be in Chinese. If the original is in English, keep it in English."
             : "Please ensure all text fields are in English.";
+
+        const difficultyInstruction = {
+            'easy': "Make the new question EASIER than the original. Use simpler numbers and more direct concepts.",
+            'medium': "Keep the difficulty SIMILAR to the original question.",
+            'hard': "Make the new question HARDER than the original. Combine multiple concepts or use more complex numbers.",
+            'harder': "Make the new question MUCH HARDER (Challenge Level). Require deeper understanding and multi-step reasoning."
+        }[difficulty];
 
         const prompt = `
     You are an expert AI tutor.
     Create a NEW practice problem based on the following original question and knowledge points.
-    The new problem should test the same concepts but use different numbers or a slightly different scenario.
+    
+    DIFFICULTY LEVEL: ${difficulty.toUpperCase()}
+    ${difficultyInstruction}
     
     ${langInstruction}
     

@@ -10,6 +10,7 @@ export const translations = {
 
             cancel: "Cancel",
             confirm: "Confirm",
+            back: "Back",
         },
         app: {
             title: "Smart Error Notebook",
@@ -95,6 +96,13 @@ export const translations = {
             detailedAnalysis: "Detailed Analysis",
             referenceDiagram: "Reference Diagram",
             invalidRequest: "Invalid Request",
+            errors: {
+                connection: "Network error. Please check your connection and try again.",
+                response: "AI response error. Please try again or switch to a different model.",
+                auth: "Authentication failed. Please check your API key configuration.",
+                unknown: "An unknown error occurred. Please try again later.",
+                default: "Failed to generate question. Please try again.",
+            },
         },
         filter: {
             masteryStatus: "Mastery Status",
@@ -107,6 +115,13 @@ export const translations = {
             lastMonth: "Last Month",
             filteringByTag: "Filtering by tag",
         },
+        errors: {
+            AI_CONNECTION_FAILED: "Network error. Please check your connection.",
+            AI_RESPONSE_ERROR: "AI response invalid. Please try again.",
+            AI_AUTH_ERROR: "AI service authentication failed. Please check API key.",
+            AI_UNKNOWN_ERROR: "Unknown AI error occurred.",
+            GENERIC_ERROR: "Failed to generate question.",
+        },
     },
     zh: {
         common: {
@@ -117,6 +132,7 @@ export const translations = {
 
             cancel: "取消",
             confirm: "确认",
+            back: "返回",
         },
         app: {
             title: "智能错题本",
@@ -207,6 +223,13 @@ export const translations = {
             detailedAnalysis: "详细解析",
             referenceDiagram: "参考图形",
             invalidRequest: "无效请求",
+            errors: {
+                connection: "网络连接失败，请检查网络设置或代理配置。",
+                response: "AI 解析异常，请重试或切换其他模型。",
+                auth: "认证失败，请检查 API Key 配置。",
+                unknown: "发生未知错误，请稍后重试。",
+                default: "生成失败，请重试。",
+            },
         },
         filter: {
             masteryStatus: "掌握状态",
@@ -218,6 +241,13 @@ export const translations = {
             lastWeek: "最近一周",
             lastMonth: "最近一个月",
             filteringByTag: "筛选标签",
+        },
+        errors: {
+            AI_CONNECTION_FAILED: "网络连接失败，请检查网络设置。",
+            AI_RESPONSE_ERROR: "AI 返回数据格式异常，请重试。",
+            AI_AUTH_ERROR: "AI 服务认证失败，请检查 API Key 配置。",
+            AI_UNKNOWN_ERROR: "发生未知 AI 错误。",
+            GENERIC_ERROR: "生成题目失败，请稍后重试。",
         },
     }
 };

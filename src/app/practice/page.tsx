@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, RefreshCw, CheckCircle, Eye, Send, XCircle, ArrowLeft } from "lucide-react";
-import { ParsedQuestion } from "@/lib/gemini";
+import { ParsedQuestion } from "@/lib/ai/types";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -24,12 +24,17 @@ export default function PracticePage() {
     const [notes, setNotes] = useState("");
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-    const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
+
+
+    const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard" | "harder">("medium");
+
+    const [error, setError] = useState<string | null>(null);
 
     const generateQuestion = async () => {
         if (!errorItemId) return;
 
         setLoading(true);
+        setError(null);
         setUserAnswer("");
         setNotes("");
         setIsSubmitted(false);
@@ -39,24 +44,29 @@ export default function PracticePage() {
             const res = await fetch("/api/practice/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ errorItemId, language }),
+                body: JSON.stringify({ errorItemId, language, difficulty }),
             });
 
             if (res.ok) {
                 const data = await res.json();
                 setQuestion(data);
-
-                // Fetch original error item to get image
-                const itemRes = await fetch(`/api/error-items/${errorItemId}`);
-                if (itemRes.ok) {
-                    const itemData = await itemRes.json();
-                    setOriginalImageUrl(itemData.originalImageUrl);
-                }
             } else {
-                alert(language === 'zh' ? '生成失败' : 'Failed to generate question');
+                const errorData = await res.json();
+                const msg = errorData.message || "";
+
+                let errorKey = 'default';
+                if (msg.includes('AI_CONNECTION_FAILED')) errorKey = 'connection';
+                else if (msg.includes('AI_RESPONSE_ERROR')) errorKey = 'response';
+                else if (msg.includes('AI_AUTH_ERROR')) errorKey = 'auth';
+                else if (msg.includes('AI_UNKNOWN_ERROR')) errorKey = 'unknown';
+
+                // @ts-ignore
+                setError(t.practice.errors?.[errorKey] || t.practice.errors?.default || "Failed to generate");
             }
         } catch (error) {
             console.error(error);
+            // @ts-ignore
+            setError(t.practice.errors?.connection || "Network error");
         } finally {
             setLoading(false);
         }
@@ -105,20 +115,52 @@ export default function PracticePage() {
                         {t.practice.subtitle}
                     </p>
 
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+                            <strong className="font-bold">{language === 'zh' ? '出错了：' : 'Error: '}</strong>
+                            <span className="block sm:inline"> {error}</span>
+                        </div>
+                    )}
+
                     {!question && (
-                        <Button size="lg" onClick={generateQuestion} disabled={loading}>
-                            {loading ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    {t.practice.generating}
-                                </>
-                            ) : (
-                                <>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    {t.practice.generate}
-                                </>
-                            )}
-                        </Button>
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg">
+                                <span className="text-sm font-medium text-muted-foreground">难度选择:</span>
+                                <div className="flex gap-1">
+                                    {[
+                                        { value: "easy", label: "简单", color: "bg-green-100 text-green-700 hover:bg-green-200" },
+                                        { value: "medium", label: "适中", color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
+                                        { value: "hard", label: "困难", color: "bg-orange-100 text-orange-700 hover:bg-orange-200" },
+                                        { value: "harder", label: "挑战", color: "bg-red-100 text-red-700 hover:bg-red-200" }
+                                    ].map((level) => (
+                                        <button
+                                            key={level.value}
+                                            onClick={() => setDifficulty(level.value as any)}
+                                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${difficulty === level.value
+                                                ? level.color.replace("bg-", "bg-opacity-100 bg-").replace("text-", "ring-2 ring-offset-1 ring-")
+                                                : "bg-transparent hover:bg-muted text-muted-foreground"
+                                                } ${difficulty === level.value ? level.color : ''}`}
+                                        >
+                                            {level.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <Button size="lg" onClick={generateQuestion} disabled={loading}>
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        {t.practice.generating}
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        {t.practice.generate}
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     )}
                 </div>
 
@@ -128,24 +170,37 @@ export default function PracticePage() {
                             <CardHeader>
                                 <CardTitle className="flex justify-between items-center">
                                     <span>{t.practice.practiceProblem}</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={generateQuestion}
-                                        disabled={loading}
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                {t.practice.generating}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <RefreshCw className="mr-2 h-4 w-4" />
-                                                {t.practice.regenerate}
-                                            </>
-                                        )}
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={difficulty}
+                                            onChange={(e) => setDifficulty(e.target.value as any)}
+                                            className="h-8 text-xs border rounded px-2 bg-background"
+                                            disabled={loading}
+                                        >
+                                            <option value="easy">简单</option>
+                                            <option value="medium">适中</option>
+                                            <option value="hard">困难</option>
+                                            <option value="harder">挑战</option>
+                                        </select>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={generateQuestion}
+                                            disabled={loading}
+                                        >
+                                            {loading ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    {t.practice.generating}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                                    {t.practice.regenerate}
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
@@ -251,18 +306,6 @@ export default function PracticePage() {
                                         <CardTitle>{t.practice.detailedAnalysis}</CardTitle>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        {originalImageUrl && (
-                                            <div>
-                                                <p className="text-sm font-medium mb-2 text-muted-foreground">
-                                                    {t.practice.referenceDiagram || "参考图形"}
-                                                </p>
-                                                <img
-                                                    src={originalImageUrl}
-                                                    alt="Reference diagram"
-                                                    className="w-full max-w-md rounded-lg border"
-                                                />
-                                            </div>
-                                        )}
                                         <MarkdownRenderer content={question.analysis} />
                                     </CardContent>
                                 </Card>
