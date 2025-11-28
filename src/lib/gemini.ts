@@ -103,13 +103,21 @@ export async function analyzeImage(imageBase64: string, mimeType: string = "imag
 
         console.log("[Gemini] Raw response (first 500 chars):", text.substring(0, 500));
 
-        // Clean up potential markdown code blocks
-        let jsonString = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        // Improved JSON extraction logic
+        let jsonString = text;
 
-        // Try to extract JSON object if embedded in other text
-        const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            jsonString = jsonMatch[0];
+        // 1. Try to extract from markdown code block first
+        const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch) {
+            jsonString = codeBlockMatch[1].trim();
+        } else {
+            // 2. If no code block, try to find the first '{' and last '}'
+            const firstOpen = text.indexOf('{');
+            const lastClose = text.lastIndexOf('}');
+
+            if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+                jsonString = text.substring(firstOpen, lastClose + 1);
+            }
         }
 
         console.log("[Gemini] Parsed JSON (first 300 chars):", jsonString.substring(0, 300));
@@ -216,7 +224,18 @@ export async function generateSimilarQuestion(originalQuestion: string, knowledg
             throw new Error("Empty response from AI");
         }
 
-        const jsonString = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        // Improved JSON extraction logic
+        let jsonString = text;
+        const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (codeBlockMatch) {
+            jsonString = codeBlockMatch[1].trim();
+        } else {
+            const firstOpen = text.indexOf('{');
+            const lastClose = text.lastIndexOf('}');
+            if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+                jsonString = text.substring(firstOpen, lastClose + 1);
+            }
+        }
 
         return JSON.parse(jsonString) as ParsedQuestion;
     } catch (error) {

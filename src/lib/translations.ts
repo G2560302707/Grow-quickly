@@ -7,7 +7,9 @@ export const translations = {
             error: "Error",
             success: "Success",
             save: "Save",
+
             cancel: "Cancel",
+            confirm: "Confirm",
         },
         app: {
             title: "Smart Error Notebook",
@@ -112,7 +114,9 @@ export const translations = {
             error: "错误",
             success: "成功",
             save: "保存",
+
             cancel: "取消",
+            confirm: "确认",
         },
         app: {
             title: "智能错题本",

@@ -4,7 +4,9 @@ import { useState, Suspense, useEffect } from "react";
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { UploadZone } from "@/components/upload-zone";
+
 import { CorrectionEditor } from "@/components/correction-editor";
+import { ImageCropper } from "@/components/image-cropper";
 import { ParsedQuestion } from "@/lib/gemini";
 import { Dashboard } from "@/components/dashboard";
 import Link from "next/link";
@@ -25,6 +27,10 @@ function HomeContent() {
   const [notebooks, setNotebooks] = useState<{ id: string; name: string }[]>([]);
   const [autoSelectedNotebookId, setAutoSelectedNotebookId] = useState<string | null>(null);
 
+  // Cropper state
+  const [croppingImage, setCroppingImage] = useState<string | null>(null);
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+
   useEffect(() => {
     // Fetch notebooks for auto-selection
     fetch("/api/notebooks")
@@ -32,6 +38,19 @@ function HomeContent() {
       .then(data => setNotebooks(data))
       .catch(err => console.error("Failed to fetch notebooks:", err));
   }, []);
+
+  const onImageSelect = (file: File) => {
+    const imageUrl = URL.createObjectURL(file);
+    setCroppingImage(imageUrl);
+    setIsCropperOpen(true);
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setIsCropperOpen(false);
+    // Convert Blob to File
+    const file = new File([croppedBlob], "cropped-image.jpg", { type: "image/jpeg" });
+    handleAnalyze(file);
+  };
 
   const handleAnalyze = async (file: File) => {
     setAnalyzing(true);
@@ -164,7 +183,16 @@ function HomeContent() {
         </div>
 
         {step === "upload" && (
-          <UploadZone onImageSelect={handleAnalyze} isAnalyzing={analyzing} />
+          <UploadZone onImageSelect={onImageSelect} isAnalyzing={analyzing} />
+        )}
+
+        {croppingImage && (
+          <ImageCropper
+            imageSrc={croppingImage}
+            open={isCropperOpen}
+            onClose={() => setIsCropperOpen(false)}
+            onCropComplete={handleCropComplete}
+          />
         )}
 
         {step === "review" && parsedData && (
