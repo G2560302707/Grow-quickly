@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 
 import { Loader2, TrendingUp, CheckCircle, BookOpen } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,6 +13,22 @@ interface AnalyticsData {
     masteryRate: number;
     activityData: { date: string; count: number }[];
 }
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-background border rounded-lg shadow-lg p-3 text-sm">
+                <p className="font-medium mb-1">{label}</p>
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                    <span className="text-muted-foreground">Activity:</span>
+                    <span className="font-bold">{payload[0].value}</span>
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
 
 export function Dashboard() {
     const [data, setData] = useState<AnalyticsData | null>(null);
@@ -98,13 +114,21 @@ export function Dashboard() {
                 <CardContent className="pl-2">
                     <div className="h-[200px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data.activityData}>
+                            <BarChart data={data.activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                                 <XAxis
                                     dataKey="date"
                                     stroke="#888888"
                                     fontSize={12}
                                     tickLine={false}
                                     axisLine={false}
+                                    dy={10}
                                 />
                                 <YAxis
                                     stroke="#888888"
@@ -113,15 +137,12 @@ export function Dashboard() {
                                     axisLine={false}
                                     tickFormatter={(value) => `${value}`}
                                 />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    cursor={{ fill: 'transparent' }}
-                                />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'transparent' }} />
                                 <Bar
                                     dataKey="count"
-                                    fill="currentColor"
+                                    fill="url(#colorCount)"
                                     radius={[4, 4, 0, 0]}
-                                    className="fill-primary"
+                                    barSize={40}
                                 />
                             </BarChart>
                         </ResponsiveContainer>

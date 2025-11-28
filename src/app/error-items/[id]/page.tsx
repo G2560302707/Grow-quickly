@@ -196,13 +196,51 @@ export default function ErrorDetailPage() {
     return (
         <main className="min-h-screen p-8 bg-background">
             <div className="max-w-4xl mx-auto space-y-6">
-                <div className="flex items-center gap-4">
-                    <Link href={item.subjectId ? `/notebooks/${item.subjectId}` : "/notebooks"}>
-                        <Button variant="ghost" size="icon">
-                            <ArrowLeft className="w-4 h-4" />
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                        <Link href={item.subjectId ? `/notebooks/${item.subjectId}` : "/notebooks"}>
+                            <Button variant="ghost" size="icon">
+                                <ArrowLeft className="w-4 h-4" />
+                            </Button>
+                        </Link>
+                        <h1 className="text-2xl font-bold">{t.detail.title}</h1>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <Link href={`/practice?id=${item.id}`}>
+                            <Button variant="outline" size="sm">
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                {t.detail.practice}
+                            </Button>
+                        </Link>
+                        <Button
+                            size="sm"
+                            variant={item.masteryLevel > 0 ? "default" : "default"}
+                            className={item.masteryLevel > 0 ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                            onClick={toggleMastery}
+                        >
+                            {item.masteryLevel > 0 ? (
+                                <>
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    {t.detail.mastered}
+                                </>
+                            ) : (
+                                <>
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    {t.detail.markMastered}
+                                </>
+                            )}
                         </Button>
-                    </Link>
-                    <h1 className="text-2xl font-bold">{t.detail.title}</h1>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={deleteItem}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {t.detail.delete || "Delete"}
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
@@ -364,46 +402,7 @@ export default function ErrorDetailPage() {
                             </CardContent>
                         </Card>
                         {/* 操作按钮 */}
-                        <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                            {/* 主要操作 - 左侧 */}
-                            <div className="flex gap-3 flex-1">
-                                <Link href={`/practice?id=${item.id}`} className="flex-1">
-                                    <Button variant="secondary" size="lg" className="w-full">
-                                        <RefreshCw className="mr-2 h-5 w-5" />
-                                        {t.detail.practice}
-                                    </Button>
-                                </Link>
-                                <Button
-                                    size="lg"
-                                    variant={item.masteryLevel > 0 ? "default" : "default"}
-                                    className={`flex-1 ${item.masteryLevel > 0 ? "bg-green-600 hover:bg-green-700 text-white" : ""}`}
-                                    onClick={toggleMastery}
-                                >
-                                    {item.masteryLevel > 0 ? (
-                                        <>
-                                            <CheckCircle className="mr-2 h-5 w-5" />
-                                            {t.detail.mastered}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <XCircle className="mr-2 h-5 w-5" />
-                                            {t.detail.markMastered}
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
 
-                            {/* 删除按钮 - 右侧，使用 ghost 样式降低视觉重量 */}
-                            <Button
-                                variant="ghost"
-                                size="lg"
-                                onClick={deleteItem}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                {t.detail.delete || "删除"}
-                            </Button>
-                        </div>
                     </div>
                 </div>
             </div>

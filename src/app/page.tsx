@@ -13,7 +13,10 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
-import { Upload, BookOpen, Tags } from "lucide-react";
+import { Upload, BookOpen, Tags, LogOut } from "lucide-react";
+import { PracticeStats } from "@/components/practice-stats";
+import { SettingsDialog } from "@/components/settings-dialog";
+import { signOut } from "next-auth/react";
 
 function HomeContent() {
   const [step, setStep] = useState<"upload" | "review">("upload");
@@ -149,23 +152,27 @@ function HomeContent() {
   };
 
   return (
-    <main className="min-h-screen p-8 bg-background relative">
-      <div className="absolute top-4 right-4">
-        <LanguageSwitcher />
-      </div>
+    <main className="min-h-screen bg-background">
+      <div className="container mx-auto p-4 space-y-8 pb-20">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <UserWelcome />
 
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight text-primary">
-            {t.app.title}
-          </h1>
-          <p className="text-muted-foreground">
-            {t.app.subtitle}
-          </p>
+          <div className="flex items-center gap-2 bg-card p-2 rounded-lg border shadow-sm">
+            <LanguageSwitcher />
+            <div className="w-px h-6 bg-border mx-1" />
+            <SettingsDialog />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full text-muted-foreground hover:text-destructive"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              title={language === 'zh' ? '退出登录' : 'Logout'}
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
-
-        {/* User Welcome Section - At the top */}
-        <UserWelcome />
 
         {/* Action Center */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -231,7 +238,10 @@ function HomeContent() {
           />
         )}
 
-        {/* Dashboard Section - At the bottom */}
+        {/* Practice Statistics */}
+        <PracticeStats />
+
+        {/* Dashboard Section */}
         <Dashboard />
       </div>
     </main>

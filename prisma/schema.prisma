@@ -20,6 +20,7 @@ model User {
 
   errorItems ErrorItem[]
   subjects   Subject[]
+  practiceRecords PracticeRecord[]
 }
 
 model Subject {
@@ -77,9 +78,14 @@ model ReviewSchedule {
   createdAt    DateTime @default(now())
 }
 
-model PracticeSession {
+model PracticeRecord {
   id        String   @id @default(cuid())
   userId    String
-  // This would be expanded for full practice history
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  subject   String?  // e.g. "Math", "Physics"
+  difficulty String? // "easy", "medium", "hard", "harder"
+  isCorrect Boolean?
+  
   createdAt DateTime @default(now())
 }

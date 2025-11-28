@@ -10,28 +10,32 @@ export async function POST(req: Request) {
     try {
         const { errorItemId, language, difficulty } = await req.json();
 
-        const errorItem = await prisma.errorItem.findUnique({
+        const errorItemWithSubject = await prisma.errorItem.findUnique({
             where: { id: errorItemId },
+            include: { subject: true }
         });
 
-        if (!errorItem) {
+        if (!errorItemWithSubject) {
             return NextResponse.json({ message: "Item not found" }, { status: 404 });
         }
 
         let tags: string[] = [];
         try {
-            tags = JSON.parse(errorItem.knowledgePoints || "[]");
+            tags = JSON.parse(errorItemWithSubject.knowledgePoints || "[]");
         } catch (e) {
             tags = [];
         }
 
         const aiService = getAIService();
         const similarQuestion = await aiService.generateSimilarQuestion(
-            errorItem.questionText || "",
+            errorItemWithSubject.questionText || "",
             tags,
             language,
             difficulty || 'medium'
         );
+
+        // Inject the subject from the database
+        similarQuestion.subject = errorItemWithSubject.subject?.name || "Unknown";
 
         return NextResponse.json(similarQuestion);
     } catch (error) {

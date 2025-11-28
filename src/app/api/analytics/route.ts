@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { subDays, format } from "date-fns";
+import { subMonths, startOfMonth, endOfMonth, format } from "date-fns";
 
 export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
@@ -30,25 +30,25 @@ export async function GET(req: Request) {
             where: { userId: user.id, masteryLevel: { gt: 0 } },
         });
 
-        // 3. Activity (Last 7 days)
+        // 3. Activity (Last 6 months)
         const activityData = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = subDays(new Date(), i);
-            const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-            const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+        for (let i = 5; i >= 0; i--) {
+            const date = subMonths(new Date(), i);
+            const start = startOfMonth(date);
+            const end = endOfMonth(date);
 
             const count = await prisma.errorItem.count({
                 where: {
                     userId: user.id,
                     createdAt: {
-                        gte: startOfDay,
-                        lte: endOfDay,
+                        gte: start,
+                        lte: end,
                     },
                 },
             });
 
             activityData.push({
-                date: format(date, "MM/dd"),
+                date: format(date, "yyyy/MM"),
                 count,
             });
         }

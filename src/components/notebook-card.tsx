@@ -11,16 +11,10 @@ interface NotebookCardProps {
     errorCount: number;
     onClick: () => void;
     onDelete?: (id: string) => void;
+    itemLabel?: string;
 }
 
-export function NotebookCard({ id, name, errorCount, onClick, onDelete }: NotebookCardProps) {
-    const handleDelete = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (onDelete) {
-            onDelete(id);
-        }
-    };
-
+export function NotebookCard({ id, name, errorCount, onClick, onDelete, itemLabel = "道题目" }: NotebookCardProps) {
     return (
         <Card
             className="cursor-pointer hover:border-primary/50 transition-colors relative group"
@@ -39,13 +33,7 @@ export function NotebookCard({ id, name, errorCount, onClick, onDelete }: Notebo
                             className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (errorCount > 0) {
-                                    alert("请先清空错题本中的所有题目，才能删除该错题本。");
-                                    return;
-                                }
-                                if (confirm(`确定要删除"${name}"错题本吗？`)) {
-                                    onDelete(id);
-                                }
+                                onDelete(id);
                             }}
                         >
                             <Trash2 className={`h-4 w-4 ${errorCount > 0 ? "text-muted-foreground" : "text-destructive"}`} />
@@ -56,7 +44,7 @@ export function NotebookCard({ id, name, errorCount, onClick, onDelete }: Notebo
             <CardContent>
                 <div className="flex items-center gap-2">
                     <Badge variant="secondary">
-                        {errorCount} 道题目
+                        {errorCount} {itemLabel}
                     </Badge>
                 </div>
             </CardContent>

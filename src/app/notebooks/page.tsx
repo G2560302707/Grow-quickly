@@ -16,8 +16,13 @@ interface Notebook {
     };
 }
 
+import { useLanguage } from "@/contexts/LanguageContext";
+
+// ... imports
+
 export default function NotebooksPage() {
     const router = useRouter();
+    const { t } = useLanguage(); // Use hook
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -52,16 +57,20 @@ export default function NotebooksPage() {
                 await fetchNotebooks();
             } else {
                 const data = await res.json();
-                alert(data.message || "创建失败");
+                alert(data.message || t.notebooks?.createError || "Failed to create");
             }
         } catch (error) {
             console.error(error);
-            alert("创建出错");
+            alert(t.notebooks?.createError || "Error creating");
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("确定要删除这个错题本吗？")) return;
+    const handleDelete = async (id: string, errorCount: number, name: string) => {
+        if (errorCount > 0) {
+            alert(t.notebooks?.deleteNotEmpty || "Please clear all items in this notebook first.");
+            return;
+        }
+        if (!confirm((t.notebooks?.deleteConfirm || "Are you sure?").replace("{name}", name))) return;
 
         try {
             const res = await fetch(`/api/notebooks/${id}`, {
@@ -72,11 +81,11 @@ export default function NotebooksPage() {
                 await fetchNotebooks();
             } else {
                 const data = await res.json();
-                alert(data.message || "删除失败");
+                alert(data.message || t.notebooks?.deleteError || "Failed to delete");
             }
         } catch (error) {
             console.error(error);
-            alert("删除出错");
+            alert(t.notebooks?.deleteError || "Error deleting");
         }
     };
 
@@ -87,7 +96,7 @@ export default function NotebooksPage() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <p className="text-muted-foreground">加载中...</p>
+                <p className="text-muted-foreground">{t.common.loading}</p>
             </div>
         );
     }
@@ -103,14 +112,14 @@ export default function NotebooksPage() {
                     </Link>
                     <div className="flex-1 flex justify-between items-center">
                         <div className="space-y-1">
-                            <h1 className="text-3xl font-bold tracking-tight">我的错题本</h1>
+                            <h1 className="text-3xl font-bold tracking-tight">{t.notebooks?.title || "My Notebooks"}</h1>
                             <p className="text-muted-foreground">
-                                按科目分类管理你的错题
+                                {t.notebooks?.subtitle || "Manage your mistakes by subject"}
                             </p>
                         </div>
                         <Button onClick={() => setDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
-                            新建错题本
+                            {t.notebooks?.create || "New Notebook"}
                         </Button>
                     </div>
                 </div>
@@ -118,11 +127,11 @@ export default function NotebooksPage() {
                 {notebooks.length === 0 ? (
                     <div className="text-center py-12 border-2 border-dashed rounded-lg">
                         <p className="text-muted-foreground mb-4">
-                            还没有错题本，点击上方按钮创建第一个吧！
+                            {t.notebooks?.empty || "No notebooks yet."}
                         </p>
                         <Button onClick={() => setDialogOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
-                            创建错题本
+                            {t.notebooks?.createFirst || "Create Notebook"}
                         </Button>
                     </div>
                 ) : (
@@ -134,18 +143,20 @@ export default function NotebooksPage() {
                                 name={notebook.name}
                                 errorCount={notebook._count.errorItems}
                                 onClick={() => handleNotebookClick(notebook.id)}
-                                onDelete={handleDelete}
+                                onDelete={() => handleDelete(notebook.id, notebook._count.errorItems, notebook.name)}
+                                itemLabel={t.notebooks?.items || "items"}
                             />
                         ))}
                     </div>
                 )}
 
                 <CreateNotebookDialog
+                    key={t.common.loading} // Force re-render when language changes
                     open={dialogOpen}
                     onOpenChange={setDialogOpen}
                     onCreate={handleCreate}
                 />
-            </div>
-        </main>
+            </div >
+        </main >
     );
 }

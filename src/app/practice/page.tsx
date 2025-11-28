@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 
-export default function PracticePage() {
+export const dynamic = 'force-dynamic';
+
+function PracticeContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const errorItemId = searchParams.get("id");
@@ -96,6 +98,17 @@ export default function PracticePage() {
 
         setIsCorrect(isMatch);
         setShowAnswer(true);
+
+        // Save practice record
+        fetch("/api/practice/record", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                subject: question.subject || "Unknown",
+                difficulty,
+                isCorrect: isMatch
+            })
+        }).catch(err => console.error("Failed to save practice record:", err));
     };
 
     if (!errorItemId) {
@@ -103,217 +116,229 @@ export default function PracticePage() {
     }
 
     return (
-        <main className="min-h-screen p-8 bg-background">
-            <div className="max-w-3xl mx-auto space-y-8">
-                <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    {t.common?.back || "返回"}
-                </Button>
-                <div className="text-center space-y-4">
-                    <h1 className="text-3xl font-bold">{t.practice.title}</h1>
-                    <p className="text-muted-foreground">
-                        {t.practice.subtitle}
-                    </p>
+        <div className="max-w-3xl mx-auto space-y-8">
+            <Button variant="ghost" onClick={() => router.back()} className="mb-4">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {t.common?.back || "返回"}
+            </Button>
+            <div className="text-center space-y-4">
+                <h1 className="text-3xl font-bold">{t.practice.title}</h1>
+                <p className="text-muted-foreground">
+                    {t.practice.subtitle}
+                </p>
 
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-                            <strong className="font-bold">{language === 'zh' ? '出错了：' : 'Error: '}</strong>
-                            <span className="block sm:inline"> {error}</span>
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <strong className="font-bold">{language === 'zh' ? '出错了：' : 'Error: '}</strong>
+                        <span className="block sm:inline"> {error}</span>
+                    </div>
+                )}
+
+                {!question && (
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg">
+                            <span className="text-sm font-medium text-muted-foreground">{t.practice.difficulty?.label || "Difficulty"}:</span>
+                            <div className="flex gap-1">
+                                {[
+                                    { value: "easy", label: t.practice.difficulty?.easy || "Easy", color: "bg-green-100 text-green-700 hover:bg-green-200" },
+                                    { value: "medium", label: t.practice.difficulty?.medium || "Medium", color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
+                                    { value: "hard", label: t.practice.difficulty?.hard || "Hard", color: "bg-orange-100 text-orange-700 hover:bg-orange-200" },
+                                    { value: "harder", label: t.practice.difficulty?.harder || "Challenge", color: "bg-red-100 text-red-700 hover:bg-red-200" }
+                                ].map((level) => (
+                                    <button
+                                        key={level.value}
+                                        onClick={() => setDifficulty(level.value as any)}
+                                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${difficulty === level.value
+                                            ? level.color.replace("bg-", "bg-opacity-100 bg-").replace("text-", "ring-2 ring-offset-1 ring-")
+                                            : "bg-transparent hover:bg-muted text-muted-foreground"
+                                            } ${difficulty === level.value ? level.color : ''}`}
+                                    >
+                                        {level.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    )}
 
-                    {!question && (
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-lg">
-                                <span className="text-sm font-medium text-muted-foreground">难度选择:</span>
-                                <div className="flex gap-1">
-                                    {[
-                                        { value: "easy", label: "简单", color: "bg-green-100 text-green-700 hover:bg-green-200" },
-                                        { value: "medium", label: "适中", color: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
-                                        { value: "hard", label: "困难", color: "bg-orange-100 text-orange-700 hover:bg-orange-200" },
-                                        { value: "harder", label: "挑战", color: "bg-red-100 text-red-700 hover:bg-red-200" }
-                                    ].map((level) => (
-                                        <button
-                                            key={level.value}
-                                            onClick={() => setDifficulty(level.value as any)}
-                                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${difficulty === level.value
-                                                ? level.color.replace("bg-", "bg-opacity-100 bg-").replace("text-", "ring-2 ring-offset-1 ring-")
-                                                : "bg-transparent hover:bg-muted text-muted-foreground"
-                                                } ${difficulty === level.value ? level.color : ''}`}
-                                        >
-                                            {level.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <Button size="lg" onClick={generateQuestion} disabled={loading}>
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        {t.practice.generating}
-                                    </>
-                                ) : (
-                                    <>
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                        {t.practice.generate}
-                                    </>
-                                )}
-                            </Button>
-                        </div>
-                    )}
-                </div>
-
-                {question && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <Card className="border-primary/50 shadow-lg">
-                            <CardHeader>
-                                <CardTitle className="flex justify-between items-center">
-                                    <span>{t.practice.practiceProblem}</span>
-                                    <div className="flex items-center gap-2">
-                                        <select
-                                            value={difficulty}
-                                            onChange={(e) => setDifficulty(e.target.value as any)}
-                                            className="h-8 text-xs border rounded px-2 bg-background"
-                                            disabled={loading}
-                                        >
-                                            <option value="easy">简单</option>
-                                            <option value="medium">适中</option>
-                                            <option value="hard">困难</option>
-                                            <option value="harder">挑战</option>
-                                        </select>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={generateQuestion}
-                                            disabled={loading}
-                                        >
-                                            {loading ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                    {t.practice.generating}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                                    {t.practice.regenerate}
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <MarkdownRenderer content={question.questionText} className="font-medium" />
-                            </CardContent>
-                        </Card>
-
-
-                        {/* Answer Input Section */}
-                        <Card className="border-blue-200">
-                            <CardHeader>
-                                <CardTitle className="text-blue-600">
-                                    {t.practice.yourAnswer || "你的答案"}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <Input
-                                    placeholder={t.practice.answerPlaceholder || "输入你的答案..."}
-                                    value={userAnswer}
-                                    onChange={(e) => setUserAnswer(e.target.value)}
-                                    disabled={isSubmitted}
-                                    className="text-lg"
-                                />
-                                <Textarea
-                                    placeholder={t.practice.notesPlaceholder || "记录解题思路（可选）..."}
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    disabled={isSubmitted}
-                                    rows={3}
-                                />
-                            </CardContent>
-                        </Card>
-
-                        {/* Submit/Result Section */}
-                        {!isSubmitted ? (
-                            <div className="flex justify-center">
-                                <Button
-                                    size="lg"
-                                    onClick={submitAnswer}
-                                    disabled={!userAnswer.trim()}
-                                    className="w-full md:w-auto"
-                                >
-                                    <Send className="mr-2 h-4 w-4" />
-                                    {t.practice.submitAnswer || "提交答案"}
-                                </Button>
-                            </div>
-                        ) : (
-                            <Card className={isCorrect ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}>
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        {isCorrect ? (
-                                            <>
-                                                <CheckCircle className="h-8 w-8 text-green-600" />
-                                                <div>
-                                                    <h3 className="text-xl font-bold text-green-600">
-                                                        {t.practice.correct || "回答正确！"}
-                                                    </h3>
-                                                    <p className="text-green-700">
-                                                        {t.practice.correctMessage || "太棒了，继续保持！"}
-                                                    </p>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <XCircle className="h-8 w-8 text-red-600" />
-                                                <div>
-                                                    <h3 className="text-xl font-bold text-red-600">
-                                                        {t.practice.incorrect || "答案有误"}
-                                                    </h3>
-                                                    <p className="text-red-700">
-                                                        {t.practice.incorrectMessage || "再看看解析，加油！"}
-                                                    </p>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                    {notes && (
-                                        <div className="mt-4 p-3 bg-white rounded-lg border">
-                                            <p className="text-sm font-medium text-gray-600 mb-1">
-                                                {t.practice.yourNotes || "你的笔记："}
-                                            </p>
-                                            <p className="text-gray-700 whitespace-pre-wrap">{notes}</p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {showAnswer && (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
-                                <Card className="bg-muted/50">
-                                    <CardHeader>
-                                        <CardTitle className="text-green-600">{t.practice.correctAnswer}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <MarkdownRenderer content={question.answerText} className="font-bold" />
-                                    </CardContent>
-                                </Card>
-
-
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>{t.practice.detailedAnalysis}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <MarkdownRenderer content={question.analysis} />
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )}
+                        <Button size="lg" onClick={generateQuestion} disabled={loading}>
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    {t.practice.generating}
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    {t.practice.generate}
+                                </>
+                            )}
+                        </Button>
                     </div>
                 )}
             </div>
+
+            {question && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <Card className="border-primary/50 shadow-lg">
+                        <CardHeader>
+                            <CardTitle className="flex justify-between items-center">
+                                <span>{t.app.practiceProblem}</span>
+                                <div className="flex items-center gap-2">
+                                    <select
+                                        value={difficulty}
+                                        onChange={(e) => setDifficulty(e.target.value as any)}
+                                        className="h-8 text-xs border rounded px-2 bg-background"
+                                        disabled={loading}
+                                    >
+                                        <option value="easy">{t.practice.difficulty?.easy || "Easy"}</option>
+                                        <option value="medium">{t.practice.difficulty?.medium || "Medium"}</option>
+                                        <option value="hard">{t.practice.difficulty?.hard || "Hard"}</option>
+                                        <option value="harder">{t.practice.difficulty?.harder || "Challenge"}</option>
+                                    </select>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={generateQuestion}
+                                        disabled={loading}
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                {t.practice.generating}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <RefreshCw className="mr-2 h-4 w-4" />
+                                                {t.practice.regenerate}
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <MarkdownRenderer content={question.questionText} className="font-medium" />
+                        </CardContent>
+                    </Card>
+
+
+                    {/* Answer Input Section */}
+                    <Card className="border-blue-200">
+                        <CardHeader>
+                            <CardTitle className="text-blue-600">
+                                {t.app.yourAnswer || "你的答案"}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <Input
+                                placeholder={t.app.answerPlaceholder || "输入你的答案..."}
+                                value={userAnswer}
+                                onChange={(e) => setUserAnswer(e.target.value)}
+                                disabled={isSubmitted}
+                                className="text-lg"
+                            />
+                            <Textarea
+                                placeholder={t.app.notesPlaceholder || "记录解题思路（可选）..."}
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                disabled={isSubmitted}
+                                rows={3}
+                            />
+                        </CardContent>
+                    </Card>
+
+                    {/* Submit/Result Section */}
+                    {!isSubmitted ? (
+                        <div className="flex justify-center">
+                            <Button
+                                size="lg"
+                                onClick={submitAnswer}
+                                disabled={!userAnswer.trim()}
+                                className="w-full md:w-auto"
+                            >
+                                <Send className="mr-2 h-4 w-4" />
+                                {t.app.submitAnswer || "提交答案"}
+                            </Button>
+                        </div>
+                    ) : (
+                        <Card className={isCorrect ? "border-green-500 bg-green-50" : "border-red-500 bg-red-50"}>
+                            <CardContent className="pt-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    {isCorrect ? (
+                                        <>
+                                            <CheckCircle className="h-8 w-8 text-green-600" />
+                                            <div>
+                                                <h3 className="text-xl font-bold text-green-600">
+                                                    {t.practice.correct || "回答正确！"}
+                                                </h3>
+                                                <p className="text-green-700">
+                                                    {t.practice.correctMessage || "太棒了，继续保持！"}
+                                                </p>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <XCircle className="h-8 w-8 text-red-600" />
+                                            <div>
+                                                <h3 className="text-xl font-bold text-red-600">
+                                                    {t.practice.incorrect || "答案有误"}
+                                                </h3>
+                                                <p className="text-red-700">
+                                                    {t.practice.incorrectMessage || "再看看解析，加油！"}
+                                                </p>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                                {notes && (
+                                    <div className="mt-4 p-3 bg-white rounded-lg border">
+                                        <p className="text-sm font-medium text-gray-600 mb-1">
+                                            {t.practice.yourNotes || "你的笔记："}
+                                        </p>
+                                        <p className="text-gray-700 whitespace-pre-wrap">{notes}</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {showAnswer && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
+                            <Card className="bg-muted/50">
+                                <CardHeader>
+                                    <CardTitle className="text-green-600">{t.practice.correctAnswer}</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <MarkdownRenderer content={question.answerText} className="font-bold" />
+                                </CardContent>
+                            </Card>
+
+
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>{t.practice.detailedAnalysis}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <MarkdownRenderer content={question.analysis} />
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+export default function PracticePage() {
+    return (
+        <main className="min-h-screen p-8 bg-background">
+            <Suspense fallback={
+                <div className="flex justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+            }>
+                <PracticeContent />
+            </Suspense>
         </main>
     );
 }

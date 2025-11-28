@@ -15,9 +15,14 @@ interface Notebook {
     };
 }
 
+import { useLanguage } from "@/contexts/LanguageContext";
+
+// ... imports
+
 export default function NotebookDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const { t } = useLanguage();
     const [notebook, setNotebook] = useState<Notebook | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -34,7 +39,7 @@ export default function NotebookDetailPage() {
                 const data = await res.json();
                 setNotebook(data);
             } else {
-                alert("错题本不存在");
+                alert(t.notebooks?.notFound || "Notebook not found");
                 router.push("/notebooks");
             }
         } catch (error) {
@@ -47,7 +52,7 @@ export default function NotebookDetailPage() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <p className="text-muted-foreground">加载中...</p>
+                <p className="text-muted-foreground">{t.common.loading}</p>
             </div>
         );
     }
@@ -67,13 +72,13 @@ export default function NotebookDetailPage() {
                         <div className="space-y-1">
                             <h1 className="text-3xl font-bold tracking-tight">{notebook.name}</h1>
                             <p className="text-muted-foreground">
-                                共 {notebook._count.errorItems} 道错题
+                                {(t.notebooks?.totalErrors || "Total {count} errors").replace("{count}", notebook._count.errorItems.toString())}
                             </p>
                         </div>
                         <Link href={`/?notebook=${notebook.id}`}>
                             <Button>
                                 <Plus className="mr-2 h-4 w-4" />
-                                添加错题
+                                {t.notebooks?.addError || "Add Error"}
                             </Button>
                         </Link>
                     </div>

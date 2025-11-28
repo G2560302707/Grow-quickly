@@ -115,28 +115,28 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel>{t.filter.masteryStatus || "掌握程度"}</DropdownMenuLabel>
+                        <DropdownMenuLabel>{t.filter.masteryStatus || "Mastery Status"}</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => setMasteryFilter("all")}>
-                            {masteryFilter === "all" && "✓ "}{t.filter.all || "全部"}
+                            {masteryFilter === "all" && "✓ "}{t.filter.all || "All"}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setMasteryFilter("unmastered")}>
-                            {masteryFilter === "unmastered" && "✓ "}{t.filter.review || "待复习"}
+                            {masteryFilter === "unmastered" && "✓ "}{t.filter.review || "To Review"}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setMasteryFilter("mastered")}>
-                            {masteryFilter === "mastered" && "✓ "}{t.filter.mastered || "已掌握"}
+                            {masteryFilter === "mastered" && "✓ "}{t.filter.mastered || "Mastered"}
                         </DropdownMenuItem>
 
                         <DropdownMenuSeparator />
 
-                        <DropdownMenuLabel>{t.filter.timeRange || "时间范围"}</DropdownMenuLabel>
+                        <DropdownMenuLabel>{t.filter.timeRange || "Time Range"}</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => setTimeFilter("all")}>
-                            {timeFilter === "all" && "✓ "}{t.filter.allTime || "全部时间"}
+                            {timeFilter === "all" && "✓ "}{t.filter.allTime || "All Time"}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setTimeFilter("week")}>
-                            {timeFilter === "week" && "✓ "}{t.filter.lastWeek || "最近一周"}
+                            {timeFilter === "week" && "✓ "}{t.filter.lastWeek || "Last Week"}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setTimeFilter("month")}>
-                            {timeFilter === "month" && "✓ "}{t.filter.lastMonth || "最近一个月"}
+                            {timeFilter === "month" && "✓ "}{t.filter.lastMonth || "Last Month"}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -145,7 +145,7 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
             {selectedTag && (
                 <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                     <span className="text-sm text-muted-foreground">
-                        {t.filter.filteringByTag || "筛选标签"}:
+                        {t.filter.filteringByTag || "Filtering by tag"}:
                     </span>
                     <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedTag(null)}>
                         {selectedTag}
@@ -212,13 +212,15 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                                             <Badge
                                                 variant="secondary"
                                                 className="text-xs cursor-pointer hover:bg-secondary/80 transition-colors"
-                                                title={expandedTags.has(item.id) ? "点击收起" : `点击展开 ${tags.length - 3} 个标签`}
+                                                title={expandedTags.has(item.id)
+                                                    ? (t.notebooks?.collapseTagsTooltip || "Click to collapse")
+                                                    : (t.notebooks?.expandTagsTooltip || "Click to expand {count} tags").replace("{count}", (tags.length - 3).toString())}
                                                 onClick={(e) => toggleTagsExpanded(item.id, e)}
                                             >
                                                 {expandedTags.has(item.id) ? (
-                                                    <>收起 ↑</>
+                                                    <>{t.notebooks?.collapseTags || "Collapse"}</>
                                                 ) : (
-                                                    <>+{tags.length - 3} 个 ↓</>
+                                                    <>{(t.notebooks?.expandTags || "+{count} more").replace("{count}", (tags.length - 3).toString())}</>
                                                 )}
                                             </Badge>
                                         )}

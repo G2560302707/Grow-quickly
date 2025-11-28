@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { useLanguage } from "@/contexts/LanguageContext";
+
 interface CreateNotebookDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -22,10 +24,11 @@ interface CreateNotebookDialogProps {
 export function CreateNotebookDialog({ open, onOpenChange, onCreate }: CreateNotebookDialogProps) {
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(false);
+    const { t } = useLanguage();
 
     const handleCreate = async () => {
         if (!name.trim()) {
-            alert("请输入错题本名称");
+            alert(t.notebooks?.dialog?.enterName || "Please enter notebook name");
             return;
         }
 
@@ -45,17 +48,17 @@ export function CreateNotebookDialog({ open, onOpenChange, onCreate }: CreateNot
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>创建新错题本</DialogTitle>
+                    <DialogTitle>{t.notebooks?.dialog?.title || "Create New Notebook"}</DialogTitle>
                     <DialogDescription>
-                        为不同科目或章节创建独立的错题本
+                        {t.notebooks?.dialog?.desc || "Create separate notebooks for different subjects or chapters"}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="name">错题本名称</Label>
+                        <Label htmlFor="name">{t.notebooks?.dialog?.nameLabel || "Notebook Name"}</Label>
                         <Input
                             id="name"
-                            placeholder="例如：数学、物理、化学..."
+                            placeholder={t.notebooks?.dialog?.placeholder || "e.g. Math, Physics, Chemistry..."}
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
@@ -64,10 +67,10 @@ export function CreateNotebookDialog({ open, onOpenChange, onCreate }: CreateNot
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        取消
+                        {t.common.cancel}
                     </Button>
                     <Button onClick={handleCreate} disabled={loading || !name.trim()}>
-                        {loading ? "创建中..." : "创建"}
+                        {loading ? (t.notebooks?.dialog?.creating || "Creating...") : (t.notebooks?.dialog?.create || "Create")}
                     </Button>
                 </DialogFooter>
             </DialogContent>
