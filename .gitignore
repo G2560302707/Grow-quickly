@@ -42,7 +42,7 @@ next-env.d.ts
 
 /src/generated/prisma
 dev.db-journal
+dev.db
 
 # App config (contains secrets)
 app-config.json
-prisma/dev.db
