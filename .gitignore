@@ -45,3 +45,4 @@ dev.db-journal
 
 # App config (contains secrets)
 app-config.json
+prisma/dev.db

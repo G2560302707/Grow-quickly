@@ -13,7 +13,7 @@ interface TagInputProps {
     className?: string;
 }
 
-export function TagInput({ value, onChange, placeholder = "输入标签...", className = "" }: TagInputProps) {
+export function TagInput({ value = [], onChange, placeholder = "输入标签...", className = "" }: TagInputProps) {
     const [input, setInput] = useState("");
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
