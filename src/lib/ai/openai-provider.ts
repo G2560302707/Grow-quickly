@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
+import { jsonrepair } from "jsonrepair";
 
 export class OpenAIProvider implements AIService {
     private openai: OpenAI;
@@ -22,23 +23,38 @@ export class OpenAIProvider implements AIService {
     }
 
     private extractJson(text: string): string {
-        let jsonString = text;
-        const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        let jsonString = text.trim();
+
+        // Try to match standard markdown code block
+        const codeBlockMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (codeBlockMatch) {
-            jsonString = codeBlockMatch[1].trim();
-        } else {
-            const firstOpen = text.indexOf('{');
-            const lastClose = text.lastIndexOf('}');
-            if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
-                jsonString = text.substring(firstOpen, lastClose + 1);
-            }
+            return codeBlockMatch[1].trim();
         }
+
+        // Try to match start of code block without end (truncated)
+        const startMatch = jsonString.match(/```(?:json)?\s*([\s\S]*)/);
+        if (startMatch) {
+            jsonString = startMatch[1].trim();
+        }
+
+        // Find first '{' and last '}'
+        const firstOpen = jsonString.indexOf('{');
+        const lastClose = jsonString.lastIndexOf('}');
+
+        if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
+            return jsonString.substring(firstOpen, lastClose + 1);
+        }
+
+        // If we found a start but no end, and it looks like JSON, return from start
+        if (firstOpen !== -1) {
+            return jsonString.substring(firstOpen);
+        }
+
         return jsonString;
     }
 
     private cleanJson(text: string): string {
-        // 1. Remove markdown code blocks if present (already done by extractJson, but good to be safe)
-        // 2. Fix multi-line strings: Replace literal newlines inside quotes with \n
+        // Fix multi-line strings: Replace literal newlines inside quotes with \n
         return text.replace(/"((?:[^"\\]|\\.)*)"/g, (match) => {
             return match.replace(/\n/g, "\\n").replace(/\r/g, "");
         });
@@ -51,17 +67,36 @@ export class OpenAIProvider implements AIService {
             return JSON.parse(jsonString) as ParsedQuestion;
         } catch (error) {
             try {
-                // Heuristic fixes
-                let fixedJson = this.cleanJson(jsonString);
+                // Try using jsonrepair
+                const repaired = jsonrepair(jsonString);
+                return JSON.parse(repaired) as ParsedQuestion;
+            } catch (repairError) {
+                try {
+                    // Fallback to manual cleaning if repair fails
+                    // Fix: Only escape backslashes that are NOT followed by valid JSON escape characters
+                    // Specifically handle \u: only consider it valid if followed by 4 hex digits
+                    let fixedJson = this.cleanJson(jsonString);
+                    fixedJson = fixedJson.replace(/\\(?!(["\\/bfnrt]|u[0-9a-fA-F]{4}))/g, '\\\\');
 
-                // Fix: Only escape backslashes that are NOT followed by valid JSON escape characters
-                fixedJson = fixedJson.replace(/\\(?![nrtbfu"\\/])/g, '\\\\');
+                    return JSON.parse(fixedJson) as ParsedQuestion;
+                } catch (finalError) {
+                    console.error("JSON parse failed:", finalError);
+                    console.error("Original text:", text);
+                    console.error("Extracted text:", jsonString);
 
-                return JSON.parse(fixedJson) as ParsedQuestion;
-            } catch (secondError) {
-                console.error("JSON parse failed:", secondError);
-                console.error("Original text:", text);
-                throw new Error("Invalid JSON response from AI");
+                    // Log to file for debugging
+                    try {
+                        const fs = require('fs');
+                        const path = require('path');
+                        const logPath = path.join(process.cwd(), 'debug_ai_response.log');
+                        const logContent = `\n\n--- ${new Date().toISOString()} ---\nError: ${finalError}\nOriginal: ${text}\nExtracted: ${jsonString}\n`;
+                        fs.appendFileSync(logPath, logContent);
+                    } catch (e) {
+                        console.error("Failed to write debug log:", e);
+                    }
+
+                    throw new Error("Invalid JSON response from AI");
+                }
             }
         }
     }
@@ -71,7 +106,7 @@ export class OpenAIProvider implements AIService {
             ? "IMPORTANT: For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', YOU MUST USE THE SAME LANGUAGE AS THE ORIGINAL QUESTION. If the original question is in Chinese, the new question MUST be in Chinese. If the original is in English, keep it in English."
             : "Please ensure all text fields are in English.";
 
-        const prompt = `
+        const systemPrompt = `
     You are an expert AI tutor for middle school students.
     Analyze the provided image of a homework or exam problem.
     
@@ -89,7 +124,7 @@ export class OpenAIProvider implements AIService {
     5. "knowledgePoints": An array of knowledge points. STRICTLY use EXACT terms from the standard list below:
        
        **数学标签 (Math Tags):**
-       - 方程: "一元一次方程", "一元二次方程", "二元一次方程组", "分式方程"
+       - 方程: "一元一次方程", "一元二次方程", "分式方程"
        - 几何: "勾股定理", "相似三角形", "全等三角形", "圆", "三视图", "平行四边形", "矩形", "菱形"
        - 函数: "二次函数", "一次函数", "反比例函数", "二次函数的图像", "二次函数的性质"
        - 数值: "绝对值", "有理数", "实数", "科学计数法"
@@ -104,22 +139,32 @@ export class OpenAIProvider implements AIService {
        **化学标签 (Chemistry Tags):**
        - "化学方程式", "氧化还原反应", "酸碱盐", "中和反应", "金属", "非金属", "溶解度"
        
+       **英语标签 (English Tags):**
+       - "语法", "词汇", "阅读理解", "完形填空", "写作", "听力", "翻译"
+
+       **其他学科 (Other Subjects):**
+       - If the subject is NOT Math, Physics, or Chemistry, you may use appropriate general tags (e.g., "历史事件", "地理常识", "古诗文").
+       
        **IMPORTANT RULES:**
-       - Use EXACT matches from the list above - do NOT create variations
+       - For Math/Physics/Chemistry, use EXACT matches from the list above.
+       - For English and other subjects, use the provided tags or relevant standard terms.
        - For "三视图" questions, use ONLY "三视图", NOT "左视图", "主视图", or "俯视图"
        - For force questions, use specific tags like "力", "牛顿第一定律", NOT generic "力学"
        - Maximum 5 tags per question
-       - Each tag must be from the standard list
-
-    IMPORTANT:  
+       
+    CRITICAL FORMATTING REQUIREMENTS:  
+    - Return ONLY the JSON object, nothing else
+    - Do NOT add any text before or after the JSON
+    - Do NOT wrap the JSON in markdown code blocks
+    - Do NOT add explanatory text like "The final answer is..."
     - Ensure all backslashes in LaTeX are properly escaped (use \\\\ instead of \\)
-    - Return ONLY valid JSON
-    - Do not wrap the JSON in markdown code blocks
     - Ensure all strings are properly escaped
     - NO literal newlines in strings. Use \\n for newlines.
     
-    If the image contains multiple questions, only analyze the first complete one.
-    If the image is unclear or does not contain a question, return empty strings but valid JSON.
+    IMPORTANT: 
+    - If the image contains a question with multiple sub-questions (like (1), (2), (3)), include ALL sub-questions in the questionText field.
+    - If the image contains completely separate questions (different question numbers), only analyze the first complete question with all its sub-questions.
+    - If the image is unclear or does not contain a question, return empty strings but valid JSON.
   `;
 
         try {
@@ -127,9 +172,12 @@ export class OpenAIProvider implements AIService {
                 model: this.model,
                 messages: [
                     {
+                        role: "system",
+                        content: systemPrompt
+                    },
+                    {
                         role: "user",
                         content: [
-                            { type: "text", text: prompt },
                             {
                                 type: "image_url",
                                 image_url: {
@@ -139,6 +187,7 @@ export class OpenAIProvider implements AIService {
                         ],
                     },
                 ],
+                response_format: { type: "json_object" },
                 max_tokens: 4096,
             });
 
@@ -164,7 +213,7 @@ export class OpenAIProvider implements AIService {
             'harder': "Make the new question MUCH HARDER (Challenge Level). Require deeper understanding and multi-step reasoning."
         }[difficulty];
 
-        const prompt = `
+        const systemPrompt = `
     You are an expert AI tutor.
     Create a NEW practice problem based on the following original question and knowledge points.
     
@@ -173,10 +222,11 @@ export class OpenAIProvider implements AIService {
     
     ${langInstruction}
 
-    IMPORTANT: The new question MUST be solvable purely by text and math formulas. DO NOT generate questions that require looking at an image or diagram (e.g., geometry problems relying on visual figures).
-    
-    Original Question: "${originalQuestion}"
-    Knowledge Points: ${knowledgePoints.join(", ")}
+    IMPORTANT: 
+    1. The "Original Question" provided below is in **Markdown format** and contains **LaTeX formulas**.
+    2. You must **parse the semantic meaning** of the text and formulas first. convert it to plain text in your mind to understand the core concept.
+    3. Do NOT let the raw Markdown/LaTeX syntax influence the structure of the new question.
+    4. The new question MUST be solvable purely by text and math formulas. DO NOT generate questions that require looking at an image or diagram (e.g., geometry problems relying on visual figures).
     
     Return the result in valid JSON format with the following fields:
     1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., using \\n for new lines).
@@ -184,17 +234,26 @@ export class OpenAIProvider implements AIService {
     3. "analysis": Step-by-step solution.
     4. "knowledgePoints": The knowledge points (should match input).
     
-    IMPORTANT:
-    - Output ONLY the JSON object.
+    CRITICAL FORMATTING REQUIREMENTS:
+    - Return ONLY the JSON object, nothing else
+    - Do NOT add any text before or after the JSON
+    - Do NOT wrap the JSON in markdown code blocks
     - NO literal newlines in strings. Use \\n for newlines.
   `;
+
+        const userPrompt = `
+    Original Question: "${originalQuestion}"
+    Knowledge Points: ${knowledgePoints.join(", ")}
+        `;
 
         try {
             const response = await this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "user", content: prompt },
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
                 ],
+                response_format: { type: "json_object" },
             });
 
             const text = response.choices[0]?.message?.content || "";

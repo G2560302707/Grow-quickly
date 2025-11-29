@@ -48,7 +48,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
                     ),
                     code: ({ node, inline, className, children, ...props }: any) => {
                         if (inline) {
-                            return <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
+                            return <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground" {...props}>{children}</code>;
                         }
                         return (
                             <code className="block bg-muted p-4 rounded-lg overflow-x-auto my-3 font-mono text-sm" {...props}>
