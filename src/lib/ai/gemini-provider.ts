@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
+import { jsonrepair } from 'jsonrepair';
 
 export class GeminiProvider implements AIService {
     private genAI: GoogleGenerativeAI;
@@ -91,20 +92,33 @@ export class GeminiProvider implements AIService {
 
     private parseResponse(text: string): ParsedQuestion {
         const jsonString = this.extractJson(text);
+
+        // Log for debugging
+        console.log("[DEBUG] Parsing AI response");
+        console.log("[DEBUG] Original text length:", text.length);
+        console.log("[DEBUG] Extracted JSON length:", jsonString.length);
+        console.log("[DEBUG] First 200 chars of extracted:", jsonString.substring(0, 200));
+
         try {
-            return JSON.parse(jsonString) as ParsedQuestion;
+            // First try direct parse
+            const parsed = JSON.parse(jsonString) as ParsedQuestion;
+            console.log("[DEBUG] Direct parse succeeded");
+            return parsed;
         } catch (error) {
+            console.log("[DEBUG] Direct parse failed, trying jsonrepair");
+
             try {
-                let fixedJson = this.cleanJson(jsonString);
+                // Use jsonrepair to fix the JSON
+                const repairedJson = jsonrepair(jsonString);
+                console.log("[DEBUG] JSON repaired, length:", repairedJson.length);
 
-                // Fix: Only escape backslashes that are NOT followed by valid JSON escape characters
-                fixedJson = fixedJson.replace(/\\(?![nrtbfu"\\\/])/g, '\\\\');
-
-                return JSON.parse(fixedJson) as ParsedQuestion;
-            } catch (secondError) {
-                console.error("JSON parse failed:", secondError);
-                console.error("Original text:", text);
-                console.error("Extracted JSON:", jsonString);
+                const parsed = JSON.parse(repairedJson) as ParsedQuestion;
+                console.log("[DEBUG] Parse succeeded after repair");
+                return parsed;
+            } catch (repairError) {
+                console.error("[ERROR] JSON repair also failed:", repairError);
+                console.error("[ERROR] Original text (first 500 chars):", text.substring(0, 500));
+                console.error("[ERROR] Extracted JSON (first 500 chars):", jsonString.substring(0, 500));
                 throw new Error("Invalid JSON response from AI");
             }
         }
@@ -164,8 +178,11 @@ export class GeminiProvider implements AIService {
     - Ensure all strings are properly escaped
     - NO literal newlines in strings. Use \\n for newlines.
     
-    If the image contains multiple questions, only analyze the first complete one.
-    If the image is unclear or does not contain a question, return empty strings but valid JSON.
+    
+    IMPORTANT: 
+    - If the image contains a question with multiple sub-questions (like (1), (2), (3)), include ALL sub-questions in the questionText field.
+    - If the image contains completely separate questions (different question numbers), only analyze the first complete question with all its sub-questions.
+    - If the image is unclear or does not contain a question, return empty strings but valid JSON.
   `;
 
         try {
