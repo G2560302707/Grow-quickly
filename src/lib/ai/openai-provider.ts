@@ -1,13 +1,13 @@
 import OpenAI from "openai";
-import { AIService, ParsedQuestion, DifficultyLevel } from "./types";
+import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
 
 export class OpenAIProvider implements AIService {
     private openai: OpenAI;
     private model: string;
 
-    constructor() {
-        const apiKey = process.env.OPENAI_API_KEY;
-        const baseURL = process.env.OPENAI_BASE_URL;
+    constructor(config?: AIConfig) {
+        const apiKey = config?.apiKey || process.env.OPENAI_API_KEY;
+        const baseURL = config?.baseUrl || process.env.OPENAI_BASE_URL;
 
         if (!apiKey) {
             console.warn("OPENAI_API_KEY is not set, OpenAI provider will fail if used.");
@@ -18,7 +18,7 @@ export class OpenAIProvider implements AIService {
             baseURL: baseURL || undefined,
         });
 
-        this.model = process.env.OPENAI_MODEL || "gpt-4o";
+        this.model = config?.model || process.env.OPENAI_MODEL || "gpt-4o";
     }
 
     private extractJson(text: string): string {
@@ -36,15 +36,27 @@ export class OpenAIProvider implements AIService {
         return jsonString;
     }
 
+    private cleanJson(text: string): string {
+        // 1. Remove markdown code blocks if present (already done by extractJson, but good to be safe)
+        // 2. Fix multi-line strings: Replace literal newlines inside quotes with \n
+        return text.replace(/"((?:[^"\\]|\\.)*)"/g, (match) => {
+            return match.replace(/\n/g, "\\n").replace(/\r/g, "");
+        });
+    }
+
     private parseResponse(text: string): ParsedQuestion {
         const jsonString = this.extractJson(text);
         try {
+            // First try parsing as is
             return JSON.parse(jsonString) as ParsedQuestion;
         } catch (error) {
             try {
-                const fixedJson = jsonString
-                    // Fix: Only escape backslashes that are NOT followed by valid JSON escape characters (n, r, t, b, f, u, ", \)
-                    .replace(/\\(?![nrtbfu"\\/])/g, '\\\\');
+                // Heuristic fixes
+                let fixedJson = this.cleanJson(jsonString);
+
+                // Fix: Only escape backslashes that are NOT followed by valid JSON escape characters
+                fixedJson = fixedJson.replace(/\\(?![nrtbfu"\\/])/g, '\\\\');
+
                 return JSON.parse(fixedJson) as ParsedQuestion;
             } catch (secondError) {
                 console.error("JSON parse failed:", secondError);
@@ -104,6 +116,7 @@ export class OpenAIProvider implements AIService {
     - Return ONLY valid JSON
     - Do not wrap the JSON in markdown code blocks
     - Ensure all strings are properly escaped
+    - NO literal newlines in strings. Use \\n for newlines.
     
     If the image contains multiple questions, only analyze the first complete one.
     If the image is unclear or does not contain a question, return empty strings but valid JSON.
@@ -159,17 +172,21 @@ export class OpenAIProvider implements AIService {
     ${difficultyInstruction}
     
     ${langInstruction}
+
+    IMPORTANT: The new question MUST be solvable purely by text and math formulas. DO NOT generate questions that require looking at an image or diagram (e.g., geometry problems relying on visual figures).
     
     Original Question: "${originalQuestion}"
     Knowledge Points: ${knowledgePoints.join(", ")}
     
     Return the result in valid JSON format with the following fields:
-    1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., on new lines).
+    1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., using \\n for new lines).
     2. "answerText": The correct answer.
     3. "analysis": Step-by-step solution.
     4. "knowledgePoints": The knowledge points (should match input).
     
-    Output ONLY the JSON object.
+    IMPORTANT:
+    - Output ONLY the JSON object.
+    - NO literal newlines in strings. Use \\n for newlines.
   `;
 
         try {
@@ -181,6 +198,7 @@ export class OpenAIProvider implements AIService {
             });
 
             const text = response.choices[0]?.message?.content || "";
+            console.log("OpenAI Raw Response:", text); // Debug logging
             if (!text) throw new Error("Empty response from AI");
             return this.parseResponse(text);
 

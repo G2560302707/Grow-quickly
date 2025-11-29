@@ -1,32 +1,92 @@
-import { GoogleGenAI } from "@google/genai";
-import { AIService, ParsedQuestion, DifficultyLevel } from "./types";
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
 
 export class GeminiProvider implements AIService {
-    private ai: GoogleGenAI;
+    private genAI: GoogleGenerativeAI;
+    private model: GenerativeModel;
 
-    constructor() {
-        if (!process.env.GOOGLE_API_KEY) {
+    constructor(config?: AIConfig) {
+        const apiKey = config?.apiKey || process.env.GOOGLE_API_KEY;
+
+        if (!apiKey) {
             console.warn("GOOGLE_API_KEY is not set, Gemini provider will fail if used.");
         }
-        this.ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
+
+        this.genAI = new GoogleGenerativeAI(apiKey || "dummy-key");
+        this.model = this.genAI.getGenerativeModel({
+            model: config?.model || process.env.GEMINI_MODEL || "gemini-1.5-flash"
+        }, {
+            baseUrl: config?.baseUrl || process.env.GEMINI_BASE_URL
+        });
     }
 
     private extractJson(text: string): string {
         let jsonString = text;
-        // 1. Try to extract from markdown code block first
+
+        // First try to extract from code blocks
         const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (codeBlockMatch) {
             jsonString = codeBlockMatch[1].trim();
         } else {
-            // 2. If no code block, try to find the first '{' and last '}'
+            // Find the first { and the MATCHING closing }
             const firstOpen = text.indexOf('{');
-            const lastClose = text.lastIndexOf('}');
+            if (firstOpen !== -1) {
+                let braceCount = 0;
+                let inString = false;
+                let escapeNext = false;
+                let closingIndex = -1;
 
-            if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
-                jsonString = text.substring(firstOpen, lastClose + 1);
+                for (let i = firstOpen; i < text.length; i++) {
+                    const char = text[i];
+
+                    if (escapeNext) {
+                        escapeNext = false;
+                        continue;
+                    }
+
+                    if (char === '\\') {
+                        escapeNext = true;
+                        continue;
+                    }
+
+                    if (char === '"' && !escapeNext) {
+                        inString = !inString;
+                        continue;
+                    }
+
+                    if (!inString) {
+                        if (char === '{') {
+                            braceCount++;
+                        } else if (char === '}') {
+                            braceCount--;
+                            if (braceCount === 0) {
+                                closingIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (closingIndex !== -1) {
+                    jsonString = text.substring(firstOpen, closingIndex + 1);
+                } else {
+                    // Fallback to old method if bracket matching fails
+                    const lastClose = text.lastIndexOf('}');
+                    if (lastClose !== -1 && lastClose > firstOpen) {
+                        jsonString = text.substring(firstOpen, lastClose + 1);
+                    }
+                }
             }
         }
         return jsonString;
+    }
+
+    private cleanJson(text: string): string {
+        // 1. Remove markdown code blocks if present (already done by extractJson, but good to be safe)
+        // 2. Fix multi-line strings: Replace literal newlines inside quotes with \n
+        return text.replace(/"((?:[^"\\]|\\.)*)"/g, (match) => {
+            return match.replace(/\n/g, "\\n").replace(/\r/g, "");
+        });
     }
 
     private parseResponse(text: string): ParsedQuestion {
@@ -34,16 +94,17 @@ export class GeminiProvider implements AIService {
         try {
             return JSON.parse(jsonString) as ParsedQuestion;
         } catch (error) {
-            // Try heuristic fix for LaTeX escaping
             try {
-                const fixedJson = jsonString
-                    // Fix: Only escape backslashes that are NOT followed by valid JSON escape characters (n, r, t, b, f, u, ", \)
-                    .replace(/\\(?![nrtbfu"\\/])/g, '\\\\')
-                // The previous logic was too aggressive: .replace(/\\([a-zA-Z]+)/g, '\\\\$1')
+                let fixedJson = this.cleanJson(jsonString);
+
+                // Fix: Only escape backslashes that are NOT followed by valid JSON escape characters
+                fixedJson = fixedJson.replace(/\\(?![nrtbfu"\\\/])/g, '\\\\');
+
                 return JSON.parse(fixedJson) as ParsedQuestion;
             } catch (secondError) {
                 console.error("JSON parse failed:", secondError);
                 console.error("Original text:", text);
+                console.error("Extracted JSON:", jsonString);
                 throw new Error("Invalid JSON response from AI");
             }
         }
@@ -94,42 +155,31 @@ export class GeminiProvider implements AIService {
        - Maximum 5 tags per question
        - Each tag must be from the standard list
 
-    IMPORTANT:  
+    CRITICAL FORMATTING REQUIREMENTS:  
+    - Return ONLY the JSON object, nothing else
+    - Do NOT add any text before or after the JSON
+    - Do NOT wrap the JSON in markdown code blocks
+    - Do NOT add explanatory text like "The final answer is..."
     - Ensure all backslashes in LaTeX are properly escaped (use \\\\ instead of \\)
-    - Return ONLY valid JSON
-    - Do not wrap the JSON in markdown code blocks
     - Ensure all strings are properly escaped
+    - NO literal newlines in strings. Use \\n for newlines.
     
     If the image contains multiple questions, only analyze the first complete one.
     If the image is unclear or does not contain a question, return empty strings but valid JSON.
   `;
 
-        const contents = [
-            {
-                inlineData: {
-                    mimeType: mimeType,
-                    data: imageBase64,
-                },
-            },
-            { text: prompt },
-        ];
-
         try {
-            const response = await this.ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: contents,
-            });
-
-            let text = "";
-            if (response.text) {
-                // @ts-ignore
-                text = typeof response.text === 'function' ? response.text() : response.text;
-            } else if (response.candidates && response.candidates.length > 0) {
-                const candidate = response.candidates[0];
-                if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-                    text = candidate.content.parts[0].text || "";
+            const result = await this.model.generateContent([
+                prompt,
+                {
+                    inlineData: {
+                        data: imageBase64,
+                        mimeType: mimeType
+                    }
                 }
-            }
+            ]);
+            const response = await result.response;
+            const text = response.text();
 
             if (!text) throw new Error("Empty response from AI");
             return this.parseResponse(text);
@@ -165,30 +215,22 @@ export class GeminiProvider implements AIService {
     Knowledge Points: ${knowledgePoints.join(", ")}
     
     Return the result in valid JSON format with the following fields:
-    1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., on new lines).
+    1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., using \\n for new lines).
     2. "answerText": The correct answer.
     3. "analysis": Step-by-step solution.
     4. "knowledgePoints": The knowledge points (should match input).
     
-    Output ONLY the JSON object.
+    CRITICAL FORMATTING REQUIREMENTS:
+    - Return ONLY the JSON object, nothing else
+    - Do NOT add any text before or after the JSON
+    - Do NOT wrap the JSON in markdown code blocks
+    - NO literal newlines in strings. Use \\n for newlines.
   `;
 
         try {
-            const response = await this.ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: [{ text: prompt }],
-            });
-
-            let text = "";
-            if (response.text) {
-                // @ts-ignore
-                text = typeof response.text === 'function' ? response.text() : response.text;
-            } else if (response.candidates && response.candidates.length > 0) {
-                const candidate = response.candidates[0];
-                if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
-                    text = candidate.content.parts[0].text || "";
-                }
-            }
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
 
             if (!text) throw new Error("Empty response from AI");
             return this.parseResponse(text);
@@ -203,13 +245,13 @@ export class GeminiProvider implements AIService {
         console.error("Gemini Error:", error);
         if (error instanceof Error) {
             const msg = error.message.toLowerCase();
-            if (msg.includes('fetch failed') || msg.includes('network')) {
+            if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
                 throw new Error("AI_CONNECTION_FAILED");
             }
             if (msg.includes('invalid json') || msg.includes('parse')) {
                 throw new Error("AI_RESPONSE_ERROR");
             }
-            if (msg.includes('api key') || msg.includes('unauthorized')) {
+            if (msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401')) {
                 throw new Error("AI_AUTH_ERROR");
             }
         }

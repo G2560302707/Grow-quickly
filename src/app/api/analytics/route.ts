@@ -2,63 +2,91 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { subMonths, startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfMonth, subMonths, format, startOfWeek, subDays } from "date-fns";
 
 export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user?.email) {
+    if (!session || !session.user) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    // @ts-ignore
+    const userId = session.user.id;
+
     try {
-        const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
-        });
-
-        if (!user) {
-            return NextResponse.json({ message: "User not found" }, { status: 404 });
-        }
-
         // 1. Total Errors
         const totalErrors = await prisma.errorItem.count({
-            where: { userId: user.id },
+            where: { userId }
         });
 
         // 2. Mastered Count
         const masteredCount = await prisma.errorItem.count({
-            where: { userId: user.id, masteryLevel: { gt: 0 } },
+            where: {
+                userId,
+                masteryLevel: { gt: 0 }
+            }
         });
 
-        // 3. Activity (Last 6 months)
-        const activityData = [];
-        for (let i = 5; i >= 0; i--) {
-            const date = subMonths(new Date(), i);
-            const start = startOfMonth(date);
-            const end = endOfMonth(date);
+        // 3. Mastery Rate
+        const masteryRate = totalErrors > 0 ? ((masteredCount / totalErrors) * 100).toFixed(1) : 0;
 
+        // 4. Subject Distribution - Get error items grouped by subject
+        const errorItemsWithSubject = await prisma.errorItem.findMany({
+            where: { userId },
+            include: {
+                subject: true
+            }
+        });
+
+        const subjectMap = new Map<string, number>();
+        errorItemsWithSubject.forEach(item => {
+            const subjectName = item.subject?.name || 'Unknown';
+            subjectMap.set(subjectName, (subjectMap.get(subjectName) || 0) + 1);
+        });
+
+        const subjectStats = Array.from(subjectMap.entries()).map(([name, value]) => ({
+            name,
+            value
+        }));
+
+        // 5. Activity Data (Last 7 days) - Track ErrorItem creation (not practice)
+        const activityData = [];
+        for (let i = 6; i >= 0; i--) {
+            const targetDate = subDays(new Date(), i);
+            const dateStr = format(targetDate, 'MM-dd');
+
+            const startOfDay = new Date(targetDate);
+            startOfDay.setHours(0, 0, 0, 0);
+
+            const endOfDay = new Date(targetDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            // Count error items created on this day
             const count = await prisma.errorItem.count({
                 where: {
-                    userId: user.id,
+                    userId,
                     createdAt: {
-                        gte: start,
-                        lte: end,
-                    },
-                },
+                        gte: startOfDay,
+                        lt: endOfDay
+                    }
+                }
             });
 
             activityData.push({
-                date: format(date, "yyyy/MM"),
-                count,
+                date: dateStr,
+                count
             });
         }
 
         return NextResponse.json({
             totalErrors,
             masteredCount,
-            masteryRate: totalErrors > 0 ? Math.round((masteredCount / totalErrors) * 100) : 0,
-            activityData,
+            masteryRate,
+            subjectStats,
+            activityData
         });
+
     } catch (error) {
         console.error("Error fetching analytics:", error);
         return NextResponse.json(

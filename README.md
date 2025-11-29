@@ -5,6 +5,7 @@
 ## ✨ 主要功能
 
 - **🤖 AI 智能分析**：自动识别题目内容，生成解析、知识点标签和同类练习题。
+- **⚙️ 灵活的 AI 配置**：支持 **Google Gemini** 和 **OpenAI** (及兼容接口) 两种 AI 提供商，可直接在网页设置中动态切换和配置。
 - **📚 多错题本管理**：支持按科目（如数学、物理、英语）创建和管理多个错题本。
 - **🏷️ 智能标签系统**：自动提取知识点标签，支持自定义标签管理。
 - **📝 智能练习**：基于错题生成相似的练习题，巩固薄弱环节。
@@ -16,7 +17,7 @@
 - **框架**: [Next.js 14](https://nextjs.org/) (App Router)
 - **数据库**: [SQLite](https://www.sqlite.org/) (via [Prisma](https://www.prisma.io/))
 - **样式**: [Tailwind CSS](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
-- **AI**: Google Gemini API
+- **AI**: Google Gemini API / OpenAI API
 - **认证**: [NextAuth.js](https://next-auth.js.org/)
 
 ## 🚀 快速开始
@@ -37,9 +38,13 @@ npm install
 
 ```env
 DATABASE_URL="file:./dev.db"
-GOOGLE_API_KEY="your_gemini_api_key"
 NEXTAUTH_SECRET="your_secret_key"
 NEXTAUTH_URL="http://localhost:3000"
+
+# 默认 AI 配置 (可选，会被 app-config.json 覆盖)
+AI_PROVIDER="gemini" # 或 "openai"
+GOOGLE_API_KEY="your_gemini_api_key"
+OPENAI_API_KEY="your_openai_api_key"
 ```
 
 ### 4. 初始化数据库
@@ -55,6 +60,20 @@ npm run dev
 ```
 
 访问 [http://localhost:3000](http://localhost:3000) 开始使用。
+
+## ⚙️ AI 模型配置
+
+本项目支持动态配置 AI 模型，无需重启服务器。
+
+1.  **进入设置**：点击首页右上角的设置图标。
+2.  **选择提供商**：支持 Google Gemini 和 OpenAI (或兼容 API，如智谱 GLM-4)。
+3.  **填写参数**：
+    *   **API Key**: 您的 API 密钥（支持显示/隐藏查看）。
+    *   **Base URL**: (可选) 自定义 API 地址，用于代理或兼容模型。
+    *   **Model Name**: 指定使用的模型名称 (如 `gemini-1.5-flash`, `gpt-4o`)。
+4.  **保存生效**：点击保存后即刻生效。
+
+> **注意**：网页配置会保存到项目根目录的 `app-config.json` 文件中，该文件的优先级高于 `.env` 环境变量。
 
 ## 🔑 密码重置指南
 

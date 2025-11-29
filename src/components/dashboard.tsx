@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from "recharts";
 
 import { Loader2, TrendingUp, CheckCircle, BookOpen } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -11,30 +11,32 @@ interface AnalyticsData {
     totalErrors: number;
     masteredCount: number;
     masteryRate: number;
+    subjectStats: { name: string; value: number }[];
     activityData: { date: string; count: number }[];
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-        return (
-            <div className="bg-background border rounded-lg shadow-lg p-3 text-sm">
-                <p className="font-medium mb-1">{label}</p>
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
-                    <span className="text-muted-foreground">Activity:</span>
-                    <span className="font-bold">{payload[0].value}</span>
-                </div>
-            </div>
-        );
-    }
-    return null;
-};
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export function Dashboard() {
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const { t, language } = useLanguage();
 
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-background border rounded-lg shadow-lg p-3 text-sm">
+                    <p className="font-medium mb-1">{label}</p>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <span className="text-muted-foreground">{t.dashboard.activity}:</span>
+                        <span className="font-bold">{payload[0].value}</span>
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
 
     useEffect(() => {
         fetchAnalytics();
@@ -66,7 +68,9 @@ export function Dashboard() {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-
+            <h2 className="text-2xl font-bold tracking-tight">
+                {t.dashboard.title}
+            </h2>
 
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
@@ -107,12 +111,42 @@ export function Dashboard() {
                 </Card>
             </div>
 
-            <Card className="col-span-4">
-                <CardHeader>
-                    <CardTitle>{t.dashboard.weeklyActivity}</CardTitle>
-                </CardHeader>
-                <CardContent className="pl-2">
-                    <div className="h-[200px] w-full">
+            <div className="grid gap-4 md:grid-cols-2">
+                {/* Subject Distribution */}
+                <Card className="col-span-2 md:col-span-1">
+                    <CardHeader>
+                        <CardTitle>{t.dashboard.SubjectDistribution}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={data.subjectStats}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    fill="#8884d8"
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                >
+                                    {data.subjectStats.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+
+                {/* Monthly Trend */}
+                <Card className="col-span-2 md:col-span-1">
+                    <CardHeader>
+                        <CardTitle>{t.dashboard.MonthlyTrend}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={data.activityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
@@ -146,9 +180,9 @@ export function Dashboard() {
                                 />
                             </BarChart>
                         </ResponsiveContainer>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
