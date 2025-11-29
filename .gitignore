@@ -41,6 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+dev.db-journal
 
 # App config (contains secrets)
 app-config.json
