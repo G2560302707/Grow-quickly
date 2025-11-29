@@ -8,10 +8,10 @@ import fs from "fs";
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 async function testOpenAI() {
-    console.log("Testing OpenAI (GLM-4-Flash) Connection...");
+    console.log("Testing OpenAI Connection...");
     console.log("API Key present:", !!process.env.OPENAI_API_KEY);
     console.log("Base URL:", process.env.OPENAI_BASE_URL);
-    console.log("Model:", process.env.OPENAI_MODEL || "glm-4-flash (defaulting if not set)");
+    console.log("Model:", process.env.OPENAI_MODEL);
 
     if (!process.env.OPENAI_API_KEY) {
         console.error("Error: OPENAI_API_KEY is missing in .env");
@@ -25,21 +25,21 @@ async function testOpenAI() {
     });
 
     // Test 1: Generate Similar Question
-    // try {
-    //     console.log("\n--- Test 1: generateSimilarQuestion ---");
-    //     console.log("Sending request...");
-    //     const result = await provider.generateSimilarQuestion(
-    //         "已知 $x + y = 5$，求 $2x + 2y$ 的值。",
-    //         ["代数", "因式分解"],
-    //         "zh",
-    //         "medium"
-    //     );
-    //     console.log("Success! Response:");
-    //     console.log(JSON.stringify(result, null, 2));
-    // } catch (error: any) {
-    //     console.error("Test 1 Failed:", error.message);
-    //     if (error.cause) console.error("Cause:", error.cause);
-    // }
+    try {
+        console.log("\n--- Test 1: generateSimilarQuestion ---");
+        console.log("Sending request...");
+        const result = await provider.generateSimilarQuestion(
+            "已知 $x + y = 5$，求 $2x + 2y$ 的值。",
+            ["代数", "因式分解"],
+            "zh",
+            "medium"
+        );
+        console.log("Success! Response:");
+        console.log(JSON.stringify(result, null, 2));
+    } catch (error: any) {
+        console.error("Test 1 Failed:", error.message);
+        if (error.cause) console.error("Cause:", error.cause);
+    }
 
     // Test 2: Analyze Image
     try {
