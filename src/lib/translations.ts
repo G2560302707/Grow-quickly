@@ -28,7 +28,7 @@ export const translations = {
             notesPlaceholder: "Record your thinking process (optional)...",
             submitAnswer: "Submit Answer",
         },
-        dashboard: {
+        wrongAnswerStats: {
             title: "Wrong Answer Statistics",
             totalErrors: "Total Wrong Answers",
             totalErrorsDesc: "Questions collected",
@@ -263,7 +263,7 @@ export const translations = {
             notesPlaceholder: "记录解题思路（可选）...",
             submitAnswer: "提交答案",
         },
-        dashboard: {
+        wrongAnswerStats: {
             title: "错题统计",
             totalErrors: "累计错题",
             totalErrorsDesc: "已收集题目",

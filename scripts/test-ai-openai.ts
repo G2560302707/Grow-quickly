@@ -1,4 +1,12 @@
 
+/**
+ * OpenAI 接口测试脚本
+ * 功能：
+ * 1. 实例化 OpenAIProvider。
+ * 2. 测试 generateSimilarQuestion (生成相似题) 功能。
+ * 3. 测试 analyzeImage (图片分析) 功能。
+ * 用途：用于验证 OpenAI (或兼容接口) 配置是否正确以及核心功能是否可用。
+ */
 import { OpenAIProvider } from "../src/lib/ai/openai-provider";
 import dotenv from "dotenv";
 import path from "path";

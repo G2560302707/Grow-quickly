@@ -7,7 +7,7 @@ import { UploadZone } from "@/components/upload-zone";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ImageCropper } from "@/components/image-cropper";
 import { ParsedQuestion } from "@/lib/ai";
-import { Dashboard } from "@/components/dashboard";
+import { WrongAnswerStats } from "@/components/wrong-answer-stats";
 import { UserWelcome } from "@/components/user-welcome";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -235,8 +235,8 @@ function HomeContent() {
                     />
                 )}
 
-                {/* Dashboard Section */}
-                <Dashboard />
+                {/* Wrong Answer Statistics Section */}
+                <WrongAnswerStats />
 
                 {/* Practice Statistics */}
                 <PracticeStats />

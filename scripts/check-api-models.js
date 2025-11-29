@@ -1,3 +1,12 @@
+/**
+ * NewAPI 模型检查与测速脚本
+ * 功能：
+ * 1. 从指定的 NewAPI/OpenAI 接口获取所有可用模型列表。
+ * 2. 筛选支持视觉 (Vision) 的模型。
+ * 3. 对支持视觉的模型进行实际图片识别测试，并测量响应时间。
+ * 4. 按响应速度排序输出结果。
+ * 用途：用于评估不同模型的可用性、视觉能力及响应速度，帮助选择最佳模型。
+ */
 const fs = require("fs");
 const path = require("path");
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
@@ -6,8 +15,8 @@ async function checkModelsAndVision() {
     console.log("Checking available models and vision support from NewAPI...");
 
     // Priority: NEWAPI_BASE_URL -> Hardcoded known NewAPI -> OPENAI_BASE_URL (if compatible)
-    let baseURL = process.env.NEWAPI_BASE_URL;
-    let apiKey = process.env.NEWAPI_API_KEY;
+    let baseURL = process.env.OPENAI_BASE_URL;
+    let apiKey = process.env.OPENAI_API_KEY;
 
     // Fallback to known working NewAPI credentials if not explicitly set in env
     if (!baseURL) {
@@ -16,7 +25,7 @@ async function checkModelsAndVision() {
 
     // If still no key, try OPENAI_API_KEY but be careful about URL
     if (!apiKey) {
-        apiKey = "sk-6T9XdUUKQZliNajzQcO8i57LfdqQd9V2DfVtAlqho8gB3AfE";
+        apiKey = process.env.OPENAI_API_KEY;
     }
 
     // Ensure baseURL does not end with /v1 if we are appending /api/models
@@ -29,7 +38,7 @@ async function checkModelsAndVision() {
     }
 
     // 1. Fetch Models
-    const modelsUrl = `${baseURL}/v1/models`;
+    const modelsUrl = `${rootURL}/v1/models`;
     console.log(`Fetching models from: ${modelsUrl}`);
 
     let availableModels = [];
@@ -109,7 +118,7 @@ async function checkModelsAndVision() {
     for (const model of modelsToTest) {
         process.stdout.write(`Testing ${model}... `);
 
-        const chatUrl = `${baseURL}/v1/chat/completions`;
+        const chatUrl = `${rootURL}/v1/chat/completions`;
         const payload = {
             model: model,
             messages: [

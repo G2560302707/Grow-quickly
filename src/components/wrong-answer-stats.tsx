@@ -17,7 +17,7 @@ interface AnalyticsData {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
-export function Dashboard() {
+export function WrongAnswerStats() {
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const { t, language } = useLanguage();
@@ -29,7 +29,7 @@ export function Dashboard() {
                     <p className="font-medium mb-1">{label}</p>
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-violet-500" />
-                        <span className="text-muted-foreground">{t.dashboard.activity}:</span>
+                        <span className="text-muted-foreground">{t.wrongAnswerStats.activity}:</span>
                         <span className="font-bold">{payload[0].value}</span>
                     </div>
                 </div>
@@ -69,43 +69,43 @@ export function Dashboard() {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <h2 className="text-2xl font-bold tracking-tight">
-                {t.dashboard.title}
+                {t.wrongAnswerStats.title}
             </h2>
 
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{t.dashboard.totalErrors}</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t.wrongAnswerStats.totalErrors}</CardTitle>
                         <BookOpen className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{data.totalErrors}</div>
                         <p className="text-xs text-muted-foreground">
-                            {t.dashboard.totalErrorsDesc}
+                            {t.wrongAnswerStats.totalErrorsDesc}
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{t.dashboard.mastered}</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t.wrongAnswerStats.mastered}</CardTitle>
                         <CheckCircle className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{data.masteredCount}</div>
                         <p className="text-xs text-muted-foreground">
-                            {t.dashboard.masteredDesc}
+                            {t.wrongAnswerStats.masteredDesc}
                         </p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">{t.dashboard.masteryRate}</CardTitle>
+                        <CardTitle className="text-sm font-medium">{t.wrongAnswerStats.masteryRate}</CardTitle>
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{data.masteryRate}%</div>
                         <p className="text-xs text-muted-foreground">
-                            {t.dashboard.masteryRateDesc}
+                            {t.wrongAnswerStats.masteryRateDesc}
                         </p>
                     </CardContent>
                 </Card>
@@ -115,7 +115,7 @@ export function Dashboard() {
                 {/* Subject Distribution */}
                 <Card className="col-span-2 md:col-span-1">
                     <CardHeader>
-                        <CardTitle>{t.dashboard.SubjectDistribution}</CardTitle>
+                        <CardTitle>{t.wrongAnswerStats.SubjectDistribution}</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
@@ -144,7 +144,7 @@ export function Dashboard() {
                 {/* Monthly Trend */}
                 <Card className="col-span-2 md:col-span-1">
                     <CardHeader>
-                        <CardTitle>{t.dashboard.MonthlyTrend}</CardTitle>
+                        <CardTitle>{t.wrongAnswerStats.MonthlyTrend}</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
