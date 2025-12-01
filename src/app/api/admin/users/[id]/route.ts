@@ -6,8 +6,9 @@ import { requireAdmin } from "@/lib/auth-utils"
 
 export async function PATCH(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     const session = await getServerSession(authOptions)
 
     if (!requireAdmin(session)) {
@@ -19,13 +20,13 @@ export async function PATCH(
         const { isActive } = body
 
         // Prevent disabling self
-        if (params.id === session?.user.id) {
+        if (id === session?.user.id) {
             return new NextResponse("Cannot disable your own account", { status: 400 })
         }
 
         // Prevent disabling super admin
         const targetUser = await prisma.user.findUnique({
-            where: { id: params.id }
+            where: { id }
         })
 
         if (targetUser?.email === 'admin@localhost') {
@@ -34,7 +35,7 @@ export async function PATCH(
 
         const user = await prisma.user.update({
             where: {
-                id: params.id
+                id
             },
             data: {
                 isActive
@@ -50,8 +51,9 @@ export async function PATCH(
 
 export async function DELETE(
     req: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     const session = await getServerSession(authOptions)
 
     if (!requireAdmin(session)) {
@@ -60,13 +62,13 @@ export async function DELETE(
 
     try {
         // Prevent deleting self
-        if (params.id === session?.user.id) {
+        if (id === session?.user.id) {
             return new NextResponse("Cannot delete your own account", { status: 400 })
         }
 
         // Prevent deleting other admins (optional, but good practice)
         const targetUser = await prisma.user.findUnique({
-            where: { id: params.id }
+            where: { id }
         })
 
         if (targetUser?.role === 'admin') {
@@ -82,7 +84,7 @@ export async function DELETE(
 
         const user = await prisma.user.delete({
             where: {
-                id: params.id
+                id
             }
         })
 
