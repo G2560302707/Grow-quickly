@@ -21,6 +21,9 @@ model User {
   educationStage String? // primary, junior_high, senior_high, university
   enrollmentYear Int?
 
+  role      String   @default("user") // "admin" or "user"
+  isActive  Boolean  @default(true)   // 用户是否启用
+
   errorItems ErrorItem[]
   subjects   Subject[]
   practiceRecords PracticeRecord[]

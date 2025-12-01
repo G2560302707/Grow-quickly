@@ -243,6 +243,25 @@ export const translations = {
             AI_UNKNOWN_ERROR: "Unknown AI error occurred.",
             GENERIC_ERROR: "Failed to generate question.",
         },
+        admin: {
+            title: "User Management",
+            users: "Users",
+            role: "Role",
+            status: "Status",
+            actions: "Actions",
+            active: "Active",
+            disabled: "Disabled",
+            disable: "Disable",
+            enable: "Enable",
+            delete: "Delete",
+            confirmDisable: "Are you sure you want to disable this user?",
+            confirmEnable: "Are you sure you want to enable this user?",
+            confirmDelete: "Are you sure you want to delete this user? This action cannot be undone.",
+            admin: "Admin",
+            user: "User",
+            createdAt: "Created At",
+            stats: "Stats",
+        }
     },
     zh: {
         common: {
@@ -486,5 +505,24 @@ export const translations = {
             AI_UNKNOWN_ERROR: "发生未知 AI 错误。",
             GENERIC_ERROR: "生成题目失败，请稍后重试。",
         },
+        admin: {
+            title: "用户管理",
+            users: "用户列表",
+            role: "角色",
+            status: "状态",
+            actions: "操作",
+            active: "正常",
+            disabled: "已禁用",
+            disable: "禁用",
+            enable: "启用",
+            delete: "删除",
+            confirmDisable: "确定要禁用该用户吗？",
+            confirmEnable: "确定要启用该用户吗？",
+            confirmDelete: "确定要删除该用户吗？此操作无法撤销。",
+            admin: "管理员",
+            user: "普通用户",
+            createdAt: "注册时间",
+            stats: "统计",
+        }
     }
 };

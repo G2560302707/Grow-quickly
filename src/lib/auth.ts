@@ -34,6 +34,11 @@ export const authOptions: NextAuthOptions = {
                     return null
                 }
 
+                // Check if user is active
+                if (!user.isActive) {
+                    throw new Error("Account is disabled")
+                }
+
                 const isPasswordValid = await compare(credentials.password, user.password)
 
                 if (!isPasswordValid) {
@@ -44,6 +49,7 @@ export const authOptions: NextAuthOptions = {
                     id: user.id,
                     email: user.email,
                     name: user.name,
+                    role: user.role,
                 }
             }
         })
@@ -55,6 +61,7 @@ export const authOptions: NextAuthOptions = {
                 user: {
                     ...session.user,
                     id: token.id,
+                    role: token.role,
                 }
             }
         },
@@ -63,6 +70,7 @@ export const authOptions: NextAuthOptions = {
                 return {
                     ...token,
                     id: user.id,
+                    role: (user as any).role,
                 }
             }
             return token
