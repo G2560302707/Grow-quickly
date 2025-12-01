@@ -6,6 +6,7 @@ const CUSTOM_TAGS_KEY = 'wrongnotebook_custom_tags';
 
 export interface CustomTagsData {
     math: string[];
+    english: string[];
     physics: string[];
     chemistry: string[];
     other: string[];
@@ -16,18 +17,18 @@ export interface CustomTagsData {
  */
 export function getCustomTags(): CustomTagsData {
     if (typeof window === 'undefined') {
-        return { math: [], physics: [], chemistry: [], other: [] };
+        return { math: [], english: [], physics: [], chemistry: [], other: [] };
     }
 
     try {
         const stored = localStorage.getItem(CUSTOM_TAGS_KEY);
         if (!stored) {
-            return { math: [], physics: [], chemistry: [], other: [] };
+            return { math: [], english: [], physics: [], chemistry: [], other: [] };
         }
         return JSON.parse(stored);
     } catch (error) {
         console.error('Failed to load custom tags:', error);
-        return { math: [], physics: [], chemistry: [], other: [] };
+        return { math: [], english: [], physics: [], chemistry: [], other: [] };
     }
 }
 
@@ -84,6 +85,7 @@ export function getAllCustomTagsFlat(): string[] {
     const tags = getCustomTags();
     return [
         ...tags.math,
+        ...tags.english,
         ...tags.physics,
         ...tags.chemistry,
         ...tags.other,
@@ -114,7 +116,7 @@ export function importCustomTags(jsonString: string): boolean {
         const tags = JSON.parse(jsonString);
 
         // 验证格式
-        if (!tags.math || !tags.physics || !tags.chemistry || !tags.other) {
+        if (!tags.math || !tags.english || !tags.physics || !tags.chemistry || !tags.other) {
             throw new Error('Invalid format');
         }
 
@@ -141,9 +143,10 @@ export function getCustomTagsStats(): Record<string, number> {
     const tags = getCustomTags();
     return {
         math: tags.math.length,
+        english: tags.english.length,
         physics: tags.physics.length,
         chemistry: tags.chemistry.length,
         other: tags.other.length,
-        total: tags.math.length + tags.physics.length + tags.chemistry.length + tags.other.length,
+        total: tags.math.length + tags.english.length + tags.physics.length + tags.chemistry.length + tags.other.length,
     };
 }

@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STANDARD_TAGS } from "@/lib/knowledge-tags";
 import { getCustomTags, addCustomTag, removeCustomTag, type CustomTagsData } from "@/lib/custom-tags";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, TrendingUp, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,9 +24,10 @@ export default function TagsPage() {
     const [loading, setLoading] = useState(true);
 
     // 自定义标签状态
-    const [customTags, setCustomTags] = useState<CustomTagsData>({ math: [], physics: [], chemistry: [], other: [] });
+    const [customTags, setCustomTags] = useState<CustomTagsData>({ math: [], physics: [], chemistry: [], english: [], other: [] });
     const [newTagSubject, setNewTagSubject] = useState<keyof CustomTagsData>("math");
     const [newTagName, setNewTagName] = useState("");
+    const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         fetchStats();
@@ -78,42 +79,65 @@ export default function TagsPage() {
     // 渲染标准标签库
     const renderStandardTags = () => {
         const subjects = Object.entries(STANDARD_TAGS);
+
+        const toggleSubject = (subjectKey: string) => {
+            setExpandedSubjects(prev => ({
+                ...prev,
+                [subjectKey]: !prev[subjectKey]
+            }));
+        };
+
         return subjects.map(([subjectKey, subjectData]) => {
             // @ts-ignore
             const subjectName = t.tags?.subjects?.[subjectKey] || subjectKey;
             const categories = Object.entries(subjectData);
+            const isExpanded = expandedSubjects[subjectKey];
+
             return (
                 <Card key={subjectKey} className="mb-4">
-                    <CardHeader><CardTitle>{subjectName}</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        {categories.map(([categoryKey, categoryData]) => {
-                            const tags: string[] = [];
-                            const extractTags = (data: any) => {
-                                if (Array.isArray(data)) tags.push(...data);
-                                else if (typeof data === 'object') Object.values(data).forEach(extractTags);
-                            };
-                            extractTags(categoryData);
-                            if (tags.length === 0) return null;
-                            // @ts-ignore
-                            const categoryName = t.tags?.categories?.[categoryKey] || categoryKey;
-                            return (
-                                <div key={categoryKey}>
-                                    <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{categoryName} ({tags.length})</h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {tags.map((tag) => {
-                                            const stat = stats.find((s) => s.tag === tag);
-                                            return (
-                                                <Badge key={tag} variant="outline" className="cursor-default hover:bg-accent">
-                                                    {tag}
-                                                    {stat && <span className="ml-1 text-xs text-muted-foreground">({stat.count})</span>}
-                                                </Badge>
-                                            );
-                                        })}
+                    <CardHeader
+                        className="cursor-pointer hover:bg-muted/50 transition-colors flex flex-row items-center justify-between py-4"
+                        onClick={() => toggleSubject(subjectKey)}
+                    >
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                            {subjectName}
+                        </CardTitle>
+                        <span className="text-sm text-muted-foreground">
+                            {isExpanded ? (language === 'zh' ? '收起' : 'Collapse') : (language === 'zh' ? '展开' : 'Expand')}
+                        </span>
+                    </CardHeader>
+                    {isExpanded && (
+                        <CardContent className="space-y-4 pt-0">
+                            {categories.map(([categoryKey, categoryData]) => {
+                                const tags: string[] = [];
+                                const extractTags = (data: any) => {
+                                    if (Array.isArray(data)) tags.push(...data);
+                                    else if (typeof data === 'object') Object.values(data).forEach(extractTags);
+                                };
+                                extractTags(categoryData);
+                                if (tags.length === 0) return null;
+                                // @ts-ignore
+                                const categoryName = t.tags?.categories?.[categoryKey] || categoryKey;
+                                return (
+                                    <div key={categoryKey}>
+                                        <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{categoryName} ({tags.length})</h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {tags.map((tag) => {
+                                                const stat = stats.find((s) => s.tag === tag);
+                                                return (
+                                                    <Badge key={tag} variant="outline" className="cursor-default hover:bg-accent">
+                                                        {tag}
+                                                        {stat && <span className="ml-1 text-xs text-muted-foreground">({stat.count})</span>}
+                                                    </Badge>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </CardContent>
+                                );
+                            })}
+                        </CardContent>
+                    )}
                 </Card>
             );
         });
@@ -123,12 +147,13 @@ export default function TagsPage() {
     const renderCustomTags = () => {
         const subjects = [
             { key: 'math' as const, name: t.tags?.subjects?.math || 'Math' },
+            { key: 'english' as const, name: t.tags?.subjects?.english || 'English' },
             { key: 'physics' as const, name: t.tags?.subjects?.physics || 'Physics' },
             { key: 'chemistry' as const, name: t.tags?.subjects?.chemistry || 'Chemistry' },
             { key: 'other' as const, name: t.tags?.subjects?.other || 'Other' },
         ];
 
-        const totalCount = customTags.math.length + customTags.physics.length + customTags.chemistry.length + customTags.other.length;
+        const totalCount = customTags.math.length + customTags.physics.length + customTags.chemistry.length + customTags.english.length + customTags.other.length;
 
         return (
             <div className="space-y-6">
@@ -140,6 +165,7 @@ export default function TagsPage() {
                                 <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="math">{t.tags?.subjects?.math || "Math"}</SelectItem>
+                                    <SelectItem value="english">{t.tags?.subjects?.english || "English"}</SelectItem>
                                     <SelectItem value="physics">{t.tags?.subjects?.physics || "Physics"}</SelectItem>
                                     <SelectItem value="chemistry">{t.tags?.subjects?.chemistry || "Chemistry"}</SelectItem>
                                     <SelectItem value="other">{t.tags?.subjects?.other || "Other"}</SelectItem>

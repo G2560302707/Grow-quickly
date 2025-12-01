@@ -165,6 +165,7 @@ export const translations = {
             },
             subjects: {
                 math: "Math",
+                english: "English",
                 physics: "Physics",
                 chemistry: "Chemistry",
                 other: "Other",
@@ -184,6 +185,10 @@ export const translations = {
                 compounds: "Compounds",
                 reactions: "Reactions",
                 calculation: "Calculation",
+                grammar: "Grammar",
+                sentence: "Sentence",
+                reading: "Reading",
+                writing: "Writing",
             },
             custom: {
                 addTitle: "Add Custom Tag",
@@ -430,6 +435,7 @@ export const translations = {
             },
             subjects: {
                 math: "数学",
+                english: "英语",
                 physics: "物理",
                 chemistry: "化学",
                 other: "其他",
@@ -449,6 +455,10 @@ export const translations = {
                 compounds: "化合物",
                 reactions: "反应",
                 calculation: "计算",
+                grammar: "语法",
+                sentence: "句法",
+                reading: "阅读",
+                writing: "写作",
             },
             custom: {
                 addTitle: "添加自定义标签",
