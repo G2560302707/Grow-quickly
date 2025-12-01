@@ -14,14 +14,11 @@ services:
       # We override DATABASE_URL to ensure it points to the container's internal path
       - DATABASE_URL=file:/app/prisma/dev.db
       - NEXTAUTH_URL=http://localhost:3000
-      # AI Configuration
-      - AI_PROVIDER=gemini # or openai
-      # - OPENAI_API_KEY=sk-...
-      # - OPENAI_BASE_URL=...
-      # - OPENAI_MODEL=gpt-4o
-      # Other secrets like GOOGLE_API_KEY will be loaded from .env
+      - NEXTAUTH_SECRET=password
     env_file:
       - .env
     volumes:
       # Persist the SQLite database
-      - ./prisma/dev.db:/app/prisma/dev.db
+      - ./prisma:/app/prisma
+      - ./config:/app/config
+

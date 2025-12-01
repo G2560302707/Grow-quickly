@@ -43,7 +43,8 @@ ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
+# Install OpenSSL for Prisma and su-exec for user switching
+RUN apk add --no-cache openssl su-exec
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -58,7 +59,23 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy Prisma schema and migrations for runtime usage if needed (e.g. for migrations)
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
-USER nextjs
+# Copy config directory for runtime
+COPY --from=builder --chown=nextjs:nodejs /app/config ./config
+
+COPY scripts/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+# Environment variables from .env.example
+ENV DATABASE_URL="file:./prisma/dev.db"
+ENV NEXTAUTH_SECRET="supersecret-dev-secret"
+ENV NEXTAUTH_URL="http://localhost:3000"
+ENV AI_PROVIDER="gemini"
+ENV OPENAI_API_KEY=""
+ENV OPENAI_BASE_URL=""
+ENV OPENAI_MODEL="gpt-4o"
+ENV GOOGLE_API_KEY=""
 
 EXPOSE 3000
 

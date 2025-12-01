@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const CONFIG_FILE_PATH = path.join(process.cwd(), 'app-config.json');
+const CONFIG_FILE_PATH = path.join(process.cwd(), 'config', 'app-config.json');
 
 export interface AppConfig {
     aiProvider: 'gemini' | 'openai';
