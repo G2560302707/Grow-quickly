@@ -55,7 +55,7 @@ export async function GET() {
 
         // If no notebooks exist, create default ones
         if (notebooks.length === 0) {
-            const defaultSubjects = ["数学", "语文", "英语", "化学", "物理"];
+            const defaultSubjects = ["数学", "英语"];
 
             await Promise.all(defaultSubjects.map(name =>
                 prisma.subject.create({

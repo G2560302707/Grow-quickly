@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ParsedQuestion } from "@/lib/ai";
+import { calculateGrade } from "@/lib/grade-calculator";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -11,9 +13,12 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ParsedQuestionWithSubject extends ParsedQuestion {
     subjectId?: string;
+    gradeSemester?: string;
+    paperLevel?: string;
 }
 
 interface CorrectionEditorProps {
@@ -27,9 +32,25 @@ interface CorrectionEditorProps {
 export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, initialSubjectId }: CorrectionEditorProps) {
     const [data, setData] = useState<ParsedQuestionWithSubject>({
         ...initialData,
-        subjectId: initialSubjectId
+        ...initialData,
+        subjectId: initialSubjectId,
+        gradeSemester: "",
+        paperLevel: "a"
     });
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
+
+    // Fetch user info and calculate grade on mount
+    useState(() => {
+        fetch("/api/user")
+            .then(res => res.ok ? res.json() : null)
+            .then(user => {
+                if (user && user.educationStage && user.enrollmentYear) {
+                    const grade = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), language);
+                    setData(prev => ({ ...prev, gradeSemester: grade }));
+                }
+            })
+            .catch(err => console.error("Failed to fetch user info for grade calculation:", err));
+    });
 
     return (
         <div className="space-y-6">
@@ -63,6 +84,33 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             value={data.subjectId}
                             onChange={(id) => setData({ ...data, subjectId: id })}
                         />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>{language === 'zh' ? "年级/学期" : "Grade/Semester"}</Label>
+                            <Input
+                                value={data.gradeSemester || ""}
+                                onChange={(e) => setData({ ...data, gradeSemester: e.target.value })}
+                                placeholder="e.g. Junior High Grade 1, 1st Semester"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>{t.editor.paperLevel || "Paper Level"}</Label>
+                            <Select
+                                value={data.paperLevel || "a"}
+                                onValueChange={(val) => setData({ ...data, paperLevel: val })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="a">{t.editor.paperLevels?.a || "Paper A"}</SelectItem>
+                                    <SelectItem value="b">{t.editor.paperLevels?.b || "Paper B"}</SelectItem>
+                                    <SelectItem value="other">{t.editor.paperLevels?.other || "Other"}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
 
                     <div className="space-y-2">

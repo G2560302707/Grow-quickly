@@ -79,7 +79,7 @@ export async function PUT(
         }
 
         const body = await req.json();
-        const { knowledgePoints } = body;
+        const { knowledgePoints, gradeSemester, paperLevel } = body;
 
         const errorItem = await prisma.errorItem.findUnique({
             where: { id },
@@ -93,12 +93,22 @@ export async function PUT(
             return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
         }
 
+        // 构建更新数据对象,只包含提供的字段
+        const updateData: any = {};
+        if (knowledgePoints !== undefined) updateData.knowledgePoints = knowledgePoints;
+        if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
+        if (paperLevel !== undefined) updateData.paperLevel = paperLevel;
+
+        console.log("[API] Updating error item:", id);
+        console.log("[API] Update data:", updateData);
+        console.log("[API] Current knowledgePoints:", errorItem.knowledgePoints);
+
         const updated = await prisma.errorItem.update({
             where: { id },
-            data: {
-                knowledgePoints,
-            },
+            data: updateData,
         });
+
+        console.log("[API] Updated knowledgePoints:", updated.knowledgePoints);
 
         return NextResponse.json(updated);
     } catch (error) {

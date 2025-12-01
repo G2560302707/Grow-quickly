@@ -11,6 +11,8 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TagInput } from "@/components/tag-input";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ErrorItemDetail {
     id: string;
@@ -22,6 +24,8 @@ interface ErrorItemDetail {
     originalImageUrl: string;
     userNotes: string | null;
     subjectId?: string | null;
+    gradeSemester?: string | null;
+    paperLevel?: string | null;
 }
 
 export default function ErrorDetailPage() {
@@ -35,6 +39,9 @@ export default function ErrorDetailPage() {
     const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
     const [isEditingTags, setIsEditingTags] = useState(false);
     const [tagsInput, setTagsInput] = useState<string[]>([]);
+    const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+    const [gradeSemesterInput, setGradeSemesterInput] = useState("");
+    const [paperLevelInput, setPaperLevelInput] = useState("a");
 
     useEffect(() => {
         if (params.id) {
@@ -133,19 +140,67 @@ export default function ErrorDetailPage() {
     };
 
     const saveTagsHandler = async () => {
+        console.log("=== SAVE TAGS HANDLER CALLED ===");
+        console.log("Current tagsInput:", tagsInput);
+
+        try {
+            const payload = {
+                knowledgePoints: JSON.stringify(tagsInput),
+            };
+            console.log("[Frontend] Saving tags:", tagsInput);
+            console.log("[Frontend] Payload:", payload);
+
+            const res = await fetch(`/api/error-items/${item?.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (res.ok) {
+                const updated = await res.json();
+                console.log("[Frontend] Update response:", updated);
+                setIsEditingTags(false);
+                await fetchItem(params.id as string);
+                alert(language === 'zh' ? '标签更新成功！' : 'Tags updated successfully!');
+            } else {
+                const errorData = await res.json();
+                console.error("[Frontend] Update failed:", errorData);
+                alert(language === 'zh' ? '更新失败' : 'Update failed');
+            }
+        } catch (error) {
+            console.error("[Frontend] Error updating:", error);
+            alert(language === 'zh' ? '更新时出错' : 'Error updating');
+        }
+    };
+
+    const cancelEditingTags = () => {
+        setIsEditingTags(false);
+        setTagsInput([]);
+    };
+
+    const startEditingMetadata = () => {
+        if (item) {
+            setGradeSemesterInput(item.gradeSemester || "");
+            setPaperLevelInput(item.paperLevel || "a");
+            setIsEditingMetadata(true);
+        }
+    };
+
+    const saveMetadataHandler = async () => {
         try {
             const res = await fetch(`/api/error-items/${item?.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    knowledgePoints: JSON.stringify(tagsInput),
+                    gradeSemester: gradeSemesterInput,
+                    paperLevel: paperLevelInput,
                 }),
             });
 
             if (res.ok) {
-                setIsEditingTags(false);
+                setIsEditingMetadata(false);
                 fetchItem(params.id as string);
-                alert(language === 'zh' ? '标签更新成功！' : 'Tags updated successfully!');
+                alert(language === 'zh' ? '信息更新成功！' : 'Metadata updated successfully!');
             } else {
                 alert(language === 'zh' ? '更新失败' : 'Update failed');
             }
@@ -155,9 +210,10 @@ export default function ErrorDetailPage() {
         }
     };
 
-    const cancelEditingTags = () => {
-        setIsEditingTags(false);
-        setTagsInput([]);
+    const cancelEditingMetadata = () => {
+        setIsEditingMetadata(false);
+        setGradeSemesterInput("");
+        setPaperLevelInput("a");
     };
 
     const saveNotes = async () => {
@@ -188,7 +244,10 @@ export default function ErrorDetailPage() {
 
     let tags: string[] = [];
     try {
-        tags = JSON.parse(item.knowledgePoints);
+        if (item.knowledgePoints) {
+            const parsed = JSON.parse(item.knowledgePoints);
+            tags = Array.isArray(parsed) ? parsed : [];
+        }
     } catch (e) {
         tags = [];
     }
@@ -319,6 +378,83 @@ export default function ErrorDetailPage() {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* 年级/学期 和 试卷等级 */}
+                                <div className="space-y-2 pt-4 border-t">
+                                    <div className="flex justify-between items-center">
+                                        <h4 className="text-sm font-semibold">
+                                            {language === 'zh' ? '试题信息' : 'Question Info'}
+                                        </h4>
+                                        {!isEditingMetadata && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={startEditingMetadata}
+                                            >
+                                                <Edit className="h-4 w-4 mr-1" />
+                                                {language === 'zh' ? '编辑' : 'Edit'}
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {isEditingMetadata ? (
+                                        <div className="space-y-3">
+                                            <div className="space-y-2">
+                                                <label className="text-sm text-muted-foreground">
+                                                    {t.filter.grade}
+                                                </label>
+                                                <Input
+                                                    value={gradeSemesterInput}
+                                                    onChange={(e) => setGradeSemesterInput(e.target.value)}
+                                                    placeholder={language === 'zh' ? '例如：初一，上期' : 'e.g. Grade 7, Semester 1'}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm text-muted-foreground">
+                                                    {t.filter.paperLevel}
+                                                </label>
+                                                <Select
+                                                    value={paperLevelInput}
+                                                    onValueChange={setPaperLevelInput}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="a">{t.editor.paperLevels?.a || 'Paper A'}</SelectItem>
+                                                        <SelectItem value="b">{t.editor.paperLevels?.b || 'Paper B'}</SelectItem>
+                                                        <SelectItem value="other">{t.editor.paperLevels?.other || 'Other'}</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button size="sm" onClick={saveMetadataHandler}>
+                                                    <Save className="h-4 w-4 mr-1" />
+                                                    {language === 'zh' ? '保存' : 'Save'}
+                                                </Button>
+                                                <Button size="sm" variant="outline" onClick={cancelEditingMetadata}>
+                                                    <X className="h-4 w-4 mr-1" />
+                                                    {language === 'zh' ? '取消' : 'Cancel'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">{t.filter.grade}:</span>
+                                                <span className="font-medium">
+                                                    {item.gradeSemester || (language === 'zh' ? '未设置' : 'Not set')}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">{t.filter.paperLevel}:</span>
+                                                <span className="font-medium">
+                                                    {item.paperLevel ? (t.editor.paperLevels?.[item.paperLevel as 'a' | 'b' | 'other'] || item.paperLevel) : (language === 'zh' ? '未设置' : 'Not set')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -408,30 +544,32 @@ export default function ErrorDetailPage() {
             </div>
 
             {/* Image Viewer Modal */}
-            {isImageViewerOpen && item?.originalImageUrl && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-                    onClick={() => setIsImageViewerOpen(false)}
-                >
-                    <div className="relative max-w-7xl max-h-full">
-                        <button
-                            className="absolute -top-12 right-0 text-white hover:text-gray-300 text-lg font-semibold bg-black/50 px-4 py-2 rounded"
-                            onClick={() => setIsImageViewerOpen(false)}
-                        >
-                            {language === 'zh' ? '✕ 关闭' : '✕ Close'}
-                        </button>
-                        <img
-                            src={item.originalImageUrl}
-                            alt="Full size"
-                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                        <p className="text-center text-white/70 text-sm mt-4">
-                            {language === 'zh' ? '点击图片外部区域关闭' : 'Click outside to close'}
-                        </p>
+            {
+                isImageViewerOpen && item?.originalImageUrl && (
+                    <div
+                        className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+                        onClick={() => setIsImageViewerOpen(false)}
+                    >
+                        <div className="relative max-w-7xl max-h-full">
+                            <button
+                                className="absolute -top-12 right-0 text-white hover:text-gray-300 text-lg font-semibold bg-black/50 px-4 py-2 rounded"
+                                onClick={() => setIsImageViewerOpen(false)}
+                            >
+                                {language === 'zh' ? '✕ 关闭' : '✕ Close'}
+                            </button>
+                            <img
+                                src={item.originalImageUrl}
+                                alt="Full size"
+                                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                            <p className="text-center text-white/70 text-sm mt-4">
+                                {language === 'zh' ? '点击图片外部区域关闭' : 'Click outside to close'}
+                            </p>
+                        </div>
                     </div>
-                </div>
-            )}
-        </main>
+                )
+            }
+        </main >
     );
 }

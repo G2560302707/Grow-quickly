@@ -74,6 +74,20 @@ export async function GET(req: Request) {
             };
         }
 
+        // Grade/Semester filter
+        const gradeSemester = searchParams.get("gradeSemester");
+        if (gradeSemester) {
+            whereClause.gradeSemester = {
+                contains: gradeSemester,
+            };
+        }
+
+        // Paper Level filter
+        const paperLevel = searchParams.get("paperLevel");
+        if (paperLevel && paperLevel !== "all") {
+            whereClause.paperLevel = paperLevel;
+        }
+
         const errorItems = await prisma.errorItem.findMany({
             where: whereClause,
             orderBy: { createdAt: "desc" },

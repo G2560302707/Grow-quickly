@@ -19,7 +19,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 
@@ -37,6 +38,14 @@ interface AppConfig {
     };
 }
 
+interface UserProfile {
+    name: string;
+    email: string;
+    educationStage: string;
+    enrollmentYear: number | string;
+    password?: string;
+}
+
 export function SettingsDialog() {
     const { t, language, setLanguage } = useLanguage();
     const [open, setOpen] = useState(false);
@@ -45,11 +54,27 @@ export function SettingsDialog() {
     const [loading, setLoading] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
     const [config, setConfig] = useState<AppConfig>({ aiProvider: 'gemini' });
+
+    // Profile State
+    const [profile, setProfile] = useState<UserProfile>({
+        name: "",
+        email: "",
+        educationStage: "",
+        enrollmentYear: "",
+        password: ""
+    });
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [profileLoading, setProfileLoading] = useState(false);
+    const [profileSaving, setProfileSaving] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     const router = useRouter();
 
     useEffect(() => {
         if (open) {
             fetchSettings();
+            fetchProfile();
         }
     }, [open]);
 
@@ -68,6 +93,24 @@ export function SettingsDialog() {
         }
     };
 
+    const fetchProfile = async () => {
+        setProfileLoading(true);
+        try {
+            const res = await fetch("/api/user");
+            if (res.ok) {
+                const data = await res.json();
+                setProfile({
+                    ...data,
+                    password: "" // Don't show password
+                });
+            }
+        } catch (error) {
+            console.error("Failed to fetch profile:", error);
+        } finally {
+            setProfileLoading(false);
+        }
+    };
+
     const handleSaveSettings = async () => {
         setSaving(true);
         try {
@@ -79,8 +122,7 @@ export function SettingsDialog() {
 
             if (res.ok) {
                 alert(language === 'zh' ? "设置已保存" : "Settings saved");
-                setOpen(false);
-                window.location.reload();
+                // window.location.reload(); // Reload might be too aggressive if just changing AI settings
             } else {
                 alert(language === 'zh' ? "保存失败" : "Failed to save");
             }
@@ -89,6 +131,45 @@ export function SettingsDialog() {
             alert(language === 'zh' ? "保存失败" : "Failed to save");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        setProfileSaving(true);
+        try {
+            // 验证密码一致性（如果用户输入了密码）
+            if (profile.password && profile.password !== confirmPassword) {
+                alert(language === 'zh' ? '两次密码不一致' : 'Passwords do not match');
+                setProfileSaving(false);
+                return;
+            }
+
+            const payload: any = { ...profile };
+            if (!payload.password) delete payload.password;
+            if (payload.enrollmentYear) payload.enrollmentYear = parseInt(payload.enrollmentYear.toString());
+
+            const res = await fetch("/api/user", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+
+            if (res.ok) {
+                alert(language === 'zh' ? "个人信息已更新" : "Profile updated");
+                setProfile(prev => ({ ...prev, password: "" })); // Clear password field
+                setConfirmPassword(""); // Clear confirm password field
+                setShowPassword(false);
+                setShowConfirmPassword(false);
+                window.location.reload(); // Reload to update user name in UI
+            } else {
+                const data = await res.json();
+                alert(data.message || (language === 'zh' ? "更新失败" : "Update failed"));
+            }
+        } catch (error) {
+            console.error("Failed to update profile:", error);
+            alert(language === 'zh' ? "更新失败" : "Update failed");
+        } finally {
+            setProfileSaving(false);
         }
     };
 
@@ -106,7 +187,6 @@ export function SettingsDialog() {
             if (res.ok) {
                 alert(t.settings?.clearSuccess || "Success");
                 setOpen(false);
-                // Refresh page to update stats
                 window.location.reload();
             } else {
                 alert(t.settings?.clearError || "Failed");
@@ -133,7 +213,6 @@ export function SettingsDialog() {
             if (res.ok) {
                 alert(t.settings?.clearSuccess || "Success");
                 setOpen(false);
-                // Refresh page to update stats
                 window.location.reload();
             } else {
                 alert(t.settings?.clearError || "Failed");
@@ -164,7 +243,7 @@ export function SettingsDialog() {
                     <span className="sr-only">{t.settings?.title || "Settings"}</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{t.settings?.title || "Settings"}</DialogTitle>
                     <DialogDescription>
@@ -172,13 +251,28 @@ export function SettingsDialog() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="py-4 space-y-6">
-                    {/* General Settings */}
-                    <div className="space-y-4">
-                        <h4 className="text-sm font-medium flex items-center gap-2">
-                            <Languages className="h-4 w-4" />
-                            {language === 'zh' ? "通用设置" : "General Settings"}
-                        </h4>
+                <Tabs defaultValue="general" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="general">
+                            <Languages className="h-4 w-4 mr-2" />
+                            {language === 'zh' ? "通用" : "General"}
+                        </TabsTrigger>
+                        <TabsTrigger value="account">
+                            <User className="h-4 w-4 mr-2" />
+                            {language === 'zh' ? "账户" : "Account"}
+                        </TabsTrigger>
+                        <TabsTrigger value="ai">
+                            <Bot className="h-4 w-4 mr-2" />
+                            AI
+                        </TabsTrigger>
+                        <TabsTrigger value="danger">
+                            <AlertTriangle className="h-4 w-4 mr-2" />
+                            {language === 'zh' ? "危险" : "Danger"}
+                        </TabsTrigger>
+                    </TabsList>
+
+                    {/* General Tab */}
+                    <TabsContent value="general" className="space-y-4 py-4">
                         <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
                             <div className="space-y-2">
                                 <Label>{language === 'zh' ? "语言" : "Language"}</Label>
@@ -196,14 +290,132 @@ export function SettingsDialog() {
                                 </Select>
                             </div>
                         </div>
-                    </div>
+                    </TabsContent>
 
-                    {/* AI Configuration Section */}
-                    <div className="space-y-4">
-                        <h4 className="text-sm font-medium flex items-center gap-2">
-                            {language === 'zh' ? "AI 模型设置" : "AI Model Settings"}
-                        </h4>
+                    {/* Account Tab */}
+                    <TabsContent value="account" className="space-y-4 py-4">
+                        {profileLoading ? (
+                            <div className="flex justify-center py-8">
+                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : (
+                            <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>{language === 'zh' ? "姓名" : "Name"}</Label>
+                                        <Input
+                                            value={profile.name}
+                                            onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>{language === 'zh' ? "邮箱" : "Email"}</Label>
+                                        <Input
+                                            value={profile.email}
+                                            onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                                            type="email"
+                                        />
+                                    </div>
+                                </div>
 
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>{language === 'zh' ? "教育阶段" : "Education Stage"}</Label>
+                                        <Select
+                                            value={profile.educationStage || ""}
+                                            onValueChange={(val) => setProfile({ ...profile, educationStage: val })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={language === 'zh' ? "选择阶段" : "Select Stage"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="primary">{language === 'zh' ? '小学' : 'Primary School'}</SelectItem>
+                                                <SelectItem value="junior_high">{language === 'zh' ? '初中' : 'Junior High'}</SelectItem>
+                                                <SelectItem value="senior_high">{language === 'zh' ? '高中' : 'Senior High'}</SelectItem>
+                                                <SelectItem value="university">{language === 'zh' ? '大学' : 'University'}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>{language === 'zh' ? "入学年份" : "Enrollment Year"}</Label>
+                                        <Input
+                                            type="number"
+                                            value={profile.enrollmentYear}
+                                            onChange={(e) => setProfile({ ...profile, enrollmentYear: e.target.value })}
+                                            placeholder="YYYY"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 pt-2 border-t">
+                                    <div className="space-y-2">
+                                        <Label>{language === 'zh' ? "修改密码 (留空不修改)" : "Change Password (Leave empty to keep)"}</Label>
+                                        <div className="relative">
+                                            <Input
+                                                type={showPassword ? "text" : "password"}
+                                                value={profile.password}
+                                                onChange={(e) => setProfile({ ...profile, password: e.target.value })}
+                                                placeholder="******"
+                                                minLength={6}
+                                                className="pr-10"
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                tabIndex={-1}
+                                            >
+                                                {showPassword ? (
+                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                ) : (
+                                                    <Eye className="h-4 w-4 text-muted-foreground" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    {profile.password && (
+                                        <div className="space-y-2">
+                                            <Label>{language === 'zh' ? "确认密码" : "Confirm Password"}</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    type={showConfirmPassword ? "text" : "password"}
+                                                    value={confirmPassword}
+                                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                                    placeholder="******"
+                                                    minLength={6}
+                                                    className="pr-10"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    tabIndex={-1}
+                                                >
+                                                    {showConfirmPassword ? (
+                                                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                    ) : (
+                                                        <Eye className="h-4 w-4 text-muted-foreground" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <Button onClick={handleSaveProfile} disabled={profileSaving} className="w-full">
+                                    {profileSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    {language === 'zh' ? "更新个人信息" : "Update Profile"}
+                                </Button>
+                            </div>
+                        )}
+                    </TabsContent>
+
+                    {/* AI Tab */}
+                    <TabsContent value="ai" className="space-y-4 py-4">
                         {loading ? (
                             <div className="flex justify-center py-4">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -320,17 +532,14 @@ export function SettingsDialog() {
 
                                 <Button onClick={handleSaveSettings} disabled={saving} className="w-full">
                                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {language === 'zh' ? "保存设置" : "Save Settings"}
+                                    {language === 'zh' ? "保存 AI 设置" : "Save AI Settings"}
                                 </Button>
                             </div>
                         )}
-                    </div>
+                    </TabsContent>
 
-                    <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-red-500 flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4" />
-                            {t.settings?.dangerZone || "Danger Zone"}
-                        </h4>
+                    {/* Danger Zone Tab */}
+                    <TabsContent value="danger" className="space-y-4 py-4">
                         <div className="space-y-3">
                             {/* Clear Practice Data */}
                             <div className="p-4 border border-red-200 rounded-lg bg-red-50">
@@ -384,8 +593,8 @@ export function SettingsDialog() {
                                 </p>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </TabsContent>
+                </Tabs>
             </DialogContent>
         </Dialog>
     );

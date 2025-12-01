@@ -7,13 +7,11 @@ import { UploadZone } from "@/components/upload-zone";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ImageCropper } from "@/components/image-cropper";
 import { ParsedQuestion } from "@/lib/ai";
-import { WrongAnswerStats } from "@/components/wrong-answer-stats";
 import { UserWelcome } from "@/components/user-welcome";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
-import { Upload, BookOpen, Tags, LogOut } from "lucide-react";
-import { PracticeStats } from "@/components/practice-stats";
+import { Upload, BookOpen, Tags, LogOut, BarChart3 } from "lucide-react";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { signOut } from "next-auth/react";
 
@@ -172,7 +170,7 @@ function HomeContent() {
                 </div>
 
                 {/* Action Center */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <Button
                         size="lg"
                         className="h-auto py-4 text-base shadow-sm hover:shadow-md transition-all"
@@ -210,6 +208,19 @@ function HomeContent() {
                             </div>
                         </Button>
                     </Link>
+
+                    <Link href="/stats" className="w-full">
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            className="w-full h-auto py-4 text-base shadow-sm hover:shadow-md transition-all border hover:border-primary/50 hover:bg-accent/50"
+                        >
+                            <div className="flex items-center gap-2">
+                                <BarChart3 className="h-5 w-5" />
+                                <span>{language === 'zh' ? '统计中心' : 'Stats'}</span>
+                            </div>
+                        </Button>
+                    </Link>
                 </div>
 
                 {step === "upload" && (
@@ -235,11 +246,7 @@ function HomeContent() {
                     />
                 )}
 
-                {/* Wrong Answer Statistics Section */}
-                <WrongAnswerStats />
 
-                {/* Practice Statistics */}
-                <PracticeStats />
 
             </div>
         </main>

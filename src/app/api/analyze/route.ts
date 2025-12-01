@@ -39,10 +39,18 @@ export async function POST(req: Request) {
         const aiService = getAIService();
         const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language);
 
+        console.log("[API] AI returned knowledgePoints:", analysisResult.knowledgePoints);
+        console.log("[API] knowledgePoints type:", typeof analysisResult.knowledgePoints);
+        console.log("[API] knowledgePoints isArray:", Array.isArray(analysisResult.knowledgePoints));
+
         // 标准化知识点标签
         if (analysisResult.knowledgePoints && analysisResult.knowledgePoints.length > 0) {
+            const originalTags = [...analysisResult.knowledgePoints];
             analysisResult.knowledgePoints = normalizeTags(analysisResult.knowledgePoints);
+            console.log("[API] Original tags:", originalTags);
             console.log("[API] Normalized tags:", analysisResult.knowledgePoints);
+        } else {
+            console.log("[API] ⚠️ WARNING: knowledgePoints is empty or null!");
         }
 
         console.log("[API] AI analysis successful");

@@ -56,6 +56,12 @@ export const translations = {
             addTag: "Add a tag...",
             cancel: "Cancel",
             save: "Save to Notebook",
+            paperLevel: "Paper Level",
+            paperLevels: {
+                a: "Paper A",
+                b: "Paper B",
+                other: "Other",
+            },
         },
         notebook: {
             title: "My Notebook",
@@ -207,6 +213,8 @@ export const translations = {
             lastWeek: "Last Week",
             lastMonth: "Last Month",
             filteringByTag: "Filtering by tag",
+            grade: "Grade/Semester",
+            paperLevel: "Paper Level",
         },
         stats: {
             title: "Practice Statistics",
@@ -291,6 +299,12 @@ export const translations = {
             addTag: "添加标签...",
             cancel: "取消",
             save: "保存到错题本",
+            paperLevel: "所属卷等级",
+            paperLevels: {
+                a: "A卷",
+                b: "B卷",
+                other: "其他",
+            },
         },
         notebook: {
             title: "我的错题本",
@@ -441,7 +455,9 @@ export const translations = {
             allTime: "全部时间",
             lastWeek: "最近一周",
             lastMonth: "最近一个月",
-            filteringByTag: "筛选标签",
+            filteringByTag: "按标签筛选",
+            grade: "年级/学期",
+            paperLevel: "所属卷等级",
         },
         stats: {
             title: "练习统计",

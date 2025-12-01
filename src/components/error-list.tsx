@@ -40,6 +40,8 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
     const [search, setSearch] = useState("");
     const [masteryFilter, setMasteryFilter] = useState<"all" | "mastered" | "unmastered">("all");
     const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month">("all");
+    const [gradeFilter, setGradeFilter] = useState("");
+    const [paperLevelFilter, setPaperLevelFilter] = useState<"all" | "a" | "b" | "other">("all");
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
     const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
     const { t } = useLanguage();
@@ -64,7 +66,7 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
 
     useEffect(() => {
         fetchItems();
-    }, [search, masteryFilter, timeFilter, selectedTag, subjectId]);
+    }, [search, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, paperLevelFilter]);
 
     const fetchItems = async () => {
         setLoading(true);
@@ -81,6 +83,8 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
             if (selectedTag) {
                 params.append("tag", selectedTag);
             }
+            if (gradeFilter) params.append("gradeSemester", gradeFilter);
+            if (paperLevelFilter !== "all") params.append("paperLevel", paperLevelFilter);
 
             const res = await fetch(`/api/error-items/list?${params.toString()}`);
             if (res.ok) {
@@ -140,6 +144,48 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
+            </div>
+
+            {/* Advanced Filters Row */}
+            <div className="flex gap-4 items-center">
+                <div className="w-48">
+                    <Input
+                        placeholder={t.filter.grade || "Grade/Semester"}
+                        value={gradeFilter}
+                        onChange={(e) => setGradeFilter(e.target.value)}
+                        className="h-9"
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <Button
+                        variant={paperLevelFilter === "all" ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => setPaperLevelFilter("all")}
+                    >
+                        {t.filter.all || "All"}
+                    </Button>
+                    <Button
+                        variant={paperLevelFilter === "a" ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => setPaperLevelFilter("a")}
+                    >
+                        {t.editor.paperLevels?.a || "Paper A"}
+                    </Button>
+                    <Button
+                        variant={paperLevelFilter === "b" ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => setPaperLevelFilter("b")}
+                    >
+                        {t.editor.paperLevels?.b || "Paper B"}
+                    </Button>
+                    <Button
+                        variant={paperLevelFilter === "other" ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => setPaperLevelFilter("other")}
+                    >
+                        {t.editor.paperLevels?.other || "Other"}
+                    </Button>
+                </div>
             </div>
 
             {selectedTag && (
