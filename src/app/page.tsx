@@ -14,29 +14,6 @@ import { processImageFile } from "@/lib/image-utils";
 import { Upload, BookOpen, Tags, LogOut, BarChart3 } from "lucide-react";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { signOut, useSession } from "next-auth/react";
-import { Shield } from "lucide-react";
-
-function AdminButton() {
-    const { data: session } = useSession();
-    const { language } = useLanguage();
-
-    if ((session?.user as any)?.role !== 'admin') return null;
-
-    return (
-        <Link href="/admin/users" className="w-full">
-            <Button
-                variant="outline"
-                size="lg"
-                className="w-full h-auto py-4 text-base shadow-sm hover:shadow-md transition-all border hover:border-primary/50 hover:bg-accent/50"
-            >
-                <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
-                    <span>{language === 'zh' ? '用户管理' : 'Admin'}</span>
-                </div>
-            </Button>
-        </Link>
-    );
-}
 
 function HomeContent() {
     const [step, setStep] = useState<"upload" | "review">("upload");
@@ -245,11 +222,6 @@ function HomeContent() {
                         </Button>
                     </Link>
 
-                    {/* Admin Button */}
-                    {/* We need to check session here, but HomeContent is inside Suspense. 
-                        We can use useSession hook.
-                     */}
-                    <AdminButton />
                 </div>
 
                 {step === "upload" && (

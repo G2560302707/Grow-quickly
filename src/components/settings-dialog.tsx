@@ -20,9 +20,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot } from "lucide-react";
+import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { UserManagement } from "@/components/admin/user-management";
 
 interface AppConfig {
     aiProvider: 'gemini' | 'openai';
@@ -47,6 +49,7 @@ interface UserProfile {
 }
 
 export function SettingsDialog() {
+    const { data: session } = useSession();
     const { t, language, setLanguage } = useLanguage();
     const [open, setOpen] = useState(false);
     const [clearing, setClearing] = useState(false);
@@ -243,7 +246,7 @@ export function SettingsDialog() {
                     <span className="sr-only">{t.settings?.title || "Settings"}</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{t.settings?.title || "Settings"}</DialogTitle>
                     <DialogDescription>
@@ -252,7 +255,7 @@ export function SettingsDialog() {
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className={`grid w-full ${(session?.user as any)?.role === 'admin' ? 'grid-cols-5' : 'grid-cols-4'}`}>
                         <TabsTrigger value="general">
                             <Languages className="h-4 w-4 mr-2" />
                             {language === 'zh' ? "通用" : "General"}
@@ -263,8 +266,14 @@ export function SettingsDialog() {
                         </TabsTrigger>
                         <TabsTrigger value="ai">
                             <Bot className="h-4 w-4 mr-2" />
-                            AI
+                            {language === 'zh' ? "AI 提供商" : "AI Provider"}
                         </TabsTrigger>
+                        {(session?.user as any)?.role === 'admin' && (
+                            <TabsTrigger value="admin">
+                                <Shield className="h-4 w-4 mr-2" />
+                                {language === 'zh' ? "用户管理" : "User Management"}
+                            </TabsTrigger>
+                        )}
                         <TabsTrigger value="danger">
                             <AlertTriangle className="h-4 w-4 mr-2" />
                             {language === 'zh' ? "危险" : "Danger"}
@@ -304,14 +313,14 @@ export function SettingsDialog() {
                                     <div className="space-y-2">
                                         <Label>{language === 'zh' ? "姓名" : "Name"}</Label>
                                         <Input
-                                            value={profile.name}
+                                            value={profile.name || ""}
                                             onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>{language === 'zh' ? "邮箱" : "Email"}</Label>
                                         <Input
-                                            value={profile.email}
+                                            value={profile.email || ""}
                                             onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                                             type="email"
                                         />
@@ -340,7 +349,7 @@ export function SettingsDialog() {
                                         <Label>{language === 'zh' ? "入学年份" : "Enrollment Year"}</Label>
                                         <Input
                                             type="number"
-                                            value={profile.enrollmentYear}
+                                            value={profile.enrollmentYear || ""}
                                             onChange={(e) => setProfile({ ...profile, enrollmentYear: e.target.value })}
                                             placeholder="YYYY"
                                         />
@@ -538,6 +547,13 @@ export function SettingsDialog() {
                         )}
                     </TabsContent>
 
+                    {/* Admin Tab */}
+                    {(session?.user as any)?.role === 'admin' && (
+                        <TabsContent value="admin" className="space-y-4 py-4">
+                            <UserManagement />
+                        </TabsContent>
+                    )}
+
                     {/* Danger Zone Tab */}
                     <TabsContent value="danger" className="space-y-4 py-4">
                         <div className="space-y-3">
@@ -594,6 +610,7 @@ export function SettingsDialog() {
                             </div>
                         </div>
                     </TabsContent>
+
                 </Tabs>
             </DialogContent>
         </Dialog>

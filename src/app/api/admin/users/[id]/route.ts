@@ -23,6 +23,15 @@ export async function PATCH(
             return new NextResponse("Cannot disable your own account", { status: 400 })
         }
 
+        // Prevent disabling super admin
+        const targetUser = await prisma.user.findUnique({
+            where: { id: params.id }
+        })
+
+        if (targetUser?.email === 'admin@localhost') {
+            return new NextResponse("Cannot disable super admin", { status: 400 })
+        }
+
         const user = await prisma.user.update({
             where: {
                 id: params.id

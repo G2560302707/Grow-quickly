@@ -261,6 +261,9 @@ export const translations = {
             user: "User",
             createdAt: "Created At",
             stats: "Stats",
+            nameEmail: "Name/Email",
+            errors: "Errors",
+            practiceCount: "Practice",
         }
     },
     zh: {
@@ -523,6 +526,9 @@ export const translations = {
             user: "普通用户",
             createdAt: "注册时间",
             stats: "统计",
+            nameEmail: "姓名/邮箱",
+            errors: "错题",
+            practiceCount: "练习",
         }
     }
 };
