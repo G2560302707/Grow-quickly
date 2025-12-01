@@ -7,13 +7,8 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
-RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
+COPY package.json package-lock.json ./
+RUN npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -43,8 +38,7 @@ ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # Install OpenSSL for Prisma
-# Install OpenSSL for Prisma and su-exec for user switching
-RUN apk add --no-cache openssl su-exec
+RUN apk add --no-cache openssl
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -52,7 +46,6 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 
 # Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
@@ -62,26 +55,21 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Copy config directory for runtime
 COPY --from=builder --chown=nextjs:nodejs /app/config ./config
 
-COPY scripts/docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Ensure the nextjs user owns the application directory
+RUN chown -R nextjs:nodejs /app
 
-ENTRYPOINT ["docker-entrypoint.sh"]
-
-# Environment variables from .env.example
-ENV DATABASE_URL="file:./prisma/dev.db"
-ENV NEXTAUTH_SECRET="supersecret-dev-secret"
-ENV NEXTAUTH_URL="http://localhost:3000"
-ENV AI_PROVIDER="gemini"
-ENV OPENAI_API_KEY=""
-ENV OPENAI_BASE_URL=""
-ENV OPENAI_MODEL="gpt-4o"
-ENV GOOGLE_API_KEY=""
+USER nextjs
 
 EXPOSE 3000
 
 ENV PORT 3000
 # set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
+
+# Environment variables 
+ENV DATABASE_URL="file:./prisma/dev.db"
+ENV NEXTAUTH_SECRET="supersecret-dev-secret"
+ENV NEXTAUTH_URL="http://localhost:3000"
 
 # Start the application
 CMD ["node", "server.js"]
