@@ -21,6 +21,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
 # Generate Prisma Client
 RUN npx prisma generate
 
