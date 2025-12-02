@@ -5,8 +5,9 @@ set -e
 SOURCE_DB="/app/prisma/dev.db"
 TARGET_DB="/app/data/dev.db"
 
-# Fix permissions for data directory
+# Fix permissions for data directory and config directory
 chown -R nextjs:nodejs /app/data
+chown -R nextjs:nodejs /app/config
 
 # Check if the persistent database exists
 if [ ! -f "$TARGET_DB" ]; then
