@@ -62,15 +62,6 @@ docker run -d -p 3000:3000 --name wrong-notebook \
     docker-compose down
     ```
 
-#### 3. 初始化数据库 (可选)
-
-如果您是首次部署且没有现成的数据库文件 (`prisma/dev.db`)，可以使用以下命令初始化数据库：
-
-```bash
-docker run --rm -v $(pwd)/prisma:/prisma -w /prisma wrong-notebook sh -c "prisma migrate dev"
-```
-
-
 ### 方式二：本地源码运行
 
 #### 1. 克隆仓库
