@@ -15,7 +15,7 @@ export class GeminiProvider implements AIService {
 
         this.genAI = new GoogleGenerativeAI(apiKey || "dummy-key");
         this.model = this.genAI.getGenerativeModel({
-            model: config?.model || process.env.GEMINI_MODEL || "gemini-1.5-flash"
+            model: config?.model || process.env.GEMINI_MODEL || "gemini-2.5-flash"
         }, {
             baseUrl: config?.baseUrl || process.env.GEMINI_BASE_URL
         });

@@ -67,8 +67,8 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Environment variables 
-ENV DATABASE_URL="file:./prisma/dev.db"
-ENV NEXTAUTH_URL="http://localhost:3000"
+ENV DATABASE_URL="file:/app/prisma/dev.db"
+ENV AUTH_TRUST_HOST=true
 
 # Start the application
 CMD ["node", "server.js"]

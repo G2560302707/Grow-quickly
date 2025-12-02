@@ -9,6 +9,8 @@ export const authOptions: NextAuthOptions = {
     session: {
         strategy: "jwt",
     },
+    // @ts-expect-error trustHost is a valid option in newer NextAuth versions but types might be lagging
+    trustHost: true,
     pages: {
         signIn: "/login",
     },
