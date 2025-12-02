@@ -41,6 +41,9 @@ ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Install su-exec for permission handling
+RUN apk add --no-cache su-exec
+
 # Install OpenSSL for Prisma
 RUN apk add --no-cache openssl
 
@@ -65,11 +68,6 @@ RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 # Copy entrypoint script
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
-
-# Ensure the nextjs user owns the application directory
-# RUN chown -R nextjs:nodejs /app
-
-USER nextjs
 
 EXPOSE 3000
 
