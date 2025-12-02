@@ -25,6 +25,8 @@ ENV DATABASE_URL="file:/app/prisma/dev.db"
 RUN npx prisma generate
 # Run migration to create the dev.db file
 RUN npx prisma migrate deploy
+# Seed the database with initial data (admin user)
+RUN npx prisma db seed
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry

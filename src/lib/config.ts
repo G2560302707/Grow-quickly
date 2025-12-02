@@ -27,7 +27,7 @@ const DEFAULT_CONFIG: AppConfig = {
     gemini: {
         apiKey: process.env.GOOGLE_API_KEY,
         baseUrl: process.env.GEMINI_BASE_URL,
-        model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     },
 };
 

@@ -7,17 +7,17 @@ export class GeminiProvider implements AIService {
     private model: GenerativeModel;
 
     constructor(config?: AIConfig) {
-        const apiKey = config?.apiKey || process.env.GOOGLE_API_KEY;
+        const apiKey = config?.apiKey;
 
         if (!apiKey) {
-            console.warn("GOOGLE_API_KEY is not set, Gemini provider will fail if used.");
+            throw new Error("GOOGLE_API_KEY is required for Gemini provider");
         }
 
-        this.genAI = new GoogleGenerativeAI(apiKey || "dummy-key");
+        this.genAI = new GoogleGenerativeAI(apiKey);
         this.model = this.genAI.getGenerativeModel({
-            model: config?.model || process.env.GEMINI_MODEL || "gemini-2.5-flash"
+            model: config?.model || 'gemini-1.5-flash' // Fallback for safety
         }, {
-            baseUrl: config?.baseUrl || process.env.GEMINI_BASE_URL
+            baseUrl: config?.baseUrl
         });
     }
 

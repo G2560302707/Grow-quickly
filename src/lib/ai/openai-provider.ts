@@ -7,19 +7,19 @@ export class OpenAIProvider implements AIService {
     private model: string;
 
     constructor(config?: AIConfig) {
-        const apiKey = config?.apiKey || process.env.OPENAI_API_KEY;
-        const baseURL = config?.baseUrl || process.env.OPENAI_BASE_URL;
+        const apiKey = config?.apiKey;
+        const baseURL = config?.baseUrl;
 
         if (!apiKey) {
-            console.warn("OPENAI_API_KEY is not set, OpenAI provider will fail if used.");
+            throw new Error("OPENAI_API_KEY is required for OpenAI provider");
         }
 
         this.openai = new OpenAI({
-            apiKey: apiKey || "dummy-key", // Prevent crash on init if key missing but provider not used
+            apiKey: apiKey,
             baseURL: baseURL || undefined,
         });
 
-        this.model = config?.model || process.env.OPENAI_MODEL || "gpt-4o";
+        this.model = config?.model || 'gpt-4o'; // Fallback for safety
     }
 
     private extractJson(text: string): string {
