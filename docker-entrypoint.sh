@@ -12,7 +12,7 @@ if [ ! -f "$TARGET_DB" ]; then
         echo "Copying pre-packaged database from $SOURCE_DB to $TARGET_DB"
         cp "$SOURCE_DB" "$TARGET_DB"
         # Ensure correct permissions
-        chown nextjs:nodejs "$TARGET_DB"
+        # chown nextjs:nodejs "$TARGET_DB"
     else
         echo "Warning: Source database not found at $SOURCE_DB. Skipping initialization."
     fi
