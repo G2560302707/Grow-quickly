@@ -35,7 +35,7 @@
 ```bash
 docker run -d -p 3000:3000 --name wrong-notebook \
   -e NEXTAUTH_SECRET="your_secret_key" \
-  -p 3000:3000
+  -p 3000:3000 \
   -v $(pwd)/prisma:/app/prisma \
   -v $(pwd)/config:/app/config \
   ghcr.io/wttwins/wrong-notebook
