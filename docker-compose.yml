@@ -10,13 +10,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # environment variables defined here take precedence over those in env_file
-      # We override DATABASE_URL to ensure it points to the container's internal path
-      - DATABASE_URL=file:/app/prisma/dev.db
-      # NEXTAUTH_URL will be loaded from .env file
-      - NEXTAUTH_SECRET=password
-    env_file:
-      - .env
+      # NEXTAUTH_URL 根据实际情况设置你的信息
+      #- NEXTAUTH_URL=http://your_domain_name:3000
+      #     
+      - NEXTAUTH_SECRET=your_secret_key
     volumes:
       # Persist the SQLite database
       - ./prisma:/app/prisma

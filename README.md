@@ -30,12 +30,6 @@
 
 您可以选择 **直接使用命令** (适合快速测试) 或 **Docker Compose** (适合长期运行)。
 
-> **首次运行注意**：
-> 如果没有 `prisma/dev.db` 文件，请运行以下命令初始化数据库（无需本地安装 Node.js）：
-> ```bash
-> docker run --rm -v $(pwd)/prisma:/prisma -w /prisma node:22-alpine sh -c "npm install -g prisma && prisma migrate dev"
-> ```
-
 **选项 A：直接使用 Docker 命令**
 
 ```bash
@@ -49,7 +43,7 @@ docker run -d -p 3000:3000 --name wrong-notebook \
 
 **选项 B：使用 Docker Compose (推荐)**
 
-创建 `docker-compose.yml` 和 `.env` 文件进行管理。
+使用 `docker-compose.yml` 文件进行管理。
 
 1.  **下载配置文件**：
     ```bash
@@ -59,10 +53,22 @@ docker run -d -p 3000:3000 --name wrong-notebook \
     ```bash
     docker-compose up -d
     ```
-2.  **查看日志**：
+3.  **查看日志**：
     ```bash
     docker-compose logs -f
     ```
+4.  **停止服务**：
+    ```bash
+    docker-compose down
+    ```
+
+#### 3. 初始化数据库 (可选)
+
+如果您是首次部署且没有现成的数据库文件 (`prisma/dev.db`)，可以使用以下命令初始化数据库：
+
+```bash
+docker run --rm -v $(pwd)/prisma:/prisma -w /prisma wrong-notebook sh -c "prisma migrate dev"
+```
 
 
 ### 方式二：本地源码运行
@@ -97,11 +103,21 @@ cp .env.example .env
 | 环境变量 | 描述 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
 | `DATABASE_URL` | 数据库连接地址 | `file:./dev.db` | SQLite 数据库路径 |
-| `NEXTAUTH_SECRET` | Auth 密钥 | 无 | 用于加密 Session，生产环境建议设置 |
-| `NEXTAUTH_URL` | 访问地址 | `http://localhost:3000` | 部署后的访问地址 |
+| `NEXTAUTH_SECRET` | Auth 密钥 | 无 | 用于加密 Session，生产环境建议设置,可以使用 openssl rand -base64 32 生成一个随机字符串作为密钥 |
+| `NEXTAUTH_URL` | 访问地址 | `http://your-domain-name:3000` | 部署后的访问地址 |
+| `AUTH_TRUST_HOST` | 信任主机头 | `true` | 设置为 `true` 时自动推断 URL，适合 Docker/PaaS |
+
+**AI 配置**
+
+| 环境变量 | 描述 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
 | `AI_PROVIDER` | AI 提供商 | `gemini` | 可选 `gemini` 或 `openai` |
 | `GOOGLE_API_KEY` | Gemini API Key | 无 | 使用 Gemini 时必填 |
+| `GEMINI_BASE_URL` | Gemini API 地址 | 无 | 可选，用于自定义 API 地址 |
+| `GEMINI_MODEL` | Gemini 模型 | `gemini-2.5-flash` | 可选，如 `gemini-3.0-flash` |
 | `OPENAI_API_KEY` | OpenAI API Key | 无 | 使用 OpenAI 时必填 |
+| `OPENAI_BASE_URL` | OpenAI API 地址 | 无 | 可选，用于兼容的 API 服务 |
+| `OPENAI_MODEL` | OpenAI 模型 | `gpt-4o` | 可选，如 `gpt-4o` |
 
 #### 5. 初始化数据库
 
@@ -123,7 +139,7 @@ npx prisma migrate dev
 npm run dev
 ```
 
-访问 [http://localhost:3000](http://localhost:3000) 开始使用。
+访问 [http://your-domain-name:3000](http://your-domain-name:3000) 开始使用。
 
 ## ⚙️ AI 模型配置
 
