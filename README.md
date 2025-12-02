@@ -15,46 +15,101 @@
 
 ## 🛠️ 技术栈
 
-- **框架**: [Next.js 14](https://nextjs.org/) (App Router)
+- **框架**: [Next.js 16](https://nextjs.org/) (App Router)
+- **UI 库**: [React 19](https://react.dev/)
 - **数据库**: [SQLite](https://www.sqlite.org/) (via [Prisma](https://www.prisma.io/))
-- **样式**: [Tailwind CSS](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
+- **样式**: [Tailwind CSS v4](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
 - **AI**: Google Gemini API / OpenAI API
 - **认证**: [NextAuth.js](https://next-auth.js.org/)
 
 ## 🚀 快速开始
 
-### 1. 环境准备
+### 方式一：使用 Docker 部署
+
+#### 1. 启动服务
+
+您可以选择 **直接使用命令** (适合快速测试) 或 **Docker Compose** (适合长期运行)。
+
+> **首次运行注意**：
+> 如果没有 `prisma/dev.db` 文件，请运行以下命令初始化数据库（无需本地安装 Node.js）：
+> ```bash
+> docker run --rm -v $(pwd)/prisma:/prisma -w /prisma node:22-alpine sh -c "npm install -g prisma && prisma migrate dev"
+> ```
+
+**选项 A：直接使用 Docker 命令**
+
+```bash
+docker run -d -p 3000:3000 --name wrong-notebook \
+  -e NEXTAUTH_SECRET="your_secret_key" \
+  -p 3000:3000
+  -v $(pwd)/prisma:/app/prisma \
+  -v $(pwd)/config:/app/config \
+  ghcr.io/wttwins/wrong-notebook
+```
+
+**选项 B：使用 Docker Compose (推荐)**
+
+创建 `docker-compose.yml` 和 `.env` 文件进行管理。
+
+1.  **下载配置文件**：
+    ```bash
+    curl -o docker-compose.yml https://raw.githubusercontent.com/wttwins/wrong-notebook/refs/heads/main/docker-compose.yml
+    ```
+2.  **启动服务**：
+    ```bash
+    docker-compose up -d
+    ```
+2.  **查看日志**：
+    ```bash
+    docker-compose logs -f
+    ```
+
+
+### 方式二：本地源码运行
+
+#### 1. 克隆仓库
+
+```bash
+git clone https://github.com/wttwins/wrong-notebook.git
+cd wrong-notebook
+```
+
+#### 2. 环境准备
 
 确保已安装 Node.js (v18+) 和 npm。
 
-### 2. 安装依赖
+#### 3. 安装依赖
 
 ```bash
 npm install
 ```
 
-### 3. 配置环境变量
+#### 4. 配置环境变量
 
 复制 `.env.example` 为 `.env` 并填入必要的配置：
 
-```env
-DATABASE_URL="file:./dev.db"
-NEXTAUTH_SECRET="your_secret_key"
-NEXTAUTH_URL="http://localhost:3000"
-
-# 默认 AI 配置 (可选，会被 app-config.json 覆盖)
-AI_PROVIDER="gemini" # 或 "openai"
-GOOGLE_API_KEY="your_gemini_api_key"
-OPENAI_API_KEY="your_openai_api_key"
+```bash
+cp .env.example .env
 ```
 
-### 4. 初始化数据库
+**基础配置**
+
+| 环境变量 | 描述 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `DATABASE_URL` | 数据库连接地址 | `file:./dev.db` | SQLite 数据库路径 |
+| `NEXTAUTH_SECRET` | Auth 密钥 | 无 | 用于加密 Session，生产环境建议设置 |
+| `NEXTAUTH_URL` | 访问地址 | `http://localhost:3000` | 部署后的访问地址 |
+| `AI_PROVIDER` | AI 提供商 | `gemini` | 可选 `gemini` 或 `openai` |
+| `GOOGLE_API_KEY` | Gemini API Key | 无 | 使用 Gemini 时必填 |
+| `OPENAI_API_KEY` | OpenAI API Key | 无 | 使用 OpenAI 时必填 |
+
+#### 5. 初始化数据库
 
 ```bash
 npx prisma migrate dev
 ```
 
-### 5. 管理员账户
+#### 6. 管理员账户
 
 默认管理员账户：
 - **邮箱**: `admin@localhost`
@@ -62,7 +117,7 @@ npx prisma migrate dev
 
 > 管理员登录后，可在“设置” -> “用户管理”中管理系统用户。
 
-### 6. 启动开发服务器
+#### 7. 启动开发服务器
 
 ```bash
 npm run dev
@@ -79,33 +134,21 @@ npm run dev
 3.  **填写参数**：
     *   **API Key**: 您的 API 密钥（支持显示/隐藏查看）。
     *   **Base URL**: (可选) 自定义 API 地址，用于代理或兼容模型。
-    *   **Model Name**: 指定使用的模型名称 (如 `gemini-1.5-flash`, `gpt-4o`)。
+    *   **Model Name**: 指定使用的模型名称 (如 `gemini-2.5-flash`, `gpt-4o`)。
 4.  **保存生效**：点击保存后即刻生效。
 
-> **注意**：网页配置会保存到项目根目录的 `app-config.json` 文件中，该文件的优先级高于 `.env` 环境变量。
+> **注意**：网页配置会保存到 `config/app-config.json` 文件中，该文件的优先级高于 `.env` 环境变量。
 
-## 🔑 密码重置指南
+## �️ 实用脚本
 
-如果您忘记了登录密码，可以通过以下步骤重置：
+在 `scripts/` 目录下提供了一些实用脚本，用于维护和调试：
 
-### 使用内置脚本
-
-我们在项目根目录提供了一个重置脚本 `reset-password.js`。
-
-1.  打开终端，进入项目根目录。
-2.  运行以下命令（替换 `<邮箱>` 和 `<新密码>`）：
-
-    ```bash
-    node reset-password.js <您的注册邮箱> <新密码>
-    ```
-
-    **示例：**
-    ```bash
-    node reset-password.js user@example.com 123456
-    ```
-
-3.  脚本运行成功后，您可以使用新密码登录。
-
+- **重置密码**:
+  ```bash
+  node scripts/reset-password.js <邮箱> <新密码>
+  ```
+  示例: `node scripts/reset-password.js user@example.com 123456`
+  ```
 
 ## 📄 许可证
 
