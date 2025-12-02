@@ -154,8 +154,7 @@ npm run dev
   ```bash
   node scripts/reset-password.js <邮箱> <新密码>
   ```
-  示例: `node scripts/reset-password.js user@example.com 123456`
-  ```
+  示例:  ```node scripts/reset-password.js user@example.com 123456 ```
 
 ## 📄 许可证
 
