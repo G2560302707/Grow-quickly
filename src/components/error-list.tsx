@@ -19,6 +19,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { KnowledgeFilter } from "@/components/knowledge-filter";
+import { getMathCurriculum } from "@/lib/knowledge-tags";
 
 interface ErrorItem {
     id: string;
@@ -42,6 +44,7 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
     const [masteryFilter, setMasteryFilter] = useState<"all" | "mastered" | "unmastered">("all");
     const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month">("all");
     const [gradeFilter, setGradeFilter] = useState("");
+    const [chapterFilter, setChapterFilter] = useState("");
     const [paperLevelFilter, setPaperLevelFilter] = useState<"all" | "a" | "b" | "other">("all");
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
     const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
@@ -70,6 +73,43 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
     const handleTagClick = (tag: string) => {
         setSelectedTag(selectedTag === tag ? null : tag);
     };
+
+    const handleFilterChange = ({ gradeSemester, chapter, tag }: any) => {
+        if (gradeSemester !== undefined) setGradeFilter(gradeSemester);
+        if (chapter !== undefined) setChapterFilter(chapter);
+        if (tag !== undefined) setSelectedTag(tag);
+
+        // Clear dependent filters
+        if (!gradeSemester) {
+            setGradeFilter("");
+            setChapterFilter("");
+            setSelectedTag(null);
+        } else if (!chapter) {
+            setChapterFilter("");
+            // Don't clear tag if we just switched grade but kept tag? No, tag depends on chapter usually.
+            // But KnowledgeFilter handles the UI state. We just sync here.
+        }
+    };
+
+    // Filter items client-side for Chapter (since API doesn't support it yet)
+    const filteredItems = items.filter(item => {
+        if (!chapterFilter || selectedTag) return true; // If specific tag selected, API handles it. If no chapter, all good.
+
+        const curriculum = getMathCurriculum();
+        const chapters = curriculum[gradeFilter] || [];
+        const targetChapter = chapters.find(c => c.chapter === chapterFilter);
+        if (!targetChapter) return true;
+
+        const chapterTags = new Set(targetChapter.sections.flatMap(s => [
+            ...(s.tags || []),
+            ...(s.subsections?.flatMap(sub => sub.tags) || [])
+        ]));
+
+        let itemTags: string[] = [];
+        try { itemTags = JSON.parse(item.knowledgePoints || "[]"); } catch (e) { }
+
+        return itemTags.some(t => chapterTags.has(t));
+    });
 
     const toggleTagsExpanded = (itemId: string, e: React.MouseEvent) => {
         e.preventDefault();
@@ -173,12 +213,11 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
 
             {/* Advanced Filters Row */}
             <div className="flex gap-4 items-center">
-                <div className="w-48">
-                    <Input
-                        placeholder={t.filter.grade || "Grade/Semester"}
-                        value={gradeFilter}
-                        onChange={(e) => setGradeFilter(e.target.value)}
-                        className="h-9"
+                <div className="w-auto">
+                    <KnowledgeFilter
+                        gradeSemester={gradeFilter}
+                        tag={selectedTag}
+                        onFilterChange={handleFilterChange}
                     />
                 </div>
                 <div className="flex gap-2">
@@ -226,7 +265,7 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
             )}
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {items.map((item) => {
+                {filteredItems.map((item) => {
                     let tags: string[] = [];
                     try {
                         tags = JSON.parse(item.knowledgePoints || "[]");
@@ -235,8 +274,8 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                     }
                     return (
                         <Link key={item.id} href={`/error-items/${item.id}`}>
-                            <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer">
-                                <CardHeader className="pb-2">
+                            <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer gap-2 pt-4">
+                                <CardHeader className="pb-0">
                                     <div className="flex justify-between items-start">
                                         <Badge
                                             variant={item.masteryLevel > 0 ? "default" : "secondary"}
@@ -258,13 +297,19 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                                     </div>
                                 </CardHeader>
                                 <CardContent>
-                                    <MarkdownRenderer
-                                        content={item.questionText.length > 150
-                                            ? item.questionText.substring(0, 150) + "..."
-                                            : item.questionText
-                                        }
-                                        className="text-sm"
-                                    />
+                                    <div className="text-sm line-clamp-3">
+                                        {(() => {
+                                            // 提取第一段文本(去除Markdown格式)
+                                            const firstParagraph = item.questionText
+                                                .split('\n\n')[0]  // 取第一段
+                                                .replace(/[#*_`$]/g, '')  // 移除Markdown符号
+                                                .trim();
+
+                                            return firstParagraph.length > 150
+                                                ? firstParagraph.substring(0, 150) + "..."
+                                                : firstParagraph;
+                                        })()}
+                                    </div>
                                     <div className="flex flex-wrap gap-2 mt-3">
                                         {(expandedTags.has(item.id) ? tags : tags.slice(0, 3)).map((tag: string) => (
                                             <Badge

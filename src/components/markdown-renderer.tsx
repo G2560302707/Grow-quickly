@@ -11,7 +11,7 @@ interface MarkdownRendererProps {
 }
 
 export function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
-    // Preprocess content to ensure proper paragraph breaks
+    // Preprocess content to ensure proper paragraph breaks and LaTeX rendering
     // Convert single line breaks to double line breaks for better readability
     const processedContent = content
         // Preserve existing double line breaks
@@ -26,6 +26,9 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         .replace(/\n\s+(\d+\))/g, '\n$1')
         // Fix: Replace literal \n sequences with actual newlines
         .replace(/\\n/g, '\n')
+        // Fix LaTeX formulas: Ensure proper spacing around $ delimiters
+        // This handles cases where $ might be directly adjacent to text
+        .replace(/([^\s$])(\$[^$]+\$)([^\s$])/g, '$1 $2 $3')
         // Restore preserved double line breaks
         .replace(/\n\n__PRESERVE__\n\n/g, '\n\n');
 

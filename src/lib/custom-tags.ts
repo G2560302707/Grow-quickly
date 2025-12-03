@@ -4,12 +4,17 @@
 
 const CUSTOM_TAGS_KEY = 'wrongnotebook_custom_tags';
 
+export interface CustomTag {
+    name: string;
+    category?: string;
+}
+
 export interface CustomTagsData {
-    math: string[];
-    english: string[];
-    physics: string[];
-    chemistry: string[];
-    other: string[];
+    math: CustomTag[];
+    english: CustomTag[];
+    physics: CustomTag[];
+    chemistry: CustomTag[];
+    other: CustomTag[];
 }
 
 /**
@@ -25,7 +30,26 @@ export function getCustomTags(): CustomTagsData {
         if (!stored) {
             return { math: [], english: [], physics: [], chemistry: [], other: [] };
         }
-        return JSON.parse(stored);
+        const data = JSON.parse(stored);
+
+        // Migration: Convert string[] to CustomTag[]
+        const subjects = ['math', 'english', 'physics', 'chemistry', 'other'] as const;
+        let migrated = false;
+
+        subjects.forEach(subject => {
+            if (Array.isArray(data[subject]) && data[subject].length > 0 && typeof data[subject][0] === 'string') {
+                data[subject] = data[subject].map((t: string) => ({ name: t, category: 'default' }));
+                migrated = true;
+            } else if (!Array.isArray(data[subject])) {
+                data[subject] = [];
+            }
+        });
+
+        if (migrated) {
+            saveCustomTags(data);
+        }
+
+        return data as CustomTagsData;
     } catch (error) {
         console.error('Failed to load custom tags:', error);
         return { math: [], english: [], physics: [], chemistry: [], other: [] };
@@ -48,18 +72,18 @@ function saveCustomTags(tags: CustomTagsData): void {
 /**
  * 添加自定义标签
  */
-export function addCustomTag(subject: keyof CustomTagsData, tag: string): boolean {
+export function addCustomTag(subject: keyof CustomTagsData, tag: string, category: string = 'default'): boolean {
     if (!tag.trim()) return false;
 
     const tags = getCustomTags();
     const trimmedTag = tag.trim();
 
-    // 检查是否已存在
-    if (tags[subject].includes(trimmedTag)) {
+    // 检查是否已存在 (在同一学科下)
+    if (tags[subject].some(t => t.name === trimmedTag)) {
         return false;
     }
 
-    tags[subject].push(trimmedTag);
+    tags[subject].push({ name: trimmedTag, category });
     saveCustomTags(tags);
     return true;
 }
@@ -67,9 +91,9 @@ export function addCustomTag(subject: keyof CustomTagsData, tag: string): boolea
 /**
  * 删除自定义标签
  */
-export function removeCustomTag(subject: keyof CustomTagsData, tag: string): boolean {
+export function removeCustomTag(subject: keyof CustomTagsData, tagName: string): boolean {
     const tags = getCustomTags();
-    const index = tags[subject].indexOf(tag);
+    const index = tags[subject].findIndex(t => t.name === tagName);
 
     if (index === -1) return false;
 
@@ -84,11 +108,11 @@ export function removeCustomTag(subject: keyof CustomTagsData, tag: string): boo
 export function getAllCustomTagsFlat(): string[] {
     const tags = getCustomTags();
     return [
-        ...tags.math,
-        ...tags.english,
-        ...tags.physics,
-        ...tags.chemistry,
-        ...tags.other,
+        ...tags.math.map(t => t.name),
+        ...tags.english.map(t => t.name),
+        ...tags.physics.map(t => t.name),
+        ...tags.chemistry.map(t => t.name),
+        ...tags.other.map(t => t.name),
     ];
 }
 
@@ -113,12 +137,22 @@ export function exportCustomTags(): string {
  */
 export function importCustomTags(jsonString: string): boolean {
     try {
-        const tags = JSON.parse(jsonString);
+        const parsed = JSON.parse(jsonString);
+        const tags = getCustomTags(); // Get current structure to ensure we match it
 
-        // 验证格式
-        if (!tags.math || !tags.english || !tags.physics || !tags.chemistry || !tags.other) {
-            throw new Error('Invalid format');
-        }
+        // 验证格式并合并/覆盖
+        const subjects = ['math', 'english', 'physics', 'chemistry', 'other'] as const;
+
+        subjects.forEach(subject => {
+            if (parsed[subject] && Array.isArray(parsed[subject])) {
+                // Handle both string[] and CustomTag[] input
+                const newTags = parsed[subject].map((t: any) => {
+                    if (typeof t === 'string') return { name: t, category: 'default' };
+                    return t;
+                });
+                tags[subject] = newTags;
+            }
+        });
 
         saveCustomTags(tags);
         return true;

@@ -77,9 +77,11 @@ export async function GET(req: Request) {
         // Grade/Semester filter
         const gradeSemester = searchParams.get("gradeSemester");
         if (gradeSemester) {
-            whereClause.gradeSemester = {
-                contains: gradeSemester,
-            };
+            const gradeFilter = buildGradeFilter(gradeSemester);
+            if (gradeFilter) {
+                // Merge into main whereClause
+                Object.assign(whereClause, gradeFilter);
+            }
         }
 
         // Paper Level filter
@@ -104,4 +106,43 @@ export async function GET(req: Request) {
             { status: 500 }
         );
     }
+}
+
+function buildGradeFilter(gradeSemester: string) {
+    // Map standard names to possible DB variations
+    const gradeMap: Record<string, string[]> = {
+        "七年级": ["七年级", "初一", "7年级", "七"],
+        "八年级": ["八年级", "初二", "8年级", "八"],
+        "九年级": ["九年级", "初三", "9年级", "九"],
+    };
+
+    let targetGrade = "";
+    let targetSemester = "";
+
+    if (gradeSemester.includes("七年级")) targetGrade = "七年级";
+    else if (gradeSemester.includes("八年级")) targetGrade = "八年级";
+    else if (gradeSemester.includes("九年级")) targetGrade = "九年级";
+
+    if (gradeSemester.includes("上")) targetSemester = "上";
+    else if (gradeSemester.includes("下")) targetSemester = "下";
+
+    if (targetGrade && targetSemester) {
+        const aliases = gradeMap[targetGrade];
+        return {
+            AND: [
+                {
+                    OR: aliases.map(alias => ({
+                        gradeSemester: { contains: alias }
+                    }))
+                },
+                {
+                    gradeSemester: { contains: targetSemester }
+                }
+            ]
+        };
+    }
+
+    return {
+        gradeSemester: { contains: gradeSemester }
+    };
 }

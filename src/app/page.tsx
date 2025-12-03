@@ -66,7 +66,8 @@ function HomeContent() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     imageBase64: base64Image,
-                    language: language
+                    language: language,
+                    subjectId: initialNotebookId || autoSelectedNotebookId || undefined
                 }),
             });
 

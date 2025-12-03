@@ -1,6 +1,681 @@
 // 标准化知识点标签库
 // 用于统一AI生成的标签，避免同一知识点有多种表达
 
+// ==================== 类型定义 ====================
+
+/**
+ * 课程小节(最细粒度)
+ */
+interface CurriculumSubsection {
+    subsection: string;  // 小节名称,如 "1.2.1 有理数"
+    tags: string[];      // 该小节包含的知识点标签
+}
+
+/**
+ * 课程节
+ */
+interface CurriculumSection {
+    section: string;                      // 节名称,如 "1.2 有理数"
+    tags?: string[];                      // 直接在节下的标签(可选)
+    subsections?: CurriculumSubsection[]; // 子小节(可选)
+}
+
+/**
+ * 课程章
+ */
+interface CurriculumChapter {
+    chapter: string;              // 章名称,如 "第1章 有理数"
+    sections: CurriculumSection[]; // 章下的所有节
+}
+
+/**
+ * 数学课程大纲
+ */
+type MathCurriculum = Record<string, CurriculumChapter[]>;
+
+/**
+ * 标签索引(用于快速查询)
+ */
+export interface MathTagIndex {
+    name: string;        // 标签名称
+    grade: 7 | 8 | 9;   // 年级
+    semester: 1 | 2;    // 学期
+    chapter: string;    // 章节
+    section: string;    // 小节
+    path: string;       // 完整路径,如 "七年级上/第1章 有理数/1.2.4 绝对值"
+}
+
+// ==================== 数学课程数据(单一数据源) ====================
+
+/**
+ * 人教版数学课程大纲
+ * 这是数学标签的唯一数据源,所有查询索引都从这里自动生成
+ */
+export const MATH_CURRICULUM: MathCurriculum = {
+    '七年级上': [
+        {
+            chapter: '第1章 有理数',
+            sections: [
+                {
+                    section: '1.1 正数和负数',
+                    tags: ['正数和负数']
+                },
+                {
+                    section: '1.2 有理数',
+                    subsections: [
+                        { subsection: '1.2.1 有理数', tags: ['有理数'] },
+                        { subsection: '1.2.2 数轴', tags: ['数轴'] },
+                        { subsection: '1.2.3 相反数', tags: ['相反数'] },
+                        { subsection: '1.2.4 绝对值', tags: ['绝对值', '非负数的性质：绝对值', '有理数大小比较'] }
+                    ]
+                },
+                {
+                    section: '1.3 有理数的加减法',
+                    subsections: [
+                        { subsection: '1.3.1 有理数的加法', tags: ['有理数的加法'] },
+                        { subsection: '1.3.2 有理数的减法', tags: ['有理数的减法', '有理数的加减混合运算'] }
+                    ]
+                },
+                {
+                    section: '1.4 有理数的乘除法',
+                    subsections: [
+                        { subsection: '1.4.1 有理数的乘法', tags: ['倒数', '有理数的乘法'] },
+                        { subsection: '1.4.2 有理数的除法', tags: ['有理数的除法'] }
+                    ]
+                },
+                {
+                    section: '1.5 有理数的乘方',
+                    subsections: [
+                        { subsection: '1.5.1 乘方', tags: ['有理数的乘方', '非负数的性质：偶次方', '有理数的混合运算'] },
+                        { subsection: '1.5.2 科学记数法', tags: ['科学记数法—表示较大的数'] },
+                        { subsection: '1.5.3 近似数', tags: ['近似数和有效数字'] }
+                    ]
+                }
+            ]
+        },
+        {
+            chapter: '第2章 整式的加减',
+            sections: [
+                {
+                    section: '2.1 整式',
+                    tags: ['代数式', '列代数式', '代数式求值', '整式', '单项式', '多项式']
+                },
+                {
+                    section: '2.2 整式的加减',
+                    tags: ['同类项', '合并同类项', '去括号与添括号', '整式的加减', '整式的加减—化简求值']
+                }
+            ]
+        },
+        {
+            chapter: '第3章 一元一次方程',
+            sections: [
+                {
+                    section: '3.1 从算式到方程',
+                    subsections: [
+                        { subsection: '3.1.1 一元一次方程', tags: ['方程的定义', '方程的解', '一元一次方程的定义'] },
+                        { subsection: '3.1.2 等式的性质', tags: ['等式的性质', '一元一次方程的解'] }
+                    ]
+                },
+                {
+                    section: '3.2 解一元一次方程(一)——合并同类项与移项',
+                    tags: ['解一元一次方程']
+                },
+                {
+                    section: '3.3 解一元一次方程(二)——去括号与去分母',
+                    tags: ['解一元一次方程']
+                },
+                {
+                    section: '3.4 实际问题与一元一次方程',
+                    tags: ['由实际问题抽象出一元一次方程', '一元一次方程的应用']
+                }
+            ]
+        },
+        {
+            chapter: '第4章 几何图形初步',
+            sections: [
+                {
+                    section: '4.1 几何图形',
+                    subsections: [
+                        { subsection: '4.1.1 立体图形与平面图形', tags: ['认识立体图形', '认识平面图形'] },
+                        { subsection: '4.1.2 点、线、面、体', tags: ['点、线、面、体'] }
+                    ]
+                },
+                {
+                    section: '4.2 直线、射线、线段',
+                    tags: ['直线、射线、线段', '直线的性质：两点确定一条直线', '线段的性质：两点之间线段最短', '两点间的距离', '比较线段的长短']
+                },
+                {
+                    section: '4.3 角',
+                    subsections: [
+                        { subsection: '4.3.1 角', tags: ['角的概念', '钟面角', '方向角', '度分秒的换算'] },
+                        { subsection: '4.3.2 角的比较与运算', tags: ['角平分线的定义', '角的计算', '角的大小比较'] },
+                        { subsection: '4.3.3 余角和补角', tags: ['余角和补角'] }
+                    ]
+                }
+            ]
+        }
+    ],
+    '七年级下': [
+        {
+            chapter: '第5章 相交线与平行线',
+            sections: [
+                {
+                    section: '5.1 相交线',
+                    subsections: [
+                        { subsection: '5.1.1 相交线', tags: ['相交线', '对顶角', '邻补角'] },
+                        { subsection: '5.1.2 垂线', tags: ['垂线', '垂线段最短', '点到直线的距离'] },
+                        { subsection: '5.1.3 同位角、内错角、同旁内角', tags: ['同位角', '内错角', '同旁内角'] }
+                    ]
+                },
+                {
+                    section: '5.2 平行线及其判定',
+                    subsections: [
+                        { subsection: '5.2.1 平行线', tags: ['平行线', '平行公理'] },
+                        { subsection: '5.2.2 平行线的判定', tags: ['平行线的判定'] }
+                    ]
+                },
+                {
+                    section: '5.3 平行线的性质',
+                    subsections: [
+                        { subsection: '5.3.1 平行线的性质', tags: ['平行线的性质'] },
+                        { subsection: '5.3.2 命题、定理、证明', tags: ['命题', '定理', '证明'] }
+                    ]
+                },
+                {
+                    section: '5.4 平移',
+                    tags: ['平移', '平移的性质']
+                }
+            ]
+        },
+        {
+            chapter: '第6章 实数',
+            sections: [
+                {
+                    section: '6.1 平方根',
+                    tags: ['平方根', '算术平方根']
+                },
+                {
+                    section: '6.2 立方根',
+                    tags: ['立方根']
+                },
+                {
+                    section: '6.3 实数',
+                    tags: ['实数', '无理数', '实数的大小比较']
+                }
+            ]
+        },
+        {
+            chapter: '第7章 平面直角坐标系',
+            sections: [
+                {
+                    section: '7.1 平面直角坐标系',
+                    subsections: [
+                        { subsection: '7.1.1 有序数对', tags: ['有序数对'] },
+                        { subsection: '7.1.2 平面直角坐标系', tags: ['平面直角坐标系', '象限', '点的坐标'] }
+                    ]
+                },
+                {
+                    section: '7.2 坐标方法的简单应用',
+                    subsections: [
+                        { subsection: '7.2.1 用坐标表示地理位置', tags: ['用坐标表示地理位置'] },
+                        { subsection: '7.2.2 用坐标表示平移', tags: ['用坐标表示平移'] }
+                    ]
+                }
+            ]
+        },
+        {
+            chapter: '第8章 二元一次方程组',
+            sections: [
+                {
+                    section: '8.1 二元一次方程组',
+                    tags: ['二元一次方程', '二元一次方程组', '二元一次方程组的解']
+                },
+                {
+                    section: '8.2 消元——解二元一次方程组',
+                    tags: ['代入消元法', '加减消元法']
+                },
+                {
+                    section: '8.3 实际问题与二元一次方程组',
+                    tags: ['二元一次方程组的应用']
+                },
+                {
+                    section: '8.4 三元一次方程组的解法',
+                    tags: ['三元一次方程组']
+                }
+            ]
+        },
+        {
+            chapter: '第9章 不等式与不等式组',
+            sections: [
+                {
+                    section: '9.1 不等式',
+                    subsections: [
+                        { subsection: '9.1.1 不等式及其解集', tags: ['不等式', '不等式的解集'] },
+                        { subsection: '9.1.2 不等式的性质', tags: ['不等式的性质'] }
+                    ]
+                },
+                {
+                    section: '9.2 一元一次不等式',
+                    tags: ['一元一次不等式', '一元一次不等式的应用']
+                },
+                {
+                    section: '9.3 一元一次不等式组',
+                    tags: ['一元一次不等式组', '一元一次不等式组的应用']
+                }
+            ]
+        },
+        {
+            chapter: '第10章 数据的收集、整理与描述',
+            sections: [
+                {
+                    section: '10.1 统计调查',
+                    tags: ['全面调查', '抽样调查', '总体', '个体', '样本', '样本容量']
+                },
+                {
+                    section: '10.2 直方图',
+                    tags: ['频数分布直方图', '频数', '频率']
+                }
+            ]
+        }
+    ],
+    '八年级上': [
+        {
+            chapter: '第11章 三角形',
+            sections: [
+                {
+                    section: '11.1 与三角形有关的线段',
+                    subsections: [
+                        { subsection: '11.1.1 三角形的边', tags: ['三角形的边', '三角形三边关系'] },
+                        { subsection: '11.1.2 三角形的高、中线与角平分线', tags: ['三角形的高', '三角形的中线', '三角形的角平分线'] },
+                        { subsection: '11.1.3 三角形的稳定性', tags: ['三角形的稳定性'] }
+                    ]
+                },
+                {
+                    section: '11.2 与三角形有关的角',
+                    subsections: [
+                        { subsection: '11.2.1 三角形的内角', tags: ['三角形内角和定理'] },
+                        { subsection: '11.2.2 三角形的外角', tags: ['三角形的外角性质'] }
+                    ]
+                },
+                {
+                    section: '11.3 多边形及其内角和',
+                    subsections: [
+                        { subsection: '11.3.1 多边形', tags: ['多边形', '正多边形'] },
+                        { subsection: '11.3.2 多边形的内角和', tags: ['多边形内角和', '多边形外角和'] }
+                    ]
+                }
+            ]
+        },
+        {
+            chapter: '第12章 全等三角形',
+            sections: [
+                {
+                    section: '12.1 全等三角形',
+                    tags: ['全等三角形', '全等三角形的性质']
+                },
+                {
+                    section: '12.2 三角形全等的判定',
+                    tags: ['全等三角形的判定', 'SSS', 'SAS', 'ASA', 'AAS', 'HL']
+                },
+                {
+                    section: '12.3 角平分线的性质',
+                    tags: ['角平分线的性质', '角平分线的判定']
+                }
+            ]
+        },
+        {
+            chapter: '第13章 轴对称',
+            sections: [
+                {
+                    section: '13.1 轴对称',
+                    subsections: [
+                        { subsection: '13.1.1 轴对称', tags: ['轴对称', '轴对称图形'] },
+                        { subsection: '13.1.2 线段的垂直平分线的性质', tags: ['线段垂直平分线的性质', '线段垂直平分线的判定'] }
+                    ]
+                },
+                {
+                    section: '13.2 画轴对称图形',
+                    tags: ['画轴对称图形']
+                },
+                {
+                    section: '13.3 等腰三角形',
+                    subsections: [
+                        { subsection: '13.3.1 等腰三角形', tags: ['等腰三角形', '等腰三角形的性质', '等腰三角形的判定'] },
+                        { subsection: '13.3.2 等边三角形', tags: ['等边三角形', '等边三角形的性质', '等边三角形的判定'] }
+                    ]
+                },
+                {
+                    section: '13.4 课题学习 最短路径问题',
+                    tags: ['最短路径问题', '将军饮马问题']
+                }
+            ]
+        },
+        {
+            chapter: '第14章 整式的乘法与因式分解',
+            sections: [
+                {
+                    section: '14.1 整式的乘法',
+                    subsections: [
+                        { subsection: '14.1.1 同底数幂的乘法', tags: ['同底数幂的乘法'] },
+                        { subsection: '14.1.2 幂的乘方', tags: ['幂的乘方'] },
+                        { subsection: '14.1.3 积的乘方', tags: ['积的乘方'] },
+                        { subsection: '14.1.4 整式的乘法', tags: ['单项式乘以单项式', '单项式乘以多项式', '多项式乘以多项式'] }
+                    ]
+                },
+                {
+                    section: '14.2 乘法公式',
+                    subsections: [
+                        { subsection: '14.2.1 平方差公式', tags: ['平方差公式'] },
+                        { subsection: '14.2.2 完全平方公式', tags: ['完全平方公式', '添括号法则'] }
+                    ]
+                },
+                {
+                    section: '14.3 因式分解',
+                    subsections: [
+                        { subsection: '14.3.1 提公因式法', tags: ['提公因式法'] },
+                        { subsection: '14.3.2 公式法', tags: ['公式法分解因式'] }
+                    ]
+                }
+            ]
+        },
+        {
+            chapter: '第15章 分式',
+            sections: [
+                {
+                    section: '15.1 分式',
+                    subsections: [
+                        { subsection: '15.1.1 从分数到分式', tags: ['分式', '分式有意义的条件'] },
+                        { subsection: '15.1.2 分式的基本性质', tags: ['分式的基本性质', '约分', '通分'] }
+                    ]
+                },
+                {
+                    section: '15.2 分式的运算',
+                    subsections: [
+                        { subsection: '15.2.1 分式的乘除', tags: ['分式的乘法', '分式的除法', '分式的乘方'] },
+                        { subsection: '15.2.2 分式的加减', tags: ['分式的加减'] },
+                        { subsection: '15.2.3 整数指数幂', tags: ['整数指数幂', '科学记数法—表示较小的数'] }
+                    ]
+                },
+                {
+                    section: '15.3 分式方程',
+                    tags: ['分式方程', '分式方程的解法', '分式方程的应用']
+                }
+            ]
+        }
+    ],
+    '八年级下': [
+        {
+            chapter: '第16章 二次根式',
+            sections: [
+                {
+                    section: '16.1 二次根式',
+                    tags: ['二次根式', '二次根式有意义的条件']
+                },
+                {
+                    section: '16.2 二次根式的乘除',
+                    tags: ['二次根式的乘法', '二次根式的除法', '最简二次根式']
+                },
+                {
+                    section: '16.3 二次根式的加减',
+                    tags: ['二次根式的加减', '二次根式的混合运算']
+                }
+            ]
+        },
+        {
+            chapter: '第17章 勾股定理',
+            sections: [
+                {
+                    section: '17.1 勾股定理',
+                    tags: ['勾股定理', '勾股定理的应用']
+                },
+                {
+                    section: '17.2 勾股定理的逆定理',
+                    tags: ['勾股定理的逆定理']
+                }
+            ]
+        },
+        {
+            chapter: '第18章 平行四边形',
+            sections: [
+                {
+                    section: '18.1 平行四边形',
+                    subsections: [
+                        { subsection: '18.1.1 平行四边形的性质', tags: ['平行四边形的性质'] },
+                        { subsection: '18.1.2 平行四边形的判定', tags: ['平行四边形的判定'] }
+                    ]
+                },
+                {
+                    section: '18.2 特殊的平行四边形',
+                    subsections: [
+                        { subsection: '18.2.1 矩形', tags: ['矩形的性质', '矩形的判定'] },
+                        { subsection: '18.2.2 菱形', tags: ['菱形的性质', '菱形的判定'] },
+                        { subsection: '18.2.3 正方形', tags: ['正方形的性质', '正方形的判定'] }
+                    ]
+                }
+            ]
+        },
+        {
+            chapter: '第19章 一次函数',
+            sections: [
+                {
+                    section: '19.1 函数',
+                    subsections: [
+                        { subsection: '19.1.1 变量与函数', tags: ['变量', '常量', '函数', '自变量的取值范围'] },
+                        { subsection: '19.1.2 函数的图象', tags: ['函数的图象', '描点法'] }
+                    ]
+                },
+                {
+                    section: '19.2 一次函数',
+                    subsections: [
+                        { subsection: '19.2.1 正比例函数', tags: ['正比例函数', '正比例函数的图象和性质'] },
+                        { subsection: '19.2.2 一次函数', tags: ['一次函数', '一次函数的图象和性质', '待定系数法求一次函数解析式'] },
+                        { subsection: '19.2.3 一次函数与方程、不等式', tags: ['一次函数与一元一次方程', '一次函数与一元一次不等式', '一次函数与二元一次方程组'] }
+                    ]
+                },
+                {
+                    section: '19.3 课题学习 选择方案',
+                    tags: ['一次函数的应用']
+                }
+            ]
+        },
+        {
+            chapter: '第20章 数据的分析',
+            sections: [
+                {
+                    section: '20.1 数据的集中趋势',
+                    subsections: [
+                        { subsection: '20.1.1 平均数', tags: ['算术平均数', '加权平均数'] },
+                        { subsection: '20.1.2 中位数和众数', tags: ['中位数', '众数'] }
+                    ]
+                },
+                {
+                    section: '20.2 数据的波动程度',
+                    tags: ['方差', '极差']
+                }
+            ]
+        }
+    ],
+    '九年级上': [
+        {
+            chapter: '第21章 一元二次方程',
+            sections: [
+                {
+                    section: '21.1 一元二次方程',
+                    tags: ['一元二次方程', '一元二次方程的一般形式']
+                },
+                {
+                    section: '21.2 解一元二次方程',
+                    subsections: [
+                        { subsection: '21.2.1 配方法', tags: ['直接开平方法', '配方法'] },
+                        { subsection: '21.2.2 公式法', tags: ['一元二次方程求根公式', '根的判别式'] },
+                        { subsection: '21.2.3 因式分解法', tags: ['因式分解法解一元二次方程'] },
+                        { subsection: '21.2.4 一元二次方程的根与系数的关系', tags: ['韦达定理'] }
+                    ]
+                },
+                {
+                    section: '21.3 实际问题与一元二次方程',
+                    tags: ['一元二次方程的应用']
+                }
+            ]
+        },
+        {
+            chapter: '第22章 二次函数',
+            sections: [
+                {
+                    section: '22.1 二次函数的图象和性质',
+                    subsections: [
+                        { subsection: '22.1.1 二次函数', tags: ['二次函数'] },
+                        { subsection: '22.1.2 二次函数y=ax²的图象和性质', tags: ['二次函数y=ax²的图象和性质'] },
+                        { subsection: '22.1.3 二次函数y=a(x-h)²+k的图象和性质', tags: ['二次函数顶点式'] },
+                        { subsection: '22.1.4 二次函数y=ax²+bx+c的图象和性质', tags: ['二次函数一般式', '抛物线的顶点坐标', '抛物线的对称轴'] }
+                    ]
+                },
+                {
+                    section: '22.2 二次函数与一元二次方程',
+                    tags: ['二次函数与一元二次方程的关系']
+                },
+                {
+                    section: '22.3 实际问题与二次函数',
+                    tags: ['二次函数的应用', '最大值/最小值问题']
+                }
+            ]
+        },
+        {
+            chapter: '第23章 旋转',
+            sections: [
+                {
+                    section: '23.1 图形的旋转',
+                    tags: ['旋转', '旋转的性质']
+                },
+                {
+                    section: '23.2 中心对称',
+                    subsections: [
+                        { subsection: '23.2.1 中心对称', tags: ['中心对称', '中心对称的性质'] },
+                        { subsection: '23.2.2 中心对称图形', tags: ['中心对称图形'] },
+                        { subsection: '23.2.3 关于原点对称的点的坐标', tags: ['关于原点对称的点的坐标'] }
+                    ]
+                }
+            ]
+        },
+        {
+            chapter: '第24章 圆',
+            sections: [
+                {
+                    section: '24.1 圆的有关性质',
+                    subsections: [
+                        { subsection: '24.1.1 圆', tags: ['圆', '弦', '弧'] },
+                        { subsection: '24.1.2 垂直于弦的直径', tags: ['垂径定理'] },
+                        { subsection: '24.1.3 弧、弦、圆心角', tags: ['圆心角', '弧、弦、圆心角的关系'] },
+                        { subsection: '24.1.4 圆周角', tags: ['圆周角', '圆周角定理'] }
+                    ]
+                },
+                {
+                    section: '24.2 点和圆、直线和圆的位置关系',
+                    subsections: [
+                        { subsection: '24.2.1 点和圆的位置关系', tags: ['点和圆的位置关系', '三角形的外接圆'] },
+                        { subsection: '24.2.2 直线和圆的位置关系', tags: ['直线和圆的位置关系', '切线的判定', '切线的性质', '切线长定理', '三角形的内切圆'] }
+                    ]
+                },
+                {
+                    section: '24.3 正多边形和圆',
+                    tags: ['正多边形和圆']
+                },
+                {
+                    section: '24.4 弧长和扇形面积',
+                    tags: ['弧长公式', '扇形面积公式', '圆锥的侧面积和全面积']
+                }
+            ]
+        },
+        {
+            chapter: '第25章 概率初步',
+            sections: [
+                {
+                    section: '25.1 随机事件与概率',
+                    subsections: [
+                        { subsection: '25.1.1 随机事件', tags: ['随机事件', '必然事件', '不可能事件'] },
+                        { subsection: '25.1.2 概率', tags: ['概率'] }
+                    ]
+                },
+                {
+                    section: '25.2 用列举法求概率',
+                    tags: ['列表法', '树状图法']
+                },
+                {
+                    section: '25.3 用频率估计概率',
+                    tags: ['用频率估计概率']
+                }
+            ]
+        }
+    ],
+    '九年级下': [
+        {
+            chapter: '第26章 反比例函数',
+            sections: [
+                {
+                    section: '26.1 反比例函数',
+                    subsections: [
+                        { subsection: '26.1.1 反比例函数', tags: ['反比例函数'] },
+                        { subsection: '26.1.2 反比例函数的图象和性质', tags: ['反比例函数的图象', '反比例函数的性质'] }
+                    ]
+                },
+                {
+                    section: '26.2 实际问题与反比例函数',
+                    tags: ['反比例函数的应用']
+                }
+            ]
+        },
+        {
+            chapter: '第27章 相似',
+            sections: [
+                {
+                    section: '27.1 图形的相似',
+                    tags: ['相似图形', '相似多边形', '相似比']
+                },
+                {
+                    section: '27.2 相似三角形',
+                    subsections: [
+                        { subsection: '27.2.1 相似三角形的判定', tags: ['相似三角形的判定'] },
+                        { subsection: '27.2.2 相似三角形的性质', tags: ['相似三角形的性质'] },
+                        { subsection: '27.2.3 相似三角形应用举例', tags: ['相似三角形的应用'] }
+                    ]
+                },
+                {
+                    section: '27.3 位似',
+                    tags: ['位似', '位似图形', '平面直角坐标系中的位似']
+                }
+            ]
+        },
+        {
+            chapter: '第28章 锐角三角函数',
+            sections: [
+                {
+                    section: '28.1 锐角三角函数',
+                    tags: ['正弦', '余弦', '正切', '特殊角的三角函数值']
+                },
+                {
+                    section: '28.2 解直角三角形及其应用',
+                    tags: ['解直角三角形', '解直角三角形的应用', '仰角', '俯角', '坡度']
+                }
+            ]
+        },
+        {
+            chapter: '第29章 投影与视图',
+            sections: [
+                {
+                    section: '29.1 投影',
+                    tags: ['投影', '平行投影', '中心投影', '正投影']
+                },
+                {
+                    section: '29.2 三视图',
+                    tags: ['三视图', '主视图', '左视图', '俯视图', '由三视图还原几何体']
+                }
+            ]
+        }
+    ]
+};
+
+// ==================== 旧版标签结构(保留用于其他学科) ====================
+
 export const STANDARD_TAGS = {
     // ==================== 数学 ====================
     math: {
@@ -677,12 +1352,184 @@ export function normalizeTags(tags: string[]): string[] {
 }
 
 /**
+ * 根据年级和学科标准化标签
+ * @param tags AI生成的标签数组
+ * @param grade 年级 (7, 8, 9 对应初中)
+ * @param subjectName 学科名称
+ * @returns 标准化后的去重标签数组
+ */
+export function normalizeTagsByGradeAndSubject(
+    tags: string[],
+    grade: 7 | 8 | 9 | null,
+    subjectName: 'math' | 'physics' | 'chemistry' | 'english' | null
+): string[] {
+    const normalized = tags.map(tag => {
+        const trimmed = tag.trim();
+
+        // 1. 检查别名映射
+        if (TAG_ALIASES[trimmed]) {
+            const aliasTag = TAG_ALIASES[trimmed];
+
+            // 如果指定了年级和学科,验证别名标签是否匹配
+            if (grade && subjectName === 'math') {
+                const mathTagInfo = getMathTagInfo(aliasTag);
+                if (mathTagInfo && mathTagInfo.grade === grade) {
+                    return aliasTag; // 优先返回匹配年级的标签
+                }
+            }
+
+            return aliasTag;
+        }
+
+        // 2. 如果是数学学科且指定了年级,优先在该年级的数学标签中匹配
+        if (subjectName === 'math' && grade) {
+            const gradeTags = getMathTagsByGrade(grade);
+            for (const standardTag of gradeTags) {
+                if (trimmed.includes(standardTag) || standardTag.includes(trimmed)) {
+                    return standardTag;
+                }
+            }
+        }
+
+        // 3. 如果指定了学科,在该学科的所有标签中匹配
+        if (subjectName) {
+            const subjectTags = getSubjectTags(subjectName);
+            for (const standardTag of subjectTags) {
+                if (trimmed.includes(standardTag) || standardTag.includes(trimmed)) {
+                    return standardTag;
+                }
+            }
+        }
+
+        // 4. 跨学科检查: 如果指定了学科,且在当前学科没找到,检查是否属于其他学科
+        if (subjectName) {
+            const otherSubjects = ['math', 'physics', 'chemistry', 'english'].filter(s => s !== subjectName);
+            for (const otherSubject of otherSubjects) {
+                const otherTags = getSubjectTags(otherSubject as any);
+                // 如果标签在其他学科的标准库里完全匹配,且在当前学科没找到(前面已经找过了)
+                // 则认为是跨学科错误,丢弃该标签
+                if (otherTags.includes(trimmed)) {
+                    return null;
+                }
+            }
+        }
+
+        // 5. 全局模糊匹配(兜底)
+        // 只有当没有指定学科,或者确信不是跨学科错误时才进行
+        const allStandardTags = getAllStandardTags();
+        for (const standardTag of allStandardTags) {
+            if (trimmed.includes(standardTag) || standardTag.includes(trimmed)) {
+                return standardTag;
+            }
+        }
+
+        // 6. 如果找不到匹配,返回原标签
+        return trimmed;
+    }).filter(tag => tag !== null) as string[];
+
+    // 去重
+    return Array.from(new Set(normalized));
+}
+
+/**
+ * 获取指定学科的所有标签
+ * @param subjectName 学科名称
+ * @returns 该学科的所有标签数组
+ */
+function getSubjectTags(subjectName: 'math' | 'physics' | 'chemistry' | 'english'): string[] {
+    switch (subjectName) {
+        case 'math':
+            return getAllMathTags();
+        case 'physics':
+            return extractTagsFromSubject(STANDARD_TAGS.physics);
+        case 'chemistry':
+            return extractTagsFromSubject(STANDARD_TAGS.chemistry);
+        case 'english':
+            return extractTagsFromSubject(STANDARD_TAGS.english);
+        default:
+            return [];
+    }
+}
+
+/**
+ * 从学科数据中提取所有标签
+ */
+function extractTagsFromSubject(subjectData: any): string[] {
+    const tags: string[] = [];
+    function extract(obj: any): void {
+        if (Array.isArray(obj)) {
+            tags.push(...obj);
+        } else if (typeof obj === 'object' && obj !== null) {
+            Object.values(obj).forEach(value => extract(value));
+        }
+    }
+    extract(subjectData);
+    return tags;
+}
+
+/**
+ * 从教育阶段和入学年份推算当前年级
+ * @param educationStage 教育阶段 ('junior_high' 等)
+ * @param enrollmentYear 入学年份
+ * @returns 年级 (7, 8, 9) 或 null
+ */
+export function calculateGrade(
+    educationStage: string | null,
+    enrollmentYear: number | null
+): 7 | 8 | 9 | null {
+    if (educationStage !== 'junior_high' || !enrollmentYear) {
+        return null;
+    }
+
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+
+    // 计算入学后的年数
+    let yearsInSchool = currentYear - enrollmentYear;
+
+    // 如果当前月份在9月之前,说明还没开学,年级要减1
+    if (currentMonth < 9) {
+        yearsInSchool -= 1;
+    }
+
+    // 初中: 入学第1年=7年级, 第2年=8年级, 第3年=9年级
+    const grade = 7 + yearsInSchool;
+
+    if (grade >= 7 && grade <= 9) {
+        return grade as 7 | 8 | 9;
+    }
+
+    return null;
+}
+
+/**
+ * 从错题本名称推断学科
+ * @param subjectName 错题本名称
+ * @returns 学科标识
+ */
+export function inferSubjectFromName(subjectName: string | null): 'math' | 'physics' | 'chemistry' | 'english' | null {
+    if (!subjectName) return null;
+
+    const lowerName = subjectName.toLowerCase();
+
+    if (lowerName.includes('math') || lowerName.includes('数学')) return 'math';
+    if (lowerName.includes('physics') || lowerName.includes('物理')) return 'physics';
+    if (lowerName.includes('chemistry') || lowerName.includes('化学')) return 'chemistry';
+    if (lowerName.includes('english') || lowerName.includes('英语')) return 'english';
+
+    return null;
+}
+
+/**
  * 获取所有标准标签（扁平化）
  */
 export function getAllStandardTags(): string[] {
     const tags: string[] = [];
 
-    // 递归提取标签
+    // 1. 添加新的数学标签(从索引获取)
+    tags.push(...getAllMathTags());
+
+    // 2. 递归提取其他学科的标签(物理、化学、英语)
     function extractTags(obj: any): void {
         if (Array.isArray(obj)) {
             // 如果是数组，直接添加所有元素
@@ -693,7 +1540,10 @@ export function getAllStandardTags(): string[] {
         }
     }
 
-    extractTags(STANDARD_TAGS);
+    // 提取物理、化学、英语标签(跳过旧的math结构)
+    const { math, ...otherSubjects } = STANDARD_TAGS;
+    extractTags(otherSubjects);
+
     return tags;
 }
 
@@ -718,3 +1568,127 @@ export function getTagSuggestions(input: string, existingTags: string[]): string
 
     return suggestions.slice(0, 10);
 }
+
+// ==================== 数学标签索引和查询函数 ====================
+
+/**
+ * 解析年级学期字符串
+ * @param gradeSemester 如 "七年级上"
+ * @returns [年级数字, 学期数字]
+ */
+function parseGradeSemester(gradeSemester: string): [7 | 8 | 9, 1 | 2] {
+    const gradeMap: Record<string, 7 | 8 | 9> = {
+        '七年级': 7,
+        '八年级': 8,
+        '九年级': 9
+    };
+
+    const semesterMap: Record<string, 1 | 2> = {
+        '上': 1,
+        '下': 2
+    };
+
+    const gradeMatch = gradeSemester.match(/(七|八|九)年级/);
+    const semesterMatch = gradeSemester.match(/(上|下)/);
+
+    const gradeStr = gradeMatch ? gradeMatch[1] + '年级' : '七年级';
+    const semesterStr = semesterMatch ? semesterMatch[1] : '上';
+
+    return [gradeMap[gradeStr], semesterMap[semesterStr]];
+}
+
+/**
+ * 构建数学标签索引
+ * 从 MATH_CURRICULUM 自动生成扁平索引,用于快速查询
+ */
+function buildMathTagIndex(): Map<string, MathTagIndex> {
+    const index = new Map<string, MathTagIndex>();
+
+    Object.entries(MATH_CURRICULUM).forEach(([gradeSemester, chapters]) => {
+        const [grade, semester] = parseGradeSemester(gradeSemester);
+
+        chapters.forEach(({ chapter, sections }) => {
+            sections.forEach(({ section, tags, subsections }) => {
+                // 处理直接在 section 下的 tags
+                tags?.forEach(tag => {
+                    index.set(tag, {
+                        name: tag,
+                        grade,
+                        semester,
+                        chapter,
+                        section,
+                        path: `${gradeSemester}/${chapter}/${section}`
+                    });
+                });
+
+                // 处理 subsections
+                subsections?.forEach(({ subsection, tags: subTags }) => {
+                    subTags.forEach(tag => {
+                        index.set(tag, {
+                            name: tag,
+                            grade,
+                            semester,
+                            chapter,
+                            section: subsection,
+                            path: `${gradeSemester}/${chapter}/${subsection}`
+                        });
+                    });
+                });
+            });
+        });
+    });
+
+    return index;
+}
+
+/**
+ * 数学标签索引(自动生成)
+ */
+export const MATH_TAG_INDEX: Map<string, MathTagIndex> = buildMathTagIndex();
+
+/**
+ * 获取所有数学标签(扁平数组)
+ */
+export function getAllMathTags(): string[] {
+    return Array.from(MATH_TAG_INDEX.keys());
+}
+
+/**
+ * 按年级和学期筛选数学标签
+ * @param grade 年级 (7, 8, 9)
+ * @param semester 学期 (1=上, 2=下),可选
+ * @returns 标签名称数组
+ */
+export function getMathTagsByGrade(grade: 7 | 8 | 9, semester?: 1 | 2): string[] {
+    return Array.from(MATH_TAG_INDEX.values())
+        .filter(tag => tag.grade === grade && (!semester || tag.semester === semester))
+        .map(tag => tag.name);
+}
+
+/**
+ * 按章节筛选数学标签
+ * @param chapter 章节名称,如 "第1章 有理数"
+ * @returns 标签名称数组
+ */
+export function getMathTagsByChapter(chapter: string): string[] {
+    return Array.from(MATH_TAG_INDEX.values())
+        .filter(tag => tag.chapter === chapter)
+        .map(tag => tag.name);
+}
+
+/**
+ * 获取标签的元数据信息
+ * @param tagName 标签名称
+ * @returns 标签的元数据,如果不存在则返回 undefined
+ */
+export function getMathTagInfo(tagName: string): MathTagIndex | undefined {
+    return MATH_TAG_INDEX.get(tagName);
+}
+
+/**
+ * 获取完整的数学课程大纲
+ */
+export function getMathCurriculum(): MathCurriculum {
+    return MATH_CURRICULUM;
+}
+

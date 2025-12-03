@@ -5,7 +5,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { STANDARD_TAGS } from "@/lib/knowledge-tags";
+import { STANDARD_TAGS, MATH_CURRICULUM, MATH_TAG_INDEX } from "@/lib/knowledge-tags";
 import { getCustomTags, addCustomTag, removeCustomTag, type CustomTagsData } from "@/lib/custom-tags";
 import Link from "next/link";
 import { ArrowLeft, TrendingUp, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
@@ -26,6 +26,7 @@ export default function TagsPage() {
     // 自定义标签状态
     const [customTags, setCustomTags] = useState<CustomTagsData>({ math: [], physics: [], chemistry: [], english: [], other: [] });
     const [newTagSubject, setNewTagSubject] = useState<keyof CustomTagsData>("math");
+    const [newTagCategory, setNewTagCategory] = useState("default");
     const [newTagName, setNewTagName] = useState("");
     const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
 
@@ -52,13 +53,28 @@ export default function TagsPage() {
         }
     };
 
+    const getCategoriesForSubject = (subject: string) => {
+        if (subject === 'math') {
+            return Object.keys(MATH_CURRICULUM);
+        }
+        // For other subjects
+        if (subject === 'other') return [];
+
+        // @ts-ignore
+        const subjectData = STANDARD_TAGS[subject];
+        if (subjectData && typeof subjectData === 'object') {
+            return Object.keys(subjectData);
+        }
+        return [];
+    };
+
     const handleAddCustomTag = () => {
         if (!newTagName.trim()) {
             alert(t.tags?.custom?.enterName || "Please enter tag name");
             return;
         }
 
-        const success = addCustomTag(newTagSubject, newTagName.trim());
+        const success = addCustomTag(newTagSubject, newTagName.trim(), newTagCategory);
         if (success) {
             setNewTagName("");
             loadCustomTags();
@@ -75,11 +91,8 @@ export default function TagsPage() {
         }
     };
 
-    // 渲染标准标签库（代码未改变，省略...)
     // 渲染标准标签库
     const renderStandardTags = () => {
-        const subjects = Object.entries(STANDARD_TAGS);
-
         const toggleSubject = (subjectKey: string) => {
             setExpandedSubjects(prev => ({
                 ...prev,
@@ -87,21 +100,26 @@ export default function TagsPage() {
             }));
         };
 
-        return subjects.map(([subjectKey, subjectData]) => {
-            // @ts-ignore
-            const subjectName = t.tags?.subjects?.[subjectKey] || subjectKey;
-            const categories = Object.entries(subjectData);
-            const isExpanded = expandedSubjects[subjectKey];
+        const toggleChapter = (chapterKey: string) => {
+            setExpandedSubjects(prev => ({
+                ...prev,
+                [chapterKey]: !prev[chapterKey]
+            }));
+        };
+
+        // 渲染数学学科(使用新的年级+章节结构)
+        const renderMathSubject = () => {
+            const isExpanded = expandedSubjects['math'];
 
             return (
-                <Card key={subjectKey} className="mb-4">
+                <Card key="math" className="mb-4">
                     <CardHeader
                         className="cursor-pointer hover:bg-muted/50 transition-colors flex flex-row items-center justify-between py-4"
-                        onClick={() => toggleSubject(subjectKey)}
+                        onClick={() => toggleSubject('math')}
                     >
                         <CardTitle className="text-lg flex items-center gap-2">
                             {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                            {subjectName}
+                            {t.tags?.subjects?.math || '数学'}
                         </CardTitle>
                         <span className="text-sm text-muted-foreground">
                             {isExpanded ? (language === 'zh' ? '收起' : 'Collapse') : (language === 'zh' ? '展开' : 'Expand')}
@@ -109,30 +127,58 @@ export default function TagsPage() {
                     </CardHeader>
                     {isExpanded && (
                         <CardContent className="space-y-4 pt-0">
-                            {categories.map(([categoryKey, categoryData]) => {
-                                const tags: string[] = [];
-                                const extractTags = (data: any) => {
-                                    if (Array.isArray(data)) tags.push(...data);
-                                    else if (typeof data === 'object') Object.values(data).forEach(extractTags);
-                                };
-                                extractTags(categoryData);
-                                if (tags.length === 0) return null;
-                                // @ts-ignore
-                                const categoryName = t.tags?.categories?.[categoryKey] || categoryKey;
+                            {Object.entries(MATH_CURRICULUM).map(([gradeSemester, chapters]) => {
+                                const gradeKey = `math-${gradeSemester}`;
+                                const isGradeExpanded = expandedSubjects[gradeKey];
+
                                 return (
-                                    <div key={categoryKey}>
-                                        <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{categoryName} ({tags.length})</h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            {tags.map((tag) => {
-                                                const stat = stats.find((s) => s.tag === tag);
-                                                return (
-                                                    <Badge key={tag} variant="outline" className="cursor-default hover:bg-accent">
-                                                        {tag}
-                                                        {stat && <span className="ml-1 text-xs text-muted-foreground">({stat.count})</span>}
-                                                    </Badge>
-                                                );
-                                            })}
+                                    <div key={gradeSemester} className="border rounded-lg p-3">
+                                        <div
+                                            className="flex items-center justify-between cursor-pointer hover:bg-muted/30 -m-3 p-3 rounded-lg transition-colors"
+                                            onClick={() => toggleChapter(gradeKey)}
+                                        >
+                                            <h3 className="font-semibold text-base flex items-center gap-2">
+                                                {isGradeExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                                {gradeSemester}
+                                            </h3>
+                                            <span className="text-xs text-muted-foreground">
+                                                {chapters.length} {language === 'zh' ? '章' : 'chapters'}
+                                            </span>
                                         </div>
+
+                                        {isGradeExpanded && (
+                                            <div className="mt-3 space-y-3">
+                                                {chapters.map(({ chapter, sections }) => {
+                                                    // 收集该章节的所有标签
+                                                    const chapterTags: string[] = [];
+                                                    sections.forEach(({ tags, subsections }) => {
+                                                        if (tags) chapterTags.push(...tags);
+                                                        subsections?.forEach(({ tags: subTags }) => {
+                                                            chapterTags.push(...subTags);
+                                                        });
+                                                    });
+
+                                                    return (
+                                                        <div key={chapter} className="bg-muted/30 rounded-md p-3">
+                                                            <h4 className="text-sm font-semibold mb-2 text-muted-foreground">
+                                                                {chapter} ({chapterTags.length})
+                                                            </h4>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {chapterTags.map((tag) => {
+                                                                    const stat = stats.find((s) => s.tag === tag);
+                                                                    return (
+                                                                        <Badge key={tag} variant="outline" className="cursor-default hover:bg-accent">
+                                                                            {tag}
+                                                                            {stat && <span className="ml-1 text-xs text-muted-foreground">({stat.count})</span>}
+                                                                        </Badge>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -140,7 +186,74 @@ export default function TagsPage() {
                     )}
                 </Card>
             );
-        });
+        };
+
+        // 渲染其他学科(使用旧的分类结构)
+        const renderOtherSubjects = () => {
+            const { math, ...otherSubjects } = STANDARD_TAGS;
+
+            return Object.entries(otherSubjects).map(([subjectKey, subjectData]) => {
+                // @ts-ignore
+                const subjectName = t.tags?.subjects?.[subjectKey] || subjectKey;
+                const categories = Object.entries(subjectData);
+                const isExpanded = expandedSubjects[subjectKey];
+
+                return (
+                    <Card key={subjectKey} className="mb-4">
+                        <CardHeader
+                            className="cursor-pointer hover:bg-muted/50 transition-colors flex flex-row items-center justify-between py-4"
+                            onClick={() => toggleSubject(subjectKey)}
+                        >
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                                {subjectName}
+                            </CardTitle>
+                            <span className="text-sm text-muted-foreground">
+                                {isExpanded ? (language === 'zh' ? '收起' : 'Collapse') : (language === 'zh' ? '展开' : 'Expand')}
+                            </span>
+                        </CardHeader>
+                        {isExpanded && (
+                            <CardContent className="space-y-4 pt-0">
+                                {categories.map(([categoryKey, categoryData]) => {
+                                    const tags: string[] = [];
+                                    const extractTags = (data: any) => {
+                                        if (Array.isArray(data)) tags.push(...data);
+                                        else if (typeof data === 'object') Object.values(data).forEach(extractTags);
+                                    };
+                                    extractTags(categoryData);
+                                    if (tags.length === 0) return null;
+                                    // @ts-ignore
+                                    const categoryName = t.tags?.categories?.[categoryKey] || categoryKey;
+                                    return (
+                                        <div key={categoryKey}>
+                                            <h4 className="text-sm font-semibold mb-2 text-muted-foreground">{categoryName} ({tags.length})</h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {tags.map((tag) => {
+                                                    const stat = stats.find((s) => s.tag === tag);
+                                                    return (
+                                                        <Badge key={tag} variant="outline" className="cursor-default hover:bg-accent">
+                                                            {tag}
+                                                            {stat && <span className="ml-1 text-xs text-muted-foreground">({stat.count})</span>}
+                                                        </Badge>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </CardContent>
+                        )}
+                    </Card>
+                );
+            });
+        };
+
+        return (
+            <>
+                {renderMathSubject()}
+                {renderOtherSubjects()}
+            </>
+        );
     };
 
     // 渲染自定义标签
@@ -160,9 +273,14 @@ export default function TagsPage() {
                 <Card>
                     <CardHeader><CardTitle>{t.tags?.custom?.addTitle || "Add Custom Tag"}</CardTitle></CardHeader>
                     <CardContent>
-                        <div className="flex gap-3">
-                            <Select value={newTagSubject} onValueChange={(v) => setNewTagSubject(v as keyof CustomTagsData)}>
-                                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                        <div className="flex gap-3 flex-wrap">
+                            <Select value={newTagSubject} onValueChange={(v) => {
+                                const subject = v as keyof CustomTagsData;
+                                setNewTagSubject(subject);
+                                const cats = getCategoriesForSubject(subject);
+                                setNewTagCategory(cats.length > 0 ? cats[0] : "default");
+                            }}>
+                                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="math">{t.tags?.subjects?.math || "Math"}</SelectItem>
                                     <SelectItem value="english">{t.tags?.subjects?.english || "English"}</SelectItem>
@@ -171,12 +289,27 @@ export default function TagsPage() {
                                     <SelectItem value="other">{t.tags?.subjects?.other || "Other"}</SelectItem>
                                 </SelectContent>
                             </Select>
+
+                            {getCategoriesForSubject(newTagSubject).length > 0 && (
+                                <Select value={newTagCategory} onValueChange={setNewTagCategory}>
+                                    <SelectTrigger className="w-[160px]">
+                                        <SelectValue placeholder="Category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {getCategoriesForSubject(newTagSubject).map(cat => (
+                                            // @ts-ignore
+                                            <SelectItem key={cat} value={cat}>{t.tags?.categories?.[cat] || cat}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+
                             <Input
                                 placeholder={t.tags?.custom?.placeholder || "Enter tag name..."}
                                 value={newTagName}
                                 onChange={(e) => setNewTagName(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleAddCustomTag()}
-                                className="flex-1"
+                                className="flex-1 min-w-[200px]"
                             />
                             <Button onClick={handleAddCustomTag}>
                                 <Plus className="h-4 w-4 mr-1" />
@@ -200,16 +333,42 @@ export default function TagsPage() {
                             <Card key={key}>
                                 <CardHeader><CardTitle className="text-lg">{name} ({customTags[key].length})</CardTitle></CardHeader>
                                 <CardContent>
-                                    <div className="flex flex-wrap gap-2">
-                                        {customTags[key].map((tag) => (
-                                            <Badge key={tag} variant="secondary" className="px-3 py-1.5 text-sm">
-                                                {tag}
-                                                <button onClick={() => handleRemoveCustomTag(key, tag)} className="ml-2 hover:text-destructive transition-colors" title={t.common?.delete || "Delete"}>
-                                                    <Trash2 className="h-3 w-3" />
-                                                </button>
-                                            </Badge>
-                                        ))}
-                                    </div>
+                                    {/* Group by category */}
+                                    {(() => {
+                                        const tags = customTags[key];
+                                        const grouped: Record<string, typeof tags> = {};
+                                        tags.forEach(tag => {
+                                            const cat = tag.category || 'default';
+                                            if (!grouped[cat]) grouped[cat] = [];
+                                            grouped[cat].push(tag);
+                                        });
+
+                                        return (
+                                            <div className="space-y-4">
+                                                {Object.entries(grouped).map(([category, categoryTags]) => (
+                                                    <div key={category}>
+                                                        {category !== 'default' && (
+                                                            // @ts-ignore
+                                                            <h4 className="text-sm font-medium text-muted-foreground mb-2">{t.tags?.categories?.[category] || category}</h4>
+                                                        )}
+                                                        {category === 'default' && categoryTags.length > 0 && Object.keys(grouped).length > 1 && (
+                                                            <h4 className="text-sm font-medium text-muted-foreground mb-2">{t.common?.default || "Default"}</h4>
+                                                        )}
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {categoryTags.map((tagObj) => (
+                                                                <Badge key={tagObj.name} variant="secondary" className="px-3 py-1.5 text-sm">
+                                                                    {tagObj.name}
+                                                                    <button onClick={() => handleRemoveCustomTag(key, tagObj.name)} className="ml-2 hover:text-destructive transition-colors" title={t.common?.delete || "Delete"}>
+                                                                        <Trash2 className="h-3 w-3" />
+                                                                    </button>
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
                                 </CardContent>
                             </Card>
                         );

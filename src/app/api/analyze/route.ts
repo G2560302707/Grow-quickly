@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { getAIService } from "@/lib/ai";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { normalizeTags } from "@/lib/knowledge-tags";
+import { normalizeTags, normalizeTagsByGradeAndSubject, calculateGrade, inferSubjectFromName } from "@/lib/knowledge-tags";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
     console.log("[API] /api/analyze called");
     console.log("[API] Env Vars:", Object.keys(process.env).filter(k => k.includes("GOOGLE") || k.includes("NEXT")));
-    // const session = await getServerSession(authOptions);
 
+    const session = await getServerSession(authOptions);
+
+    // 注释掉认证检查以便测试,生产环境应启用
     // if (!session) {
     //     console.log("[API] Unauthorized access attempt");
     //     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -16,9 +19,9 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        let { imageBase64, mimeType, language } = body;
+        let { imageBase64, mimeType, language, subjectId } = body;
 
-        console.log(`[API] Request received. Image length: ${imageBase64?.length}, MimeType: ${mimeType}, Language: ${language}`);
+        console.log(`[API] Request received. Image length: ${imageBase64?.length}, MimeType: ${mimeType}, Language: ${language}, SubjectId: ${subjectId}`);
 
         if (!imageBase64) {
             console.log("[API] Missing image data");
@@ -43,10 +46,60 @@ export async function POST(req: Request) {
         console.log("[API] knowledgePoints type:", typeof analysisResult.knowledgePoints);
         console.log("[API] knowledgePoints isArray:", Array.isArray(analysisResult.knowledgePoints));
 
+        // 获取用户信息和错题本信息以进行智能标签匹配
+        let userGrade: 7 | 8 | 9 | null = null;
+        let subjectName: 'math' | 'physics' | 'chemistry' | 'english' | null = null;
+
+        if (session?.user?.email) {
+            try {
+                // 获取用户信息
+                const user = await prisma.user.findUnique({
+                    where: { email: session.user.email },
+                    select: { educationStage: true, enrollmentYear: true }
+                });
+
+                if (user) {
+                    userGrade = calculateGrade(user.educationStage, user.enrollmentYear);
+                    console.log("[API] Calculated user grade:", userGrade);
+                }
+
+                // 获取错题本信息以推断学科
+                if (subjectId) {
+                    const subject = await prisma.subject.findUnique({
+                        where: { id: subjectId },
+                        select: { name: true }
+                    });
+
+                    if (subject) {
+                        subjectName = inferSubjectFromName(subject.name);
+                        console.log("[API] Inferred subject:", subjectName, "from:", subject.name);
+                    }
+                }
+            } catch (error) {
+                console.error("[API] Error fetching user/subject info:", error);
+                // 继续执行,使用默认的标签匹配
+            }
+        }
+
         // 标准化知识点标签
         if (analysisResult.knowledgePoints && analysisResult.knowledgePoints.length > 0) {
             const originalTags = [...analysisResult.knowledgePoints];
-            analysisResult.knowledgePoints = normalizeTags(analysisResult.knowledgePoints);
+
+            // 如果有年级或学科信息,使用智能匹配
+            if (userGrade || subjectName) {
+                analysisResult.knowledgePoints = normalizeTagsByGradeAndSubject(
+                    analysisResult.knowledgePoints,
+                    userGrade,
+                    subjectName
+                );
+                console.log("[API] Used grade/subject-based normalization");
+                console.log("[API] Grade:", userGrade, "Subject:", subjectName);
+            } else {
+                // 否则使用默认匹配
+                analysisResult.knowledgePoints = normalizeTags(analysisResult.knowledgePoints);
+                console.log("[API] Used default normalization");
+            }
+
             console.log("[API] Original tags:", originalTags);
             console.log("[API] Normalized tags:", analysisResult.knowledgePoints);
         } else {
