@@ -16,8 +16,8 @@ export default function RegisterPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [educationStage, setEducationStage] = useState("");
-    const [enrollmentYear, setEnrollmentYear] = useState("");
+    const [educationStage, setEducationStage] = useState("junior_high");
+    const [enrollmentYear, setEnrollmentYear] = useState("2025");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
