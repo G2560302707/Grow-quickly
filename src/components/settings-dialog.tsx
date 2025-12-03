@@ -52,7 +52,8 @@ export function SettingsDialog() {
     const { data: session } = useSession();
     const { t, language, setLanguage } = useLanguage();
     const [open, setOpen] = useState(false);
-    const [clearing, setClearing] = useState(false);
+    const [clearingPractice, setClearingPractice] = useState(false);
+    const [clearingError, setClearingError] = useState(false);
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
@@ -181,7 +182,7 @@ export function SettingsDialog() {
             return;
         }
 
-        setClearing(true);
+        setClearingPractice(true);
         try {
             const res = await fetch("/api/stats/practice/clear", {
                 method: "DELETE",
@@ -198,7 +199,7 @@ export function SettingsDialog() {
             console.error(error);
             alert(t.settings?.clearError || "Failed");
         } finally {
-            setClearing(false);
+            setClearingPractice(false);
         }
     };
 
@@ -207,7 +208,7 @@ export function SettingsDialog() {
             return;
         }
 
-        setClearing(true);
+        setClearingError(true);
         try {
             const res = await fetch("/api/error-items/clear", {
                 method: "DELETE",
@@ -224,7 +225,7 @@ export function SettingsDialog() {
             console.error(error);
             alert(t.settings?.clearError || "Failed");
         } finally {
-            setClearing(false);
+            setClearingError(false);
         }
     };
 
@@ -567,9 +568,9 @@ export function SettingsDialog() {
                                         variant="destructive"
                                         size="sm"
                                         onClick={handleClearData}
-                                        disabled={clearing}
+                                        disabled={clearingPractice}
                                     >
-                                        {clearing ? (
+                                        {clearingPractice ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
                                             <Trash2 className="h-4 w-4" />
@@ -593,9 +594,9 @@ export function SettingsDialog() {
                                         variant="destructive"
                                         size="sm"
                                         onClick={handleClearErrorData}
-                                        disabled={clearing}
+                                        disabled={clearingError}
                                     >
-                                        {clearing ? (
+                                        {clearingError ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
                                             <Trash2 className="h-4 w-4" />
