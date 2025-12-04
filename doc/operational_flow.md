@@ -1,0 +1,192 @@
+# Smart Wrong Notebook (智能错题本) - 项目深度分析与操作流
+
+## 1. 项目概览
+
+**Smart Wrong Notebook** 是一个基于 Next.js 全栈框架开发的智能错题管理系统。它利用 AI (Google Gemini / OpenAI) 强大的多模态能力，实现了从错题录入、智能分析、分类管理到针对性练习的全流程闭环。
+
+### 核心价值
+*   **自动化录入**：通过 OCR 和 AI 语义分析，极大降低了错题整理的时间成本。
+*   **结构化管理**：利用知识点标签和科目分类，将碎片化的错题转化为结构化的知识库。
+*   **个性化提升**：基于错题生成相似题进行变式训练，并支持自定义打印，回归纸笔练习。
+
+---
+
+## 2. 核心业务流程详解
+
+### 2.1 用户准入与配置 (User Onboarding & Config)
+*   **流程**：
+    1.  **注册/登录**：用户通过邮箱/密码注册，系统创建独立账户。数据通过 `user_id` 进行严格隔离。
+        *   *涉及文件*: `src/app/login/page.tsx`, `src/app/register/page.tsx`, `src/lib/auth.ts`
+    2.  **AI 配置**：编辑 `config/app-config.json` 文件，配置 API Key 和模型。
+        *   *安全性*：该文件已在 `.gitignore` 中，不会提交到版本库。仓库中保留 `config/.gitkeep` 确保目录结构存在。
+
+### 2.2 错题录入全流程 (Error Item Entry)
+这是系统的核心入口，分为四个阶段：
+
+#### 阶段一：上传与预处理
+*   **操作**：用户在错题本页面点击 "添加错题" 或拖拽图片。
+*   **处理**：
+    1.  **图片压缩**：前端使用 `browser-image-compression` 对大图进行压缩（目标 1MB），减少传输延迟。
+    2.  **裁剪**：弹出裁剪框 (`ImageCropper`)，用户手动框选题目区域，去除无关背景。
+
+#### 阶段二：AI 智能分析 ✨ (已优化)
+*   **触发**：裁剪完成后，前端将图片 Base64 发送至 `/api/analyze`。
+*   **后端处理**：
+    1.  **Provider 选择**：系统根据配置自动选择 Gemini 或 OpenAI Provider。
+    2.  **JSON Mode 启用**：
+        *   Gemini: `responseMimeType: "application/json"`
+        *   OpenAI: `response_format: { type: "json_object" }`
+    3.  **Prompt 构建**：使用标准化的 Prompt 模板，要求 AI 返回结构化的 JSON 数据，包含详细的 JSON Schema 示例。
+    4.  **响应验证**：使用 Zod Schema (`src/lib/ai/schema.ts`) 进行类型验证和业务规则检查。
+    5.  **标签标准化**：AI 返回的知识点标签会与人教版课程大纲进行智能匹配，确保标签的一致性。
+    6.  **错误处理**：
+        *   网络错误 → `AI_CONNECTION_FAILED`
+        *   JSON 格式错误 → `AI_RESPONSE_ERROR`
+        *   认证失败 → `AI_AUTH_ERROR`
+        *   未知错误 → `AI_UNKNOWN_ERROR`
+
+#### 阶段三：人工校对 (Review & Edit)
+*   **界面**：进入 `CorrectionEditor` 界面。
+*   **操作**：
+    *   用户对比左侧原图，检查右侧 AI 识别的文本。
+    *   **科目归类**：系统自动推荐科目，用户可修改。
+    *   **标签管理**：用户可增删 AI 生成的知识点标签。标签输入支持自动补全，从标准标签库和自定义标签中选择。
+    *   **LaTeX 编辑**：使用 `react-markdown` + `rehype-katex` 实现数学公式的实时预览。
+*   **Markdown 渲染优化** ✨：
+    *   自动处理中英文标点后的换行
+    *   支持带圆圈数字（①②③）的列表
+    *   修复了 `PRESERVE` 占位符泄漏问题
+
+#### 阶段四：持久化存储
+*   **触发**：用户点击 "保存到错题本"。
+*   **后端处理**：
+    1.  数据发送至 `/api/error-items`。
+    2.  **数据库写入**：在 `ErrorItem` 表中创建记录，关联 `Subject` 和知识点标签。
+    3.  **图片存储**：原图以 Base64 格式存储在数据库中。
+
+### 2.3 错题管理与复习 (Management & Review)
+*   **错题本视图**：
+    *   按科目展示错题本卡片
+    *   进入特定科目，列表展示该科目的所有错题
+*   **筛选与检索**：
+    *   支持按 **掌握程度** (待复习/已掌握)、**时间范围**、**知识点标签**、**年级/学期**、**卷等级** 筛选
+    *   使用 Prisma 的 `where` 子句进行多条件组合查询
+
+### 2.4 智能练习与打印 (Practice & Print)
+*   **生成练习**：
+    *   用户在错题详情页点击 "举一反三"
+    *   **AI 变式**：后端调用 `/api/practice/generate`，生成相似题（支持 4 种难度：简单、适中、困难、挑战）
+    *   **错误处理细化** ✨：前端会根据不同的错误类型显示具体提示：
+        - 网络连接失败
+        - AI 解析异常
+        - 认证失败
+        - 未知错误
+*   **打印预览**：
+    *   用户可选择是否打印答案、解析，调整图片缩放比例 (30%-100%)
+    *   调用浏览器打印功能，生成 PDF 或直接打印
+
+---
+
+## 3. 关键技术细节与数据流
+
+### 3.1 数据库架构 (Schema)
+核心实体关系如下：
+*   **User**: 系统用户 (1) <-> (N) **ErrorItem**
+*   **Subject**: 科目 (1) <-> (N) **ErrorItem**
+*   **ErrorItem**: 错题实体
+    *   `questionText`: 题目文本 (Markdown/LaTeX)
+    *   `answerText`: 参考答案
+    *   `analysis`: 解析思路
+    *   `originalImageUrl`: 原图 (Base64)
+    *   `knowledgePoints`: 知识点标签 (JSON 数组)
+    *   `mastered`: 掌握状态 (Boolean)
+    *   `gradeSemester`: 年级/学期
+    *   `paperLevel`: 卷等级 (A/B/其他)
+
+### 3.2 AI 架构设计 ✨ (已优化)
+
+```
+用户上传图片
+    ↓
+前端压缩 + 裁剪
+    ↓
+API Route (/api/analyze)
+    ↓
+AI Service (getAIService)
+    ├─ Gemini Provider (JSON mode)
+    └─ OpenAI Provider (JSON mode)
+    ↓
+Zod Schema 验证
+    ↓
+知识点标签标准化
+    ↓
+返回结构化数据
+```
+
+**核心优势**：
+1. **双重保障**：AI JSON mode + Zod 运行时验证
+2. **渐进式降级**：直接解析 → 提取 JSON → jsonrepair → 错误
+3. **类型安全**：从 Schema 自动推导 TypeScript 类型
+4. **标签一致性**：与人教版课程大纲自动对齐
+
+### 3.3 目录结构映射
+*   `/src/app`: Next.js App Router 页面路由
+*   `/src/components`: UI 组件 (Shadcn UI + Radix UI)
+*   `/src/lib`: 核心逻辑库
+    *   `ai/`: AI 接口封装、Provider 实现、Prompt 模板、Zod Schema
+    *   `knowledge-tags.ts`: 人教版数学课程大纲（七八九年级完整标签库）
+    *   `prisma.ts`: 数据库客户端单例
+    *   `translations.ts`: 中英文翻译资源
+*   `/prisma`: 数据库模型定义 (`schema.prisma`) 和种子数据
+*   `/config`: AI 配置文件目录（通过 `.gitkeep` 保留目录结构）
+
+### 3.4 最近完成的优化 ✨
+
+1.  **AI 响应处理架构升级**：
+    *   启用 AI JSON mode（Gemini 和 OpenAI）
+    *   引入 Zod 进行运行时验证
+    *   简化解析逻辑（从 ~150 行减至 ~50 行）
+    
+2.  **知识点标签精准化**：
+    *   Prompt 中同步人教版课程标签
+    *   按年级提供具体标签示例
+    *   强调使用精确标签名称（如 "韦达定理" 而非 "一元二次方程的根与系数关系"）
+
+3.  **错误提示细化**：
+    *   从通用的 "AI 分析失败" 细化为具体错误类型
+    *   前端解析 API 返回的错误类型（从 `error.data.message`）
+    *   显示用户友好的错误提示（网络、格式、认证、未知）
+
+4.  **UI 渲染修复**：
+    *   修复 Markdown 渲染中的 `PRESERVE` 占位符泄漏问题
+    *   优化换行和列表格式处理
+
+5.  **配置文件管理**：
+    *   使用 `.gitkeep` 保留 `config` 目录
+    *   敏感配置文件已从 Git 历史中清除
+    *   确保 Docker 构建正常
+
+### 3.5 待优化点
+
+1.  **图片存储**：目前主要依赖 Base64，对于大量图片场景，建议迁移至对象存储 (如 AWS S3 或 MinIO)。
+2.  **缓存机制**：AI 分析结果可以根据图片哈希进行缓存，避免重复调用 API。
+3.  **批量处理**：支持一次上传多张图片，批量分析和保存。
+4.  **移动端优化**：考虑开发 PWA 或原生 App，支持拍照即时分析。
+
+---
+
+## 4. 下一步操作建议
+
+基于以上分析，建议按照以下顺序进行开发或维护：
+1.  **完善测试**：针对核心的 AI 分析流程 (`/api/analyze`) 添加单元测试，验证 Zod Schema 和标签匹配逻辑。
+2.  **性能优化**：
+    *   引入图片懒加载优化错题列表页
+    *   考虑使用虚拟滚动处理大量错题
+3.  **功能增强**：
+    *   增加 "复习计划" 功能，基于艾宾浩斯遗忘曲线自动提醒
+    *   支持错题导出为 Markdown/PDF
+    *   添加数据统计仪表盘（错题趋势、知识点分布）
+
+---
+
+*最后更新：2025-12-04 23:37*

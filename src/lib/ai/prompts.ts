@@ -148,7 +148,8 @@ export function generateSimilarQuestionPrompt(
     1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., using \\\\n for new lines).
     2. "answerText": The correct answer.
     3. "analysis": Step-by-step solution.
-    4. "knowledgePoints": The knowledge points (should match input).
+    4. "subject": The subject category. Choose ONE from: "数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他".
+    5. "knowledgePoints": The knowledge points (should match input).
     
     CRITICAL FORMATTING:
     - Return ONLY a valid JSON object, no extra text
@@ -159,6 +160,7 @@ export function generateSimilarQuestionPrompt(
       "questionText": "新问题的文本（如果是选择题，包含选项 A、B、C、D）",
       "answerText": "正确答案",
       "analysis": "详细解析",
+      "subject": "数学",
       "knowledgePoints": ["知识点1", "知识点2"]
     }
     

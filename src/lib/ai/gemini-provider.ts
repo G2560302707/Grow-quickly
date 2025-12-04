@@ -99,6 +99,9 @@ export class GeminiProvider implements AIService {
             // With JSON mode enabled, response should be valid JSON
             const parsed = JSON.parse(text);
 
+            console.log("[Gemini] Parsed object subject:", parsed.subject);
+            console.log("[Gemini] Parsed object subject type:", typeof parsed.subject);
+
             // Validate with Zod schema
             const result = safeParseParsedQuestion(parsed);
 
@@ -107,6 +110,7 @@ export class GeminiProvider implements AIService {
                 return result.data;
             } else {
                 console.warn("[Gemini] ⚠ Validation failed:", result.error.format());
+                console.warn("[Gemini] Full parsed object:", JSON.stringify(parsed, null, 2));
                 // Try to extract JSON from potential markdown wrapping
                 const extracted = this.extractJson(text);
                 const parsedExtracted = JSON.parse(extracted);
