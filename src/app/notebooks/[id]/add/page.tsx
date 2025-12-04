@@ -94,20 +94,23 @@ export default function AddErrorPage() {
             // 解析详细错误信息
             let errorMessage = t.common.messages?.analysisFailed || 'Analysis failed';
 
-            if (error?.message) {
+            // ApiError 的结构：error.data.message 包含后端返回的错误类型
+            const backendErrorType = error?.data?.message;
+
+            if (backendErrorType) {
                 // 检查是否是已知的 AI 错误类型
-                const errorType = error.message;
-                if (t.errors && errorType in t.errors) {
-                    errorMessage = t.errors[errorType as keyof typeof t.errors];
-                } else if (error.message === 'Network error' || error.message.includes('fetch')) {
-                    errorMessage = t.errors?.AI_CONNECTION_FAILED || '网络连接失败';
-                } else if (error.message.includes('parse') || error.message.includes('JSON') || error.message.includes('validate')) {
-                    errorMessage = t.errors?.AI_RESPONSE_ERROR || 'AI 解析异常';
-                } else if (error.message.includes('auth') || error.message.includes('API')) {
-                    errorMessage = t.errors?.AI_AUTH_ERROR || '认证失败';
+                if (t.errors && backendErrorType in t.errors) {
+                    errorMessage = t.errors[backendErrorType as keyof typeof t.errors];
+                    console.log(`[AddError] Matched error type: ${backendErrorType} -> ${errorMessage}`);
                 } else {
-                    // 如果有具体错误消息，显示它
-                    errorMessage = error.message;
+                    // 使用后端返回的具体错误消息
+                    errorMessage = backendErrorType;
+                    console.log(`[AddError] Using backend error message: ${errorMessage}`);
+                }
+            } else if (error?.message) {
+                // Fallback：检查 error.message（用于非 API 错误）
+                if (error.message.includes('fetch') || error.message.includes('network')) {
+                    errorMessage = t.errors?.AI_CONNECTION_FAILED || '网络连接失败';
                 }
             }
 
