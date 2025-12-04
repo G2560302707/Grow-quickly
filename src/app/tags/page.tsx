@@ -12,11 +12,8 @@ import { ArrowLeft, TrendingUp, Plus, Trash2, ChevronDown, ChevronRight } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-interface TagStats {
-    tag: string;
-    count: number;
-}
+import { apiClient } from "@/lib/api-client";
+import { TagStats, TagStatsResponse } from "@/types/api";
 
 export default function TagsPage() {
     const { t, language } = useLanguage();
@@ -44,11 +41,8 @@ export default function TagsPage() {
 
     const fetchStats = async () => {
         try {
-            const res = await fetch("/api/tags/stats");
-            if (res.ok) {
-                const data = await res.json();
-                setStats(data.stats);
-            }
+            const data = await apiClient.get<TagStatsResponse>("/api/tags/stats");
+            setStats(data.stats);
         } catch (error) {
             console.error("Failed to fetch tag stats:", error);
         } finally {

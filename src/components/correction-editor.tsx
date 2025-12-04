@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ParsedQuestion } from "@/lib/ai";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiClient } from "@/lib/api-client";
+import { UserProfile } from "@/types/api";
 
 interface ParsedQuestionWithSubject extends ParsedQuestion {
     subjectId?: string;
@@ -40,9 +42,8 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
     const { t, language } = useLanguage();
 
     // Fetch user info and calculate grade on mount
-    useState(() => {
-        fetch("/api/user")
-            .then(res => res.ok ? res.json() : null)
+    useEffect(() => {
+        apiClient.get<UserProfile>("/api/user")
             .then(user => {
                 if (user && user.educationStage && user.enrollmentYear) {
                     const grade = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), language);
@@ -50,7 +51,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 }
             })
             .catch(err => console.error("Failed to fetch user info for grade calculation:", err));
-    });
+    }, [language]);
 
     return (
         <div className="space-y-6">
@@ -79,7 +80,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                     )}
 
                     <div className="space-y-2">
-                        <Label>选择错题本</Label>
+                        <Label>{t.editor.selectNotebook || "Select Notebook"}</Label>
                         <NotebookSelector
                             value={data.subjectId}
                             onChange={(id) => setData({ ...data, subjectId: id })}
@@ -88,7 +89,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label>{language === 'zh' ? "年级/学期" : "Grade/Semester"}</Label>
+                            <Label>{t.editor.gradeSemester || "Grade/Semester"}</Label>
                             <Input
                                 value={data.gradeSemester || ""}
                                 onChange={(e) => setData({ ...data, gradeSemester: e.target.value })}
@@ -148,10 +149,10 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                         <TagInput
                             value={data.knowledgePoints}
                             onChange={(tags) => setData({ ...data, knowledgePoints: tags })}
-                            placeholder="输入知识点标签，可从建议中选择..."
+                            placeholder={t.editor.tagsPlaceholder || "Enter knowledge tags..."}
                         />
                         <p className="text-xs text-muted-foreground">
-                            💡 输入时会显示标签建议，支持从标准标签库选择
+                            {t.editor.tagsHint || "💡 Tag suggestions will appear as you type"}
                         </p>
                     </div>
                 </div>
@@ -160,7 +161,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>题目预览</CardTitle>
+                            <CardTitle>{t.editor.preview?.question || "Question Preview"}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <MarkdownRenderer content={data.questionText} />
@@ -169,7 +170,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>答案预览</CardTitle>
+                            <CardTitle>{t.editor.preview?.answer || "Answer Preview"}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <MarkdownRenderer content={data.answerText} />
@@ -178,7 +179,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>解析预览</CardTitle>
+                            <CardTitle>{t.editor.preview?.analysis || "Analysis Preview"}</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <MarkdownRenderer content={data.analysis} />

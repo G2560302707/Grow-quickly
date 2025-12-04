@@ -14,24 +14,13 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Trash2, Ban, CheckCircle, Loader2 } from "lucide-react";
-
-interface User {
-    id: string;
-    name: string | null;
-    email: string;
-    role: string;
-    isActive: boolean;
-    createdAt: string;
-    _count: {
-        errorItems: number;
-        practiceRecords: number;
-    };
-}
+import { apiClient } from "@/lib/api-client";
+import { AdminUser } from "@/types/api";
 
 export function UserManagement() {
     const { data: session } = useSession();
     const { t } = useLanguage();
-    const [users, setUsers] = useState<User[]>([]);
+    const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -41,11 +30,8 @@ export function UserManagement() {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/admin/users");
-            if (res.ok) {
-                const data = await res.json();
-                setUsers(data);
-            }
+            const data = await apiClient.get<AdminUser[]>("/api/admin/users");
+            setUsers(data);
         } catch (error) {
             console.error("Failed to fetch users", error);
         } finally {
@@ -53,7 +39,7 @@ export function UserManagement() {
         }
     };
 
-    const handleToggleStatus = async (user: User) => {
+    const handleToggleStatus = async (user: AdminUser) => {
         const confirmMsg = user.isActive
             ? t.admin.confirmDisable
             : t.admin.confirmEnable;
@@ -61,38 +47,24 @@ export function UserManagement() {
         if (!confirm(confirmMsg)) return;
 
         try {
-            const res = await fetch(`/api/admin/users/${user.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ isActive: !user.isActive }),
-            });
-
-            if (res.ok) {
-                fetchUsers();
-            } else {
-                alert(t.common.error);
-            }
+            await apiClient.patch(`/api/admin/users/${user.id}`, { isActive: !user.isActive });
+            fetchUsers();
         } catch (error) {
             console.error("Failed to update user status", error);
+            alert(t.common.error);
         }
     };
 
-    const handleDelete = async (user: User) => {
+    const handleDelete = async (user: AdminUser) => {
         if (!confirm(t.admin.confirmDelete)) return;
 
         try {
-            const res = await fetch(`/api/admin/users/${user.id}`, {
-                method: "DELETE",
-            });
-
-            if (res.ok) {
-                fetchUsers();
-            } else {
-                const text = await res.text();
-                alert(text || t.common.error);
-            }
-        } catch (error) {
+            await apiClient.delete(`/api/admin/users/${user.id}`);
+            fetchUsers();
+        } catch (error: any) {
             console.error("Failed to delete user", error);
+            const text = error.data?.message || t.common.error;
+            alert(text);
         }
     };
 

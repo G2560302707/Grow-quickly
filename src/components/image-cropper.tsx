@@ -131,7 +131,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete }: ImageC
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 gap-0">
                 <DialogHeader className="p-4 border-b shrink-0">
-                    <DialogTitle>{language === 'zh' ? '裁剪图片' : 'Crop Image'}</DialogTitle>
+                    <DialogTitle>{t.common.cropper?.title || "Crop Image"}</DialogTitle>
                 </DialogHeader>
 
                 <div className="flex-1 bg-black w-full overflow-auto flex items-center justify-center p-4">
@@ -154,7 +154,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete }: ImageC
                 <div className="p-4 border-t bg-background shrink-0">
                     <div className="flex justify-between items-center">
                         <p className="text-sm text-muted-foreground">
-                            {language === 'zh' ? '💡 拖动选框调整裁剪区域' : '💡 Drag to adjust crop area'}
+                            {t.common.cropper?.hint || "💡 Drag to adjust crop area"}
                         </p>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={onClose}>

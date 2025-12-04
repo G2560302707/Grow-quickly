@@ -6,14 +6,8 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGri
 
 import { Loader2, TrendingUp, CheckCircle, BookOpen } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-
-interface AnalyticsData {
-    totalErrors: number;
-    masteredCount: number;
-    masteryRate: number;
-    subjectStats: { name: string; value: number }[];
-    activityData: { date: string; count: number }[];
-}
+import { apiClient } from "@/lib/api-client";
+import { AnalyticsData } from "@/types/api";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -44,11 +38,8 @@ export function WrongAnswerStats() {
 
     const fetchAnalytics = async () => {
         try {
-            const res = await fetch("/api/analytics");
-            if (res.ok) {
-                const json = await res.json();
-                setData(json);
-            }
+            const data = await apiClient.get<AnalyticsData>("/api/analytics");
+            setData(data);
         } catch (error) {
             console.error(error);
         } finally {

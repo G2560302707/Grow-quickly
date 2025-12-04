@@ -6,21 +6,8 @@ import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { format } from "date-fns";
 import Image from "next/image";
-
-interface ErrorItem {
-    id: string;
-    questionText: string;
-    answerText: string;
-    analysis: string;
-    knowledgePoints: string;
-    originalImageUrl: string;
-    createdAt: string;
-    gradeSemester?: string;
-    paperLevel?: string;
-    subject?: {
-        name: string;
-    };
-}
+import { apiClient } from "@/lib/api-client";
+import { ErrorItem } from "@/types/api";
 
 function PrintPreviewContent() {
     const searchParams = useSearchParams();
@@ -37,11 +24,8 @@ function PrintPreviewContent() {
     const fetchItems = async () => {
         try {
             const params = new URLSearchParams(searchParams.toString());
-            const res = await fetch(`/api/error-items/list?${params.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setItems(data);
-            }
+            const data = await apiClient.get<ErrorItem[]>(`/api/error-items/list?${params.toString()}`);
+            setItems(data);
         } catch (error) {
             console.error(error);
         } finally {

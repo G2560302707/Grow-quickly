@@ -21,17 +21,8 @@ import {
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { KnowledgeFilter } from "@/components/knowledge-filter";
 import { getMathCurriculum } from "@/lib/knowledge-tags";
-
-interface ErrorItem {
-    id: string;
-    questionText: string;
-    knowledgePoints: string;
-    masteryLevel: number;
-    createdAt: string;
-    subject?: {
-        name: string;
-    };
-}
+import { ErrorItem } from "@/types/api";
+import { apiClient } from "@/lib/api-client";
 
 interface ErrorListProps {
     subjectId?: string;
@@ -147,11 +138,8 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
             if (gradeFilter) params.append("gradeSemester", gradeFilter);
             if (paperLevelFilter !== "all") params.append("paperLevel", paperLevelFilter);
 
-            const res = await fetch(`/api/error-items/list?${params.toString()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setItems(data);
-            }
+            const data = await apiClient.get<ErrorItem[]>(`/api/error-items/list?${params.toString()}`);
+            setItems(data);
         } catch (error) {
             console.error(error);
         } finally {
@@ -300,7 +288,7 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                                     <div className="text-sm line-clamp-3">
                                         {(() => {
                                             // 提取第一段文本(去除Markdown格式)
-                                            const firstParagraph = item.questionText
+                                            const firstParagraph = (item.questionText || "")
                                                 .split('\n\n')[0]  // 取第一段
                                                 .replace(/[#*_`$]/g, '')  // 移除Markdown符号
                                                 .trim();

@@ -13,6 +13,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TagInput } from "@/components/tag-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiClient } from "@/lib/api-client";
 
 interface ErrorItemDetail {
     id: string;
@@ -51,16 +52,12 @@ export default function ErrorDetailPage() {
 
     const fetchItem = async (id: string) => {
         try {
-            const res = await fetch(`/api/error-items/${id}`);
-            if (res.ok) {
-                const data = await res.json();
-                setItem(data);
-            } else {
-                alert(language === 'zh' ? '加载失败' : 'Failed to load item');
-                router.push("/notebooks");
-            }
+            const data = await apiClient.get<ErrorItemDetail>(`/api/error-items/${id}`);
+            setItem(data);
         } catch (error) {
             console.error(error);
+            alert(language === 'zh' ? '加载失败' : 'Failed to load item');
+            router.push("/notebooks");
         } finally {
             setLoading(false);
         }
@@ -72,21 +69,12 @@ export default function ErrorDetailPage() {
         const newLevel = item.masteryLevel > 0 ? 0 : 1;
 
         try {
-            const res = await fetch(`/api/error-items/${item.id}/mastery`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ masteryLevel: newLevel }),
-            });
-
-            if (res.ok) {
-                setItem({ ...item, masteryLevel: newLevel });
-                alert(newLevel > 0 ? (language === 'zh' ? '已标记为已掌握' : 'Marked as mastered') : (language === 'zh' ? '已取消掌握标记' : 'Unmarked'));
-            } else {
-                alert(language === 'zh' ? '更新失败' : 'Update failed');
-            }
+            await apiClient.patch(`/api/error-items/${item.id}/mastery`, { masteryLevel: newLevel });
+            setItem({ ...item, masteryLevel: newLevel });
+            alert(newLevel > 0 ? (language === 'zh' ? '已标记为已掌握' : 'Marked as mastered') : (language === 'zh' ? '已取消掌握标记' : 'Unmarked'));
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '更新出错' : 'Error updating');
+            alert(language === 'zh' ? '更新失败' : 'Update failed');
         }
     };
 
@@ -97,23 +85,16 @@ export default function ErrorDetailPage() {
         if (!confirm(confirmMessage)) return;
 
         try {
-            const res = await fetch(`/api/error-items/${item.id}/delete`, {
-                method: 'DELETE',
-            });
-
-            if (res.ok) {
-                alert(language === 'zh' ? '删除成功' : 'Deleted successfully');
-                if (item.subjectId) {
-                    router.push(`/notebooks/${item.subjectId}`);
-                } else {
-                    router.push('/notebooks');
-                }
+            await apiClient.delete(`/api/error-items/${item.id}/delete`);
+            alert(language === 'zh' ? '删除成功' : 'Deleted successfully');
+            if (item.subjectId) {
+                router.push(`/notebooks/${item.subjectId}`);
             } else {
-                alert(language === 'zh' ? '删除失败' : 'Delete failed');
+                router.push('/notebooks');
             }
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '删除出错' : 'Error deleting');
+            alert(language === 'zh' ? '删除失败' : 'Delete failed');
         }
     };
 
@@ -128,7 +109,7 @@ export default function ErrorDetailPage() {
     };
 
     const startEditingTags = () => {
-        if (item) {
+        if (item && item.knowledgePoints) {
             try {
                 const tags = JSON.parse(item.knowledgePoints);
                 setTagsInput(tags);
@@ -136,40 +117,26 @@ export default function ErrorDetailPage() {
                 setTagsInput([]);
             }
             setIsEditingTags(true);
+        } else if (item) {
+            setTagsInput([]);
+            setIsEditingTags(true);
         }
     };
 
     const saveTagsHandler = async () => {
-        console.log("=== SAVE TAGS HANDLER CALLED ===");
-        console.log("Current tagsInput:", tagsInput);
-
         try {
             const payload = {
                 knowledgePoints: JSON.stringify(tagsInput),
             };
-            console.log("[Frontend] Saving tags:", tagsInput);
-            console.log("[Frontend] Payload:", payload);
 
-            const res = await fetch(`/api/error-items/${item?.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            await apiClient.put(`/api/error-items/${item?.id}`, payload);
 
-            if (res.ok) {
-                const updated = await res.json();
-                console.log("[Frontend] Update response:", updated);
-                setIsEditingTags(false);
-                await fetchItem(params.id as string);
-                alert(language === 'zh' ? '标签更新成功！' : 'Tags updated successfully!');
-            } else {
-                const errorData = await res.json();
-                console.error("[Frontend] Update failed:", errorData);
-                alert(language === 'zh' ? '更新失败' : 'Update failed');
-            }
+            setIsEditingTags(false);
+            await fetchItem(params.id as string);
+            alert(language === 'zh' ? '标签更新成功！' : 'Tags updated successfully!');
         } catch (error) {
             console.error("[Frontend] Error updating:", error);
-            alert(language === 'zh' ? '更新时出错' : 'Error updating');
+            alert(language === 'zh' ? '更新失败' : 'Update failed');
         }
     };
 
@@ -188,25 +155,17 @@ export default function ErrorDetailPage() {
 
     const saveMetadataHandler = async () => {
         try {
-            const res = await fetch(`/api/error-items/${item?.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    gradeSemester: gradeSemesterInput,
-                    paperLevel: paperLevelInput,
-                }),
+            await apiClient.put(`/api/error-items/${item?.id}`, {
+                gradeSemester: gradeSemesterInput,
+                paperLevel: paperLevelInput,
             });
 
-            if (res.ok) {
-                setIsEditingMetadata(false);
-                fetchItem(params.id as string);
-                alert(language === 'zh' ? '信息更新成功！' : 'Metadata updated successfully!');
-            } else {
-                alert(language === 'zh' ? '更新失败' : 'Update failed');
-            }
+            setIsEditingMetadata(false);
+            fetchItem(params.id as string);
+            alert(language === 'zh' ? '信息更新成功！' : 'Metadata updated successfully!');
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '更新时出错' : 'Error updating');
+            alert(language === 'zh' ? '更新失败' : 'Update failed');
         }
     };
 
@@ -220,22 +179,13 @@ export default function ErrorDetailPage() {
         if (!item) return;
 
         try {
-            const res = await fetch(`/api/error-items/${item.id}/notes`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userNotes: notesInput }),
-            });
-
-            if (res.ok) {
-                setItem({ ...item, userNotes: notesInput });
-                setIsEditingNotes(false);
-                alert(language === 'zh' ? '笔记保存成功' : 'Notes saved successfully');
-            } else {
-                alert(language === 'zh' ? '保存失败' : 'Save failed');
-            }
+            await apiClient.patch(`/api/error-items/${item.id}/notes`, { userNotes: notesInput });
+            setItem({ ...item, userNotes: notesInput });
+            setIsEditingNotes(false);
+            alert(language === 'zh' ? '笔记保存成功' : 'Notes saved successfully');
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '保存出错' : 'Error saving');
+            alert(language === 'zh' ? '保存失败' : 'Save failed');
         }
     };
 

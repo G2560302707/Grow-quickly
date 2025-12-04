@@ -25,27 +25,16 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { UserManagement } from "@/components/admin/user-management";
+import { apiClient } from "@/lib/api-client";
+import { AppConfig, UserProfile, UpdateUserProfileRequest } from "@/types/api";
+import { ModelSelector } from "@/components/ui/model-selector";
 
-interface AppConfig {
-    aiProvider: 'gemini' | 'openai';
-    openai?: {
-        apiKey?: string;
-        baseUrl?: string;
-        model?: string;
-    };
-    gemini?: {
-        apiKey?: string;
-        baseUrl?: string;
-        model?: string;
-    };
-}
-
-interface UserProfile {
+interface ProfileFormState {
     name: string;
     email: string;
     educationStage: string;
-    enrollmentYear: number | string;
-    password?: string;
+    enrollmentYear: string | number;
+    password: string;
 }
 
 export function SettingsDialog() {
@@ -60,7 +49,7 @@ export function SettingsDialog() {
     const [config, setConfig] = useState<AppConfig>({ aiProvider: 'gemini' });
 
     // Profile State
-    const [profile, setProfile] = useState<UserProfile>({
+    const [profile, setProfile] = useState<ProfileFormState>({
         name: "",
         email: "",
         educationStage: "",
@@ -85,11 +74,8 @@ export function SettingsDialog() {
     const fetchSettings = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/settings");
-            if (res.ok) {
-                const data = await res.json();
-                setConfig(data);
-            }
+            const data = await apiClient.get<AppConfig>("/api/settings");
+            setConfig(data);
         } catch (error) {
             console.error("Failed to fetch settings:", error);
         } finally {
@@ -100,14 +86,14 @@ export function SettingsDialog() {
     const fetchProfile = async () => {
         setProfileLoading(true);
         try {
-            const res = await fetch("/api/user");
-            if (res.ok) {
-                const data = await res.json();
-                setProfile({
-                    ...data,
-                    password: "" // Don't show password
-                });
-            }
+            const data = await apiClient.get<UserProfile>("/api/user");
+            setProfile({
+                name: data.name || "",
+                email: data.email || "",
+                educationStage: data.educationStage || "",
+                enrollmentYear: data.enrollmentYear || "",
+                password: ""
+            });
         } catch (error) {
             console.error("Failed to fetch profile:", error);
         } finally {
@@ -118,18 +104,8 @@ export function SettingsDialog() {
     const handleSaveSettings = async () => {
         setSaving(true);
         try {
-            const res = await fetch("/api/settings", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(config),
-            });
-
-            if (res.ok) {
-                alert(language === 'zh' ? "设置已保存" : "Settings saved");
-                // window.location.reload(); // Reload might be too aggressive if just changing AI settings
-            } else {
-                alert(language === 'zh' ? "保存失败" : "Failed to save");
-            }
+            await apiClient.post("/api/settings", config);
+            alert(language === 'zh' ? "设置已保存" : "Settings saved");
         } catch (error) {
             console.error("Failed to save settings:", error);
             alert(language === 'zh' ? "保存失败" : "Failed to save");
@@ -148,30 +124,32 @@ export function SettingsDialog() {
                 return;
             }
 
-            const payload: any = { ...profile };
-            if (!payload.password) delete payload.password;
-            if (payload.enrollmentYear) payload.enrollmentYear = parseInt(payload.enrollmentYear.toString());
+            const payload: UpdateUserProfileRequest = {
+                name: profile.name,
+                email: profile.email,
+                educationStage: profile.educationStage,
+            };
 
-            const res = await fetch("/api/user", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-
-            if (res.ok) {
-                alert(language === 'zh' ? "个人信息已更新" : "Profile updated");
-                setProfile(prev => ({ ...prev, password: "" })); // Clear password field
-                setConfirmPassword(""); // Clear confirm password field
-                setShowPassword(false);
-                setShowConfirmPassword(false);
-                window.location.reload(); // Reload to update user name in UI
-            } else {
-                const data = await res.json();
-                alert(data.message || (language === 'zh' ? "更新失败" : "Update failed"));
+            if (profile.enrollmentYear) {
+                payload.enrollmentYear = parseInt(profile.enrollmentYear.toString());
             }
-        } catch (error) {
+
+            if (profile.password) {
+                payload.password = profile.password;
+            }
+
+            await apiClient.patch("/api/user", payload);
+
+            alert(language === 'zh' ? "个人信息已更新" : "Profile updated");
+            setProfile(prev => ({ ...prev, password: "" })); // Clear password field
+            setConfirmPassword(""); // Clear confirm password field
+            setShowPassword(false);
+            setShowConfirmPassword(false);
+            window.location.reload(); // Reload to update user name in UI
+        } catch (error: any) {
             console.error("Failed to update profile:", error);
-            alert(language === 'zh' ? "更新失败" : "Update failed");
+            const message = error.data?.message || (language === 'zh' ? "更新失败" : "Update failed");
+            alert(message);
         } finally {
             setProfileSaving(false);
         }
@@ -184,17 +162,10 @@ export function SettingsDialog() {
 
         setClearingPractice(true);
         try {
-            const res = await fetch("/api/stats/practice/clear", {
-                method: "DELETE",
-            });
-
-            if (res.ok) {
-                alert(t.settings?.clearSuccess || "Success");
-                setOpen(false);
-                window.location.reload();
-            } else {
-                alert(t.settings?.clearError || "Failed");
-            }
+            await apiClient.delete("/api/stats/practice/clear");
+            alert(t.settings?.clearSuccess || "Success");
+            setOpen(false);
+            window.location.reload();
         } catch (error) {
             console.error(error);
             alert(t.settings?.clearError || "Failed");
@@ -210,17 +181,10 @@ export function SettingsDialog() {
 
         setClearingError(true);
         try {
-            const res = await fetch("/api/error-items/clear", {
-                method: "DELETE",
-            });
-
-            if (res.ok) {
-                alert(t.settings?.clearSuccess || "Success");
-                setOpen(false);
-                window.location.reload();
-            } else {
-                alert(t.settings?.clearError || "Failed");
-            }
+            await apiClient.delete("/api/error-items/clear");
+            alert(t.settings?.clearSuccess || "Success");
+            setOpen(false);
+            window.location.reload();
         } catch (error) {
             console.error(error);
             alert(t.settings?.clearError || "Failed");
@@ -483,14 +447,13 @@ export function SettingsDialog() {
                                                 placeholder="https://api.openai.com/v1"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Model Name</Label>
-                                            <Input
-                                                value={config.openai?.model || ''}
-                                                onChange={(e) => updateConfig('openai', 'model', e.target.value)}
-                                                placeholder="gpt-4o-mini"
-                                            />
-                                        </div>
+                                        <ModelSelector
+                                            provider="openai"
+                                            apiKey={config.openai?.apiKey}
+                                            baseUrl={config.openai?.baseUrl}
+                                            currentModel={config.openai?.model}
+                                            onModelChange={(model) => updateConfig('openai', 'model', model)}
+                                        />
                                     </div>
                                 )}
 
@@ -529,14 +492,13 @@ export function SettingsDialog() {
                                                 placeholder="https://generativelanguage.googleapis.com"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Model Name</Label>
-                                            <Input
-                                                value={config.gemini?.model || ''}
-                                                onChange={(e) => updateConfig('gemini', 'model', e.target.value)}
-                                                placeholder="gemini-1.5-flash"
-                                            />
-                                        </div>
+                                        <ModelSelector
+                                            provider="gemini"
+                                            apiKey={config.gemini?.apiKey}
+                                            baseUrl={config.gemini?.baseUrl}
+                                            currentModel={config.gemini?.model}
+                                            onModelChange={(model) => updateConfig('gemini', 'model', model)}
+                                        />
                                     </div>
                                 )}
 

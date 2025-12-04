@@ -1,0 +1,49 @@
+"use client";
+
+import { Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
+
+export type ProgressStatus = 'compressing' | 'uploading' | 'analyzing' | 'processing' | 'idle';
+
+interface ProgressFeedbackProps {
+    status: ProgressStatus;
+    progress?: number;
+    message?: string;
+    className?: string;
+}
+
+export function ProgressFeedback({ status, progress, message, className }: ProgressFeedbackProps) {
+    if (status === 'idle') return null;
+
+    return (
+        <div className={cn(
+            "fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm",
+            className
+        )}>
+            <div className="w-full max-w-md p-6 space-y-6 bg-card rounded-lg border shadow-lg mx-4">
+                <div className="flex flex-col items-center justify-center space-y-4 text-center">
+                    <div className="relative">
+                        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            {/* Optional: Add an icon inside the spinner if needed */}
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 w-full">
+                        <h3 className="text-lg font-semibold tracking-tight">
+                            {message}
+                        </h3>
+                        {progress !== undefined && (
+                            <Progress value={progress} className="h-2 w-full" />
+                        )}
+                    </div>
+
+                    <p className="text-sm text-muted-foreground">
+                        {progress !== undefined ? `${Math.round(progress)}%` : 'Please wait...'}
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}

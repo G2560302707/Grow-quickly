@@ -8,13 +8,8 @@ import Link from "next/link";
 import { NotebookCard } from "@/components/notebook-card";
 import { CreateNotebookDialog } from "@/components/create-notebook-dialog";
 
-interface Notebook {
-    id: string;
-    name: string;
-    _count: {
-        errorItems: number;
-    };
-}
+import { Notebook } from "@/types/api";
+import { apiClient } from "@/lib/api-client";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -33,11 +28,8 @@ export default function NotebooksPage() {
 
     const fetchNotebooks = async () => {
         try {
-            const res = await fetch("/api/notebooks");
-            if (res.ok) {
-                const data = await res.json();
-                setNotebooks(data);
-            }
+            const data = await apiClient.get<Notebook[]>("/api/notebooks");
+            setNotebooks(data);
         } catch (error) {
             console.error("Failed to fetch notebooks:", error);
         } finally {
@@ -47,21 +39,12 @@ export default function NotebooksPage() {
 
     const handleCreate = async (name: string) => {
         try {
-            const res = await fetch("/api/notebooks", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name }),
-            });
-
-            if (res.ok) {
-                await fetchNotebooks();
-            } else {
-                const data = await res.json();
-                alert(data.message || t.notebooks?.createError || "Failed to create");
-            }
-        } catch (error) {
+            await apiClient.post("/api/notebooks", { name });
+            await fetchNotebooks();
+        } catch (error: any) {
             console.error(error);
-            alert(t.notebooks?.createError || "Error creating");
+            const message = error.data?.message || t.notebooks?.createError || "Failed to create";
+            alert(message);
         }
     };
 
@@ -73,19 +56,12 @@ export default function NotebooksPage() {
         if (!confirm((t.notebooks?.deleteConfirm || "Are you sure?").replace("{name}", name))) return;
 
         try {
-            const res = await fetch(`/api/notebooks/${id}`, {
-                method: "DELETE",
-            });
-
-            if (res.ok) {
-                await fetchNotebooks();
-            } else {
-                const data = await res.json();
-                alert(data.message || t.notebooks?.deleteError || "Failed to delete");
-            }
-        } catch (error) {
+            await apiClient.delete(`/api/notebooks/${id}`);
+            await fetchNotebooks();
+        } catch (error: any) {
             console.error(error);
-            alert(t.notebooks?.deleteError || "Error deleting");
+            const message = error.data?.message || t.notebooks?.deleteError || "Failed to delete";
+            alert(message);
         }
     };
 
@@ -141,9 +117,9 @@ export default function NotebooksPage() {
                                 key={notebook.id}
                                 id={notebook.id}
                                 name={notebook.name}
-                                errorCount={notebook._count.errorItems}
+                                errorCount={notebook._count?.errorItems || 0}
                                 onClick={() => handleNotebookClick(notebook.id)}
-                                onDelete={() => handleDelete(notebook.id, notebook._count.errorItems, notebook.name)}
+                                onDelete={() => handleDelete(notebook.id, notebook._count?.errorItems || 0, notebook.name)}
                                 itemLabel={t.notebooks?.items || "items"}
                             />
                         ))}

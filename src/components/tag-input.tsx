@@ -5,6 +5,8 @@ import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getAllCustomTagsFlat } from "@/lib/custom-tags";
+import { apiClient } from "@/lib/api-client";
+import { TagSuggestionsResponse } from "@/types/api";
 
 interface TagInputProps {
     value: string[];
@@ -34,28 +36,25 @@ export function TagInput({ value = [], onChange, placeholder = "输入标签..."
     const fetchSuggestions = async (query: string) => {
         try {
             // 获取服务器端的标签建议（标准标签 + 已使用标签）
-            const res = await fetch(`/api/tags/suggestions?q=${encodeURIComponent(query)}`);
-            if (res.ok) {
-                const data = await res.json();
-                const serverSuggestions = data.suggestions || [];
+            const data = await apiClient.get<TagSuggestionsResponse>(`/api/tags/suggestions?q=${encodeURIComponent(query)}`);
+            const serverSuggestions = data.suggestions || [];
 
-                // 获取客户端的自定义标签
-                const customTags = getAllCustomTagsFlat();
+            // 获取客户端的自定义标签
+            const customTags = getAllCustomTagsFlat();
 
-                // 合并所有标签并去重
-                const allTags = Array.from(new Set([...serverSuggestions, ...customTags]));
+            // 合并所有标签并去重
+            const allTags = Array.from(new Set([...serverSuggestions, ...customTags]));
 
-                // 过滤匹配查询的标签
-                const filtered = allTags.filter(
-                    (tag) =>
-                        tag.toLowerCase().includes(query.toLowerCase()) &&
-                        !value.includes(tag) // 排除已选中的标签
-                );
+            // 过滤匹配查询的标签
+            const filtered = allTags.filter(
+                (tag) =>
+                    tag.toLowerCase().includes(query.toLowerCase()) &&
+                    !value.includes(tag) // 排除已选中的标签
+            );
 
-                setSuggestions(filtered.slice(0, 20)); // 限制20个
-                setShowSuggestions(filtered.length > 0);
-                setSelectedIndex(0);
-            }
+            setSuggestions(filtered.slice(0, 20)); // 限制20个
+            setShowSuggestions(filtered.length > 0);
+            setSelectedIndex(0);
         } catch (error) {
             console.error("Failed to fetch suggestions:", error);
         }

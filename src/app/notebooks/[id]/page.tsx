@@ -7,13 +7,8 @@ import { ArrowLeft, Plus } from "lucide-react";
 import Link from "next/link";
 import { ErrorList } from "@/components/error-list";
 
-interface Notebook {
-    id: string;
-    name: string;
-    _count: {
-        errorItems: number;
-    };
-}
+import { Notebook } from "@/types/api";
+import { apiClient } from "@/lib/api-client";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -34,16 +29,12 @@ export default function NotebookDetailPage() {
 
     const fetchNotebook = async (id: string) => {
         try {
-            const res = await fetch(`/api/notebooks/${id}`);
-            if (res.ok) {
-                const data = await res.json();
-                setNotebook(data);
-            } else {
-                alert(t.notebooks?.notFound || "Notebook not found");
-                router.push("/notebooks");
-            }
+            const data = await apiClient.get<Notebook>(`/api/notebooks/${id}`);
+            setNotebook(data);
         } catch (error) {
             console.error("Failed to fetch notebook:", error);
+            alert(t.notebooks?.notFound || "Notebook not found");
+            router.push("/notebooks");
         } finally {
             setLoading(false);
         }
@@ -72,10 +63,10 @@ export default function NotebookDetailPage() {
                         <div className="space-y-1">
                             <h1 className="text-3xl font-bold tracking-tight">{notebook.name}</h1>
                             <p className="text-muted-foreground">
-                                {(t.notebooks?.totalErrors || "Total {count} errors").replace("{count}", notebook._count.errorItems.toString())}
+                                {(t.notebooks?.totalErrors || "Total {count} errors").replace("{count}", (notebook._count?.errorItems || 0).toString())}
                             </p>
                         </div>
-                        <Link href={`/?notebook=${notebook.id}`}>
+                        <Link href={`/notebooks/${notebook.id}/add`}>
                             <Button>
                                 <Plus className="mr-2 h-4 w-4" />
                                 {t.notebooks?.addError || "Add Error"}

@@ -5,13 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts";
 import { Loader2, TrendingUp, BookOpen, Target } from "lucide-react";
-
-interface PracticeStatsData {
-    subjectStats: { name: string; value: number }[];
-    activityStats: { date: string; total: number; correct: number;[key: string]: any }[];
-    difficultyStats: { name: string; value: number }[];
-    overallStats: { total: number; correct: number; rate: string };
-}
+import { apiClient } from "@/lib/api-client";
+import { PracticeStatsData } from "@/types/api";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 const DIFFICULTY_COLORS: Record<string, string> = {
@@ -59,8 +54,7 @@ export function PracticeStats() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch("/api/stats/practice")
-            .then(res => res.json())
+        apiClient.get<PracticeStatsData>("/api/stats/practice")
             .then(data => {
                 setStats(data);
                 setLoading(false);

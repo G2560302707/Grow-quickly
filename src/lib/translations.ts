@@ -13,6 +13,22 @@ export const translations = {
             back: "Back",
             delete: "Delete",
             default: "Default",
+            cropper: {
+                title: "Crop Image",
+                hint: "💡 Drag to adjust crop area",
+            },
+            progress: {
+                compressing: "Compressing image...",
+                uploading: "Uploading...",
+                analyzing: "AI is analyzing...",
+                processing: "Processing result...",
+            },
+            messages: {
+                analysisFailed: "AI analysis failed, please try again",
+                missingImage: "Missing image data",
+                saveSuccess: "Saved successfully!",
+                saveFailed: "Failed to save",
+            }
         },
         app: {
             title: "Smart Error Notebook",
@@ -22,6 +38,7 @@ export const translations = {
             compressing: "Compressing image...",
             supportedFormats: "Supports JPG, PNG, HEIC",
             uploadNew: "Upload New",
+            addError: "Add Error Item",
             viewNotebook: "View Notebook",
             practiceProblem: "Practice Problem",
             yourAnswer: "Your Answer",
@@ -57,6 +74,15 @@ export const translations = {
             addTag: "Add a tag...",
             cancel: "Cancel",
             save: "Save to Notebook",
+            selectNotebook: "Select Notebook",
+            gradeSemester: "Grade/Semester",
+            preview: {
+                question: "Question Preview",
+                answer: "Answer Preview",
+                analysis: "Analysis Preview",
+            },
+            tagsPlaceholder: "Enter knowledge tags, select from suggestions...",
+            tagsHint: "💡 Tag suggestions will appear as you type",
             paperLevel: "Paper Level",
             paperLevels: {
                 a: "Paper A",
@@ -102,6 +128,10 @@ export const translations = {
                 creating: "Creating...",
                 create: "Create",
             },
+            selector: {
+                placeholder: "Select Notebook",
+                empty: "No notebooks available",
+            }
         },
         detail: {
             title: "Wrong Answer Detail",
@@ -285,6 +315,22 @@ export const translations = {
             back: "返回",
             delete: "删除",
             default: "默认",
+            cropper: {
+                title: "裁剪图片",
+                hint: "💡 拖动选框调整裁剪区域",
+            },
+            progress: {
+                compressing: "正在压缩图片...",
+                uploading: "正在上传...",
+                analyzing: "AI 正在分析...",
+                processing: "正在处理结果...",
+            },
+            messages: {
+                analysisFailed: "AI 分析失败，请重试",
+                missingImage: "缺少图片数据",
+                saveSuccess: "保存成功！",
+                saveFailed: "保存失败",
+            }
         },
         app: {
             title: "智能错题本",
@@ -294,6 +340,7 @@ export const translations = {
             compressing: "正在压缩图片...",
             supportedFormats: "支持 JPG、PNG、HEIC 格式",
             uploadNew: "上传新题",
+            addError: "添加错题",
             viewNotebook: "查看错题本",
             practiceProblem: "练习题",
             yourAnswer: "你的答案",
@@ -329,6 +376,15 @@ export const translations = {
             addTag: "添加标签...",
             cancel: "取消",
             save: "保存到错题本",
+            selectNotebook: "选择错题本",
+            gradeSemester: "年级/学期",
+            preview: {
+                question: "题目预览",
+                answer: "答案预览",
+                analysis: "解析预览",
+            },
+            tagsPlaceholder: "输入知识点标签，可从建议中选择...",
+            tagsHint: "💡 输入时会显示标签建议，支持从标准标签库选择",
             paperLevel: "所属卷等级",
             paperLevels: {
                 a: "A卷",
@@ -374,6 +430,10 @@ export const translations = {
                 creating: "创建中...",
                 create: "创建",
             },
+            selector: {
+                placeholder: "选择错题本",
+                empty: "暂无错题本",
+            }
         },
         detail: {
             title: "错题详情",

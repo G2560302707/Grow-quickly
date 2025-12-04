@@ -9,11 +9,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { BookOpen } from "lucide-react";
-
-interface Notebook {
-    id: string;
-    name: string;
-}
+import { apiClient } from "@/lib/api-client";
+import { Notebook } from "@/types/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface NotebookSelectorProps {
     value?: string;
@@ -24,15 +22,13 @@ interface NotebookSelectorProps {
 export function NotebookSelector({ value, onChange, className }: NotebookSelectorProps) {
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
     const [loading, setLoading] = useState(true);
+    const { t } = useLanguage();
 
     useEffect(() => {
         const fetchNotebooks = async () => {
             try {
-                const res = await fetch("/api/notebooks");
-                if (res.ok) {
-                    const data = await res.json();
-                    setNotebooks(data);
-                }
+                const data = await apiClient.get<Notebook[]>("/api/notebooks");
+                setNotebooks(data);
             } catch (error) {
                 console.error("Failed to fetch notebooks:", error);
             } finally {
@@ -48,13 +44,13 @@ export function NotebookSelector({ value, onChange, className }: NotebookSelecto
             <SelectTrigger className={className}>
                 <div className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="选择错题本" />
+                    <SelectValue placeholder={t.notebooks?.selector?.placeholder || "Select Notebook"} />
                 </div>
             </SelectTrigger>
             <SelectContent>
                 {notebooks.length === 0 ? (
                     <div className="p-2 text-sm text-muted-foreground text-center">
-                        暂无错题本
+                        {t.notebooks?.selector?.empty || "No notebooks available"}
                     </div>
                 ) : (
                     notebooks.map((notebook) => (

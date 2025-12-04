@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Eye, EyeOff } from "lucide-react";
+import { apiClient } from "@/lib/api-client";
+import { RegisterRequest } from "@/types/api";
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -36,27 +38,18 @@ export default function RegisterPage() {
         }
 
         try {
-            const res = await fetch("/api/register", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name,
-                    email,
-                    password,
-                    educationStage,
-                    enrollmentYear: parseInt(enrollmentYear)
-                }),
+            await apiClient.post<any, RegisterRequest>("/api/register", {
+                name,
+                email,
+                password,
+                educationStage,
+                enrollmentYear: parseInt(enrollmentYear)
             });
 
-            if (res.ok) {
-                alert(language === 'zh' ? '注册成功！请登录' : 'Registration successful! Please login');
-                router.push("/login");
-            } else {
-                const data = await res.json();
-                setError(data.message || (language === 'zh' ? '注册失败' : 'Registration failed'));
-            }
-        } catch (error) {
-            setError(language === 'zh' ? '发生错误，请重试' : 'An error occurred, please try again');
+            alert(language === 'zh' ? '注册成功！请登录' : 'Registration successful! Please login');
+            router.push("/login");
+        } catch (error: any) {
+            setError(error.data?.message || (language === 'zh' ? '注册失败' : 'Registration failed'));
         } finally {
             setLoading(false);
         }

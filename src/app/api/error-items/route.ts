@@ -27,10 +27,8 @@ export async function POST(req: Request) {
             });
         }
 
-        if (!user) {
-            console.log("[API] No session or user found, attempting fallback to first user.");
-            user = await prisma.user.findFirst();
-        }
+        // Fallback logic removed for security. 
+        // We must strictly require a valid session user.
 
         if (!user) {
             return NextResponse.json({ message: "Unauthorized - No user found in DB" }, { status: 401 });

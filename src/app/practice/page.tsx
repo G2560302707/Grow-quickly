@@ -10,6 +10,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { apiClient } from "@/lib/api-client";
 
 export const dynamic = 'force-dynamic';
 
@@ -43,32 +44,24 @@ function PracticeContent() {
         setIsCorrect(null);
         setShowAnswer(false);
         try {
-            const res = await fetch("/api/practice/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ errorItemId, language, difficulty }),
+            const data = await apiClient.post<ParsedQuestion>("/api/practice/generate", {
+                errorItemId,
+                language,
+                difficulty
             });
-
-            if (res.ok) {
-                const data = await res.json();
-                setQuestion(data);
-            } else {
-                const errorData = await res.json();
-                const msg = errorData.message || "";
-
-                let errorKey = 'default';
-                if (msg.includes('AI_CONNECTION_FAILED')) errorKey = 'connection';
-                else if (msg.includes('AI_RESPONSE_ERROR')) errorKey = 'response';
-                else if (msg.includes('AI_AUTH_ERROR')) errorKey = 'auth';
-                else if (msg.includes('AI_UNKNOWN_ERROR')) errorKey = 'unknown';
-
-                // @ts-ignore
-                setError(t.practice.errors?.[errorKey] || t.practice.errors?.default || "Failed to generate");
-            }
-        } catch (error) {
+            setQuestion(data);
+        } catch (error: any) {
             console.error(error);
+            const msg = error.data?.message || "";
+
+            let errorKey = 'default';
+            if (msg.includes('AI_CONNECTION_FAILED')) errorKey = 'connection';
+            else if (msg.includes('AI_RESPONSE_ERROR')) errorKey = 'response';
+            else if (msg.includes('AI_AUTH_ERROR')) errorKey = 'auth';
+            else if (msg.includes('AI_UNKNOWN_ERROR')) errorKey = 'unknown';
+
             // @ts-ignore
-            setError(t.practice.errors?.connection || "Network error");
+            setError(t.practice.errors?.[errorKey] || t.practice.errors?.default || "Failed to generate");
         } finally {
             setLoading(false);
         }
@@ -100,14 +93,10 @@ function PracticeContent() {
         setShowAnswer(true);
 
         // Save practice record
-        fetch("/api/practice/record", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                subject: question.subject || "Unknown",
-                difficulty,
-                isCorrect: isMatch
-            })
+        apiClient.post("/api/practice/record", {
+            subject: question.subject || "Unknown",
+            difficulty,
+            isCorrect: isMatch
         }).catch(err => console.error("Failed to save practice record:", err));
     };
 
