@@ -14,8 +14,10 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
     // Preprocess content to ensure proper paragraph breaks and LaTeX rendering
     // Convert single line breaks to double line breaks for better readability
     const processedContent = content
-        // Preserve existing double line breaks
-        .replace(/\n\n/g, '\n\n__PRESERVE__\n\n')
+        // First, convert literal \n sequences to actual newlines (fix for AI responses)
+        .replace(/\\n/g, '\n')
+        // Preserve existing double line breaks with a unique marker
+        .replace(/\n\n/g, '\n\n###PRESERVE_BREAK###\n\n')
         // Convert patterns that should be new paragraphs
         .replace(/([。！？；])\n(?!\n)/g, '$1\n\n')  // Chinese punctuation followed by single newline
         .replace(/([.!?;])\s*\n(?!\n)/g, '$1\n\n')   // English punctuation followed by single newline
@@ -24,13 +26,11 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         // Fix: Remove indentation for lines starting with circled numbers or (n) to prevent code block rendering
         .replace(/\n\s+([\u2460-\u2473])/g, '\n$1')
         .replace(/\n\s+(\d+\))/g, '\n$1')
-        // Fix: Replace literal \n sequences with actual newlines
-        .replace(/\\n/g, '\n')
         // Fix LaTeX formulas: Ensure proper spacing around $ delimiters
         // This handles cases where $ might be directly adjacent to text
         .replace(/([^\s$])(\$[^$]+\$)([^\s$])/g, '$1 $2 $3')
         // Restore preserved double line breaks
-        .replace(/\n\n__PRESERVE__\n\n/g, '\n\n');
+        .replace(/\n\n###PRESERVE_BREAK###\n\n/g, '\n\n');
 
     return (
         <div className={`markdown-content ${className}`}>

@@ -34,8 +34,10 @@ export async function POST(req: Request) {
             difficulty || 'medium'
         );
 
-        // Inject the subject from the database
-        similarQuestion.subject = errorItemWithSubject.subject?.name || "Unknown";
+        // Inject the subject from the database with type safety
+        const validSubjects = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
+        const subjectName = errorItemWithSubject.subject?.name || "其他";
+        similarQuestion.subject = validSubjects.includes(subjectName as any) ? subjectName as typeof validSubjects[number] : "其他";
 
         return NextResponse.json(similarQuestion);
     } catch (error) {

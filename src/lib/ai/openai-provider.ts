@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
 import { jsonrepair } from "jsonrepair";
 import { generateAnalyzePrompt, generateSimilarQuestionPrompt } from './prompts';
+import { validateParsedQuestion, safeParseParsedQuestion } from './schema';
 
 export class OpenAIProvider implements AIService {
     private openai: OpenAI;
@@ -54,49 +55,47 @@ export class OpenAIProvider implements AIService {
         return jsonString;
     }
 
-    private cleanJson(text: string): string {
-        // Fix multi-line strings: Replace literal newlines inside quotes with \n
-        return text.replace(/"((?:[^"\\]|\\.)*)"/g, (match) => {
-            return match.replace(/\n/g, "\\n").replace(/\r/g, "");
-        });
-    }
-
     private parseResponse(text: string): ParsedQuestion {
-        const jsonString = this.extractJson(text);
+        console.log("[OpenAI] Parsing AI response, length:", text.length);
+
         try {
-            // First try parsing as is
-            return JSON.parse(jsonString) as ParsedQuestion;
+            // With JSON mode enabled, response should be valid JSON
+            const parsed = JSON.parse(text);
+
+            // Validate with Zod schema
+            const result = safeParseParsedQuestion(parsed);
+
+            if (result.success) {
+                console.log("[OpenAI] ✓ Direct parse and validation succeeded");
+                return result.data;
+            } else {
+                console.warn("[OpenAI] ⚠ Validation failed:", result.error.format());
+                // Try to extract JSON from potential markdown wrapping
+                const extracted = this.extractJson(text);
+                const parsedExtracted = JSON.parse(extracted);
+                return validateParsedQuestion(parsedExtracted);
+            }
         } catch (error) {
+            console.warn("[OpenAI] ⚠ Direct parse failed, attempting extraction");
+
             try {
-                // Try using jsonrepair
-                const repaired = jsonrepair(jsonString);
-                return JSON.parse(repaired) as ParsedQuestion;
-            } catch (repairError) {
+                // Fallback: extract JSON from markdown or text
+                const jsonString = this.extractJson(text);
+                const parsed = JSON.parse(jsonString);
+                return validateParsedQuestion(parsed);
+            } catch (extractError) {
+                console.warn("[OpenAI] ⚠ Extraction failed, trying jsonrepair");
+
                 try {
-                    // Fallback to manual cleaning if repair fails
-                    // Fix: Only escape backslashes that are NOT followed by valid JSON escape characters
-                    // Specifically handle \u: only consider it valid if followed by 4 hex digits
-                    let fixedJson = this.cleanJson(jsonString);
-                    fixedJson = fixedJson.replace(/\\(?!(["\\/bfnrt]|u[0-9a-fA-F]{4}))/g, '\\\\');
-
-                    return JSON.parse(fixedJson) as ParsedQuestion;
+                    // Last resort: use jsonrepair
+                    const jsonString = this.extractJson(text);
+                    const repairedJson = jsonrepair(jsonString);
+                    const parsed = JSON.parse(repairedJson);
+                    return validateParsedQuestion(parsed);
                 } catch (finalError) {
-                    console.error("JSON parse failed:", finalError);
-                    console.error("Original text:", text);
-                    console.error("Extracted text:", jsonString);
-
-                    // Log to file for debugging
-                    try {
-                        const fs = require('fs');
-                        const path = require('path');
-                        const logPath = path.join(process.cwd(), 'debug_ai_response.log');
-                        const logContent = `\n\n--- ${new Date().toISOString()} ---\nError: ${finalError}\nOriginal: ${text}\nExtracted: ${jsonString}\n`;
-                        fs.appendFileSync(logPath, logContent);
-                    } catch (e) {
-                        console.error("Failed to write debug log:", e);
-                    }
-
-                    throw new Error("Invalid JSON response from AI");
+                    console.error("[OpenAI] ✗ All parsing attempts failed");
+                    console.error("[OpenAI] Original text (first 500 chars):", text.substring(0, 500));
+                    throw new Error("Invalid JSON response from AI: Unable to parse or validate");
                 }
             }
         }

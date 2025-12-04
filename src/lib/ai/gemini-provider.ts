@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
 import { jsonrepair } from 'jsonrepair';
 import { generateAnalyzePrompt, generateSimilarQuestionPrompt } from './prompts';
+import { validateParsedQuestion, safeParseParsedQuestion } from './schema';
 
 export class GeminiProvider implements AIService {
     private genAI: GoogleGenerativeAI;
@@ -92,35 +93,47 @@ export class GeminiProvider implements AIService {
     }
 
     private parseResponse(text: string): ParsedQuestion {
-        const jsonString = this.extractJson(text);
-
-        // Log for debugging
-        console.log("[DEBUG] Parsing AI response");
-        console.log("[DEBUG] Original text length:", text.length);
-        console.log("[DEBUG] Extracted JSON length:", jsonString.length);
-        console.log("[DEBUG] First 200 chars of extracted:", jsonString.substring(0, 200));
+        console.log("[Gemini] Parsing AI response, length:", text.length);
 
         try {
-            // First try direct parse
-            const parsed = JSON.parse(jsonString) as ParsedQuestion;
-            console.log("[DEBUG] Direct parse succeeded");
-            return parsed;
+            // With JSON mode enabled, response should be valid JSON
+            const parsed = JSON.parse(text);
+
+            // Validate with Zod schema
+            const result = safeParseParsedQuestion(parsed);
+
+            if (result.success) {
+                console.log("[Gemini] ✓ Direct parse and validation succeeded");
+                return result.data;
+            } else {
+                console.warn("[Gemini] ⚠ Validation failed:", result.error.format());
+                // Try to extract JSON from potential markdown wrapping
+                const extracted = this.extractJson(text);
+                const parsedExtracted = JSON.parse(extracted);
+                return validateParsedQuestion(parsedExtracted);
+            }
         } catch (error) {
-            console.log("[DEBUG] Direct parse failed, trying jsonrepair");
+            console.warn("[Gemini] ⚠ Direct parse failed, attempting extraction");
 
             try {
-                // Use jsonrepair to fix the JSON
-                const repairedJson = jsonrepair(jsonString);
-                console.log("[DEBUG] JSON repaired, length:", repairedJson.length);
+                // Fallback: extract JSON from markdown or text
+                const jsonString = this.extractJson(text);
+                const parsed = JSON.parse(jsonString);
+                return validateParsedQuestion(parsed);
+            } catch (extractError) {
+                console.warn("[Gemini] ⚠ Extraction failed, trying jsonrepair");
 
-                const parsed = JSON.parse(repairedJson) as ParsedQuestion;
-                console.log("[DEBUG] Parse succeeded after repair");
-                return parsed;
-            } catch (repairError) {
-                console.error("[ERROR] JSON repair also failed:", repairError);
-                console.error("[ERROR] Original text (first 500 chars):", text.substring(0, 500));
-                console.error("[ERROR] Extracted JSON (first 500 chars):", jsonString.substring(0, 500));
-                throw new Error("Invalid JSON response from AI");
+                try {
+                    // Last resort: use jsonrepair
+                    const jsonString = this.extractJson(text);
+                    const repairedJson = jsonrepair(jsonString);
+                    const parsed = JSON.parse(repairedJson);
+                    return validateParsedQuestion(parsed);
+                } catch (finalError) {
+                    console.error("[Gemini] ✗ All parsing attempts failed");
+                    console.error("[Gemini] Original text (first 500 chars):", text.substring(0, 500));
+                    throw new Error("Invalid JSON response from AI: Unable to parse or validate");
+                }
             }
         }
     }
@@ -129,15 +142,25 @@ export class GeminiProvider implements AIService {
         const prompt = generateAnalyzePrompt(language);
 
         try {
-            const result = await this.model.generateContent([
-                prompt,
-                {
-                    inlineData: {
-                        data: imageBase64,
-                        mimeType: mimeType
+            const result = await this.model.generateContent({
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [
+                            { text: prompt },
+                            {
+                                inlineData: {
+                                    data: imageBase64,
+                                    mimeType: mimeType
+                                }
+                            }
+                        ]
                     }
+                ],
+                generationConfig: {
+                    responseMimeType: "application/json",  // Enable JSON mode
                 }
-            ]);
+            });
             const response = await result.response;
             const text = response.text();
 
@@ -154,7 +177,12 @@ export class GeminiProvider implements AIService {
         const prompt = generateSimilarQuestionPrompt(language, originalQuestion, knowledgePoints, difficulty);
 
         try {
-            const result = await this.model.generateContent(prompt);
+            const result = await this.model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",  // Enable JSON mode
+                }
+            });
             const response = await result.response;
             const text = response.text();
 
