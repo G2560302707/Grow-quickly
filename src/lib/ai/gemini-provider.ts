@@ -142,8 +142,20 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh'): Promise<ParsedQuestion> {
-        const prompt = generateAnalyzePrompt(language);
+    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: 7 | 8 | 9 | null, subject?: string | null): Promise<ParsedQuestion> {
+        const prompt = generateAnalyzePrompt(language, grade, subject);
+
+        console.log("\n" + "=".repeat(80));
+        console.log("[Gemini] 🔍 AI Image Analysis Request");
+        console.log("=".repeat(80));
+        console.log("[Gemini] Image size:", imageBase64.length, "bytes");
+        console.log("[Gemini] MimeType:", mimeType);
+        console.log("[Gemini] Language:", language);
+        console.log("[Gemini] Grade:", grade || "all");
+        console.log("-".repeat(80));
+        console.log("[Gemini] 📝 Full Prompt:");
+        console.log(prompt);
+        console.log("=".repeat(80) + "\n");
 
         try {
             const result = await this.model.generateContent({
@@ -168,10 +180,29 @@ export class GeminiProvider implements AIService {
             const response = await result.response;
             const text = response.text();
 
+            console.log("\n" + "=".repeat(80));
+            console.log("[Gemini] 🤖 AI Raw Response");
+            console.log("=".repeat(80));
+            console.log(text);
+            console.log("=".repeat(80) + "\n");
+
             if (!text) throw new Error("Empty response from AI");
-            return this.parseResponse(text);
+            const parsedResult = this.parseResponse(text);
+
+            console.log("\n" + "=".repeat(80));
+            console.log("[Gemini] ✅ Parsed & Validated Result");
+            console.log("=".repeat(80));
+            console.log(JSON.stringify(parsedResult, null, 2));
+            console.log("=".repeat(80) + "\n");
+
+            return parsedResult;
 
         } catch (error) {
+            console.error("\n" + "=".repeat(80));
+            console.error("[Gemini] ❌ Error during AI analysis");
+            console.error("=".repeat(80));
+            console.error(error);
+            console.error("=".repeat(80) + "\n");
             this.handleError(error);
             throw error;
         }
@@ -179,6 +210,18 @@ export class GeminiProvider implements AIService {
 
     async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium'): Promise<ParsedQuestion> {
         const prompt = generateSimilarQuestionPrompt(language, originalQuestion, knowledgePoints, difficulty);
+
+        console.log("\n" + "=".repeat(80));
+        console.log("[Gemini] 🎯 Generate Similar Question Request");
+        console.log("=".repeat(80));
+        console.log("[Gemini] Original Question:", originalQuestion.substring(0, 100) + "...");
+        console.log("[Gemini] Knowledge Points:", knowledgePoints);
+        console.log("[Gemini] Difficulty:", difficulty);
+        console.log("[Gemini] Language:", language);
+        console.log("-".repeat(80));
+        console.log("[Gemini] 📝 Full Prompt:");
+        console.log(prompt);
+        console.log("=".repeat(80) + "\n");
 
         try {
             const result = await this.model.generateContent({
@@ -190,10 +233,29 @@ export class GeminiProvider implements AIService {
             const response = await result.response;
             const text = response.text();
 
+            console.log("\n" + "=".repeat(80));
+            console.log("[Gemini] 🤖 AI Raw Response");
+            console.log("=".repeat(80));
+            console.log(text);
+            console.log("=".repeat(80) + "\n");
+
             if (!text) throw new Error("Empty response from AI");
-            return this.parseResponse(text);
+            const parsedResult = this.parseResponse(text);
+
+            console.log("\n" + "=".repeat(80));
+            console.log("[Gemini] ✅ Parsed & Validated Result");
+            console.log("=".repeat(80));
+            console.log(JSON.stringify(parsedResult, null, 2));
+            console.log("=".repeat(80) + "\n");
+
+            return parsedResult;
 
         } catch (error) {
+            console.error("\n" + "=".repeat(80));
+            console.error("[Gemini] ❌ Error during question generation");
+            console.error("=".repeat(80));
+            console.error(error);
+            console.error("=".repeat(80) + "\n");
             this.handleError(error);
             throw error;
         }

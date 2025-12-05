@@ -38,15 +38,7 @@ export async function POST(req: Request) {
             }
         }
 
-        console.log("[API] Calling AI service analyzeImage...");
-        const aiService = getAIService();
-        const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language);
-
-        console.log("[API] AI returned knowledgePoints:", analysisResult.knowledgePoints);
-        console.log("[API] knowledgePoints type:", typeof analysisResult.knowledgePoints);
-        console.log("[API] knowledgePoints isArray:", Array.isArray(analysisResult.knowledgePoints));
-
-        // 获取用户信息和错题本信息以进行智能标签匹配
+        // 先获取用户年级信息，用于动态生成 AI prompt 中的标签列表
         let userGrade: 7 | 8 | 9 | null = null;
         let subjectName: 'math' | 'physics' | 'chemistry' | 'english' | null = null;
 
@@ -77,9 +69,29 @@ export async function POST(req: Request) {
                 }
             } catch (error) {
                 console.error("[API] Error fetching user/subject info:", error);
-                // 继续执行,使用默认的标签匹配
+                // 继续执行，不传递年级参数（会返回所有年级的标签）
             }
         }
+
+
+        // 将内部科目名称转换为中文科目名称
+        const subjectNameMapping: Record<string, string> = {
+            'math': '数学',
+            'physics': '物理',
+            'chemistry': '化学',
+            'english': '英语',
+        };
+        const subjectChinese = subjectName ? subjectNameMapping[subjectName] : null;
+
+        console.log("[API] Calling AI service analyzeImage with grade:", userGrade, "subject:", subjectChinese);
+        const aiService = getAIService();
+        const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language, userGrade, subjectChinese);
+
+
+        console.log("[API] AI returned knowledgePoints:", analysisResult.knowledgePoints);
+        console.log("[API] knowledgePoints type:", typeof analysisResult.knowledgePoints);
+        console.log("[API] knowledgePoints isArray:", Array.isArray(analysisResult.knowledgePoints));
+
 
         // 标准化知识点标签
         if (analysisResult.knowledgePoints && analysisResult.knowledgePoints.length > 0) {

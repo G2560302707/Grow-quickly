@@ -1,17 +1,14 @@
 /**
  * Shared AI prompt templates
- * This module provides centralized prompt management with customization options
+ * This module provides centralized prompt management
  */
+import { getMathTagsByGrade } from '../knowledge-tags';
 
+/**
+ * Options for customizing prompts
+ */
 export interface PromptOptions {
-  /**
-   * Additional instructions specific to the AI provider
-   */
-  providerHints?: string;
-
-  /**
-   * Custom knowledge tags to include beyond the standard set
-   */
+  providerHints?: string; // Provider-specific instructions
   additionalTags?: {
     subject: string;
     tags: string[];
@@ -19,89 +16,130 @@ export interface PromptOptions {
 }
 
 /**
+ * 获取指定年级的累进数学标签
+ * 初一：只包含七年级标签
+ * 初二：包含七年级+八年级标签
+ * 初三：包含七年级+八年级+九年级标签
+ * @param grade - 年级 (7, 8, 9) 或 null
+ * @returns 标签数组
+ */
+export function getMathTagsForGrade(grade: 7 | 8 | 9 | null): string[] {
+  if (!grade) {
+    // 如果没有年级信息，返回所有年级的标签
+    return [
+      ...getMathTagsByGrade(7),
+      ...getMathTagsByGrade(8),
+      ...getMathTagsByGrade(9)
+    ];
+  }
+
+  // 累进式标签：当前年级及之前所有年级
+  const tags: string[] = [];
+  if (grade >= 7) tags.push(...getMathTagsByGrade(7));
+  if (grade >= 8) tags.push(...getMathTagsByGrade(8));
+  if (grade >= 9) tags.push(...getMathTagsByGrade(9));
+
+  return tags;
+}
+
+/**
  * Generates the analyze image prompt
  * @param language - Target language for analysis ('zh' or 'en')
+ * @param grade - Optional grade level (7, 8, 9) for cumulative tag filtering
  * @param options - Optional customizations
  */
-export function generateAnalyzePrompt(language: 'zh' | 'en', options?: PromptOptions): string {
+export function generateAnalyzePrompt(
+  language: 'zh' | 'en',
+  grade?: 7 | 8 | 9 | null,
+  subject?: string | null,
+  options?: PromptOptions
+): string {
   const langInstruction = language === 'zh'
     ? "IMPORTANT: For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', YOU MUST USE THE SAME LANGUAGE AS THE ORIGINAL QUESTION. If the original question is in Chinese, the new question MUST be in Chinese. If the original is in English, keep it in English."
     : "Please ensure all text fields are in English.";
 
-  const basePrompt = `
-    You are to assume the role of an experienced, professional Interdisciplinary Exam Analysis Expert . Your core task is to thoroughly analyze the exam question image provided by the user, comprehend all textual information, diagrams, and implicit constraints, and deliver a complete, highly structured, and professional solution.
-    
-    ${langInstruction}
-    
-    **CRITICAL: You must extract the EXACT TEXT as it appears in the image, NOT a description of what you see.**
-    - Extract the actual Chinese/English text visible in the image
-    
-    Please extract the following information and return it in valid JSON format:
-    1. "questionText": The full text of the question. Use Markdown format for better readability. Use LaTeX notation for mathematical formulas (inline: $formula$, block: $$formula$$).
-    2. "answerText": The correct answer to the question. Use Markdown and LaTeX where appropriate.
-    3. "analysis": A step-by-step explanation of how to solve the problem. 
-       - Use Markdown formatting (headings, lists, bold, etc.) for clarity
-       - Use LaTeX for all mathematical formulas and expressions
-       - Example: "The solution is $x = \\\\frac{-b \\\\pm \\\\sqrt{b^2 - 4ac}}{2a}$"
-       - For block formulas, use $$...$$
-    4. "subject": The subject of the question. Choose ONE from: "数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他".
-    5. "knowledgePoints": An array of knowledge points. STRICTLY use EXACT terms from the standard list below:
-       
-       **数学标签 (Math Tags):**
-       使用人教版课程大纲中的**精确标签名称**，常见标签示例：
-       - 七年级："有理数", "绝对值", "有理数的加法", "一元一次方程", "解一元一次方程", "三角形三边关系"
-       - 八年级："全等三角形", "全等三角形的判定", "平行四边形的性质", "勾股定理", "一次函数", "一次函数的图象和性质", "平均数", "中位数", "方差"
-       - 九年级："一元二次方程", "配方法", "韦达定理", "二次函数", "二次函数顶点式", "二次函数一般式", "抛物线的顶点坐标", "圆周角定理", "切线的性质", "反比例函数", "相似三角形的判定"
-       
-       **重要提示**：
-       - 使用精确的标签名称，例如："二次函数一般式" 而非 "二次函数的图像"
-       - 使用 "三视图" 而非 "左视图"、"主视图" 或 "俯视图"
-       - 使用 "相似三角形的判定" 而非笼统的 "相似三角形"
-       - 使用 "全等三角形的判定" 以及具体判定法 "SSS", "SAS", "ASA", "AAS", "HL"
-       
-       **物理标签 (Physics Tags):**
-       暂无标准标签库，可使用通用标签如："力学", "电学", "光学", "热学", "欧姆定律", "浮力"
-       
-       **化学标签 (Chemistry Tags):**
-       暂无标准标签库，可使用通用标签如："化学方程式", "氧化还原反应", "酸碱盐"
-       
-       **英语标签 (English Tags):**
-       "语法", "词汇", "阅读理解", "完形填空", "写作", "听力", "翻译"
+  // 获取数学标签（根据年级累进）
+  const mathTags = getMathTagsForGrade(grade || null);
+  const mathTagsString = mathTags.map(tag => `"${tag}"`).join(", ");
 
-       **其他学科 (Other Subjects):**
-       对于语文、历史、地理等学科，使用合适的通用标签，例如："历史事件", "地理常识", "古诗文"
-       
-       **CRITICAL RULES:**
-       - 对于数学题目，必须从人教版课程大纲中选择精确的标签名称
-       - 如遇到具体知识点（如 "一元二次方程的根与系数关系"），应使用对应的标准标签（如 "韦达定理"）
-       - 标签须与题目实际考查的知识点精准匹配
-       - 每题最多 5 个标签
-       
-       
-    CRITICAL FORMATTING REQUIREMENTS:  
-    - Return ONLY a valid JSON object, nothing else
-    - Do NOT add any text before or after the JSON
-    - Do NOT wrap the JSON in markdown code blocks
-    - Do NOT add explanatory text like "The final answer is..."
-    - Do NOT include HTML tags (like <img>, <center>, etc.) in the extracted text
-    - Extract the ACTUAL text content from the image, not HTML references to the image
-    
-    IMPORTANT: 
-    - If the image contains a question with multiple sub-questions (like (1), (2), (3)), include ALL sub-questions in the questionText field.
-    - If the image contains completely separate questions (different question numbers), only analyze the first complete question with all its sub-questions.
-    - If the image is unclear or does not contain a question, return empty strings but valid JSON.
-    
-    **Expected JSON Format:**
-    {
-      "questionText": "题目的完整文本，支持 Markdown 和 LaTeX ($formula$ 或 $$formula$$)",
-      "answerText": "正确答案",
-      "analysis": "详细解析步骤",
-      "subject": "数学",
-      "knowledgePoints": ["知识点1", "知识点2"]
-    }
-    
-    ${options?.providerHints || ''}
-  `;
+  // 根据科目决定显示哪些标签（节省 token，提高准确性）
+  let tagsSection = "";
+
+  if (subject === '数学') {
+    tagsSection = `**数学标签 (Math Tags):**
+使用人教版课程大纲中的**精确标签名称**，可选标签如下：
+${mathTagsString}
+
+**重要提示**：
+- 必须从上述列表中选择精确匹配的标签
+- 每题最多 5 个标签`;
+  } else if (subject === '物理') {
+    tagsSection = `**物理标签 (Physics Tags):**
+"力学", "电学", "光学", "热学", "声学", "磁学", "欧姆定律", "浮力", "压强", "功和能", "杠杆原理", "滑轮", "电功率", "串并联电路", "电磁感应", "凸透镜成像", "光的反射", "光的折射", "机械运动", "牛顿定律"`;
+  } else if (subject === '化学') {
+    tagsSection = `**化学标签 (Chemistry Tags):**
+"化学方程式", "氧化还原反应", "酸碱盐", "有机化学", "无机化学", "元素周期表", "化学键", "溶液", "溶解度", "酸碱中和", "金属活动性", "燃烧", "化学计算", "气体制备", "物质分类"`;
+  } else if (subject === '英语') {
+    tagsSection = `**英语标签 (English Tags):**
+"语法", "词汇", "阅读理解", "完形填空", "写作", "听力", "翻译", "时态", "从句", "冠词", "介词", "动词短语", "固定搭配"`;
+  } else {
+    // 未知科目：显示所有标签让 AI 判断
+    // 未知科目：显示所有标签让 AI 判断
+    tagsSection = `**数学标签 (Math Tags):**
+${mathTagsString}
+
+**物理标签 (Physics Tags):**
+"力学", "电学", "光学", "热学", "欧姆定律", "浮力", "压强", "功和能"
+
+**化学标签 (Chemistry Tags):**
+"化学方程式", "氧化还原反应", "酸碱盐", "有机化学", "无机化学"
+
+**英语标签 (English Tags):**
+"语法", "词汇", "阅读理解", "完形填空", "写作", "听力", "翻译"`;
+  }
+
+  const basePrompt = `【角色与核心任务 (ROLE AND CORE TASK)】
+你是一位世界顶尖的、经验丰富的、专业的跨学科考试分析专家（Interdisciplinary Exam Analysis Expert）。你的核心任务是极致准确地分析用户提供的考试题目图片，全面理解所有文本、图表和隐含约束，并提供一个完整、高度结构化且专业的 JSON 格式解决方案。
+
+${langInstruction}
+
+【核心输出字段要求 (OUTPUT FIELD REQUIREMENTS)】
+你的响应输出必须严格为一个有效的 JSON 对象（禁止任何 Markdown 代码块包裹），包含以下五个字段：
+
+1. "questionText": 题目的完整文本。必须使用 Markdown 格式提高可读性。所有数学公式和表达式必须使用 LaTeX 符号（行内：$formula$，块级：$$formula$$）。
+2. "answerText": 题目的正确答案。使用 Markdown 和 LaTeX 符号。
+3. "analysis": 解决问题的详细步骤解析。
+    * 必须使用简体中文。
+    * 使用 Markdown 格式（headings, lists, bold, etc.）提高清晰度。
+    * 所有数学公式和表达式必须使用 LaTeX 符号。
+    * 示例: "求解过程为 $x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$"
+4. "subject": 题目所属学科。必须严格从以下列表中选取一个："数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"。
+5. "knowledgePoints": 知识点数组。必须严格使用下方提供的标准列表中的精确词汇。
+
+【知识点标签列表（KNOWLEDGE POINT LIST）】
+${tagsSection}
+
+【标签使用规则 (TAG RULES)】
+- 标签必须与题目实际考查的知识点精准匹配。
+- 每题最多 5 个标签。
+
+【!!! 关键格式与内容约束 (CRITICAL RULES) !!!】
+1. 语言一致性（CRITICAL）："questionText" 和 "answerText" 必须使用与原始题目图片完全相同的语言。
+2. JSON 纯净性（CRITICAL）：只返回一个有效的 JSON 对象，前后禁止添加任何文本或说明（如 "The final answer is..."）。
+3. 格式禁止（CRITICAL）：禁止将 JSON 对象包裹在任何 Markdown 代码块中。
+4. 文本提取：必须提取图片中实际的文本内容，禁止包含 HTML 标签或图片引用（如 <img>）。
+5. 多题处理：如果图片包含多个子问题（如 (1), (2), (3)），请将所有子问题纳入 "questionText" 字段。如果图片包含完全不相关的独立题目，则只专注于提取其中一题。
+
+【预期 JSON 格式 (EXPECTED JSON FORMAT)】
+{
+"questionText": "题目文本（使用 Markdown 和 LaTeX）",
+"answerText": "答案",
+"analysis": "详细解析",
+"subject": "数学",
+"knowledgePoints": ["知识点1", "知识点2"]
+}
+
+${options?.providerHints || ''}`;
 
   return basePrompt.trim();
 }
@@ -132,40 +170,38 @@ export function generateSimilarQuestionPrompt(
     'harder': "Make the new question MUCH HARDER (Challenge Level). Require deeper understanding and multi-step reasoning."
   }[difficulty];
 
-  const basePrompt = `
-    You are an expert AI tutor creating practice problems for middle school students.
-    Create a NEW practice problem based on the following original question and knowledge points.
-    
-    DIFFICULTY LEVEL: ${difficulty.toUpperCase()}
-    ${difficultyInstruction}
-    
-    ${langInstruction}
-    
-    Original Question: "${originalQuestion}"
-    Knowledge Points: ${knowledgePoints.join(", ")}
-    
-    Return the result in valid JSON format with the following fields:
-    1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., using \\\\n for new lines).
-    2. "answerText": The correct answer.
-    3. "analysis": Step-by-step solution.
-    4. "subject": The subject category. Choose ONE from: "数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他".
-    5. "knowledgePoints": The knowledge points (should match input).
-    
-    CRITICAL FORMATTING:
-    - Return ONLY a valid JSON object, no extra text
-    - Do NOT wrap in markdown code blocks
-    
-    **Expected JSON Format:**
-    {
-      "questionText": "新问题的文本（如果是选择题，包含选项 A、B、C、D）",
-      "answerText": "正确答案",
-      "analysis": "详细解析",
-      "subject": "数学",
-      "knowledgePoints": ["知识点1", "知识点2"]
-    }
-    
-    ${options?.providerHints || ''}
-  `;
+  const basePrompt = `You are an expert AI tutor creating practice problems for middle school students.
+Create a NEW practice problem based on the following original question and knowledge points.
+
+DIFFICULTY LEVEL: ${difficulty.toUpperCase()}
+${difficultyInstruction}
+
+${langInstruction}
+
+Original Question: "${originalQuestion}"
+Knowledge Points: ${knowledgePoints.join(", ")}
+
+Return the result in valid JSON format with the following fields:
+1. "questionText": The text of the new question. IMPORTANT: If the original question is a multiple-choice question, you MUST include the options (A, B, C, D) in this field as well. Format them clearly (e.g., using \\n for new lines).
+2. "answerText": The correct answer.
+3. "analysis": Step-by-step solution.
+4. "subject": The subject category. Choose ONE from: "数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他".
+5. "knowledgePoints": The knowledge points (should match input).
+
+CRITICAL FORMATTING:
+- Return ONLY a valid JSON object, no extra text
+- Do NOT wrap in markdown code blocks
+
+**Expected JSON Format:**
+{
+  "questionText": "新问题的文本（如果是选择题，包含选项 A、B、C、D）",
+  "answerText": "正确答案",
+  "analysis": "详细解析",
+  "subject": "数学",
+  "knowledgePoints": ["知识点1", "知识点2"]
+}
+
+${options?.providerHints || ''}`;
 
   return basePrompt.trim();
 }
