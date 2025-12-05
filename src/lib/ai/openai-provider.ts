@@ -58,40 +58,75 @@ export class OpenAIProvider implements AIService {
     private parseResponse(text: string): ParsedQuestion {
         console.log("[OpenAI] Parsing AI response, length:", text.length);
 
-        try {
-            // With JSON mode enabled, response should be valid JSON
-            const parsed = JSON.parse(text);
-
-            // Validate with Zod schema
+        const tryParseAndValidate = (jsonStr: string): ParsedQuestion => {
+            const parsed = JSON.parse(jsonStr);
             const result = safeParseParsedQuestion(parsed);
+            if (result.success) {
+                return result.data;
+            }
+            throw result.error; // Throw ZodError to be caught
+        };
 
+        const recoverPartialData = (parsed: any): ParsedQuestion | null => {
+            if (typeof parsed === 'object' && parsed !== null && typeof parsed.questionText === 'string') {
+                console.warn("[OpenAI] ⚠ Recovering partial data from truncated response");
+                return {
+                    questionText: parsed.questionText,
+                    answerText: parsed.answerText || "（AI 响应被截断，请手动补充）",
+                    analysis: parsed.analysis || "（AI 响应被截断，请手动补充）",
+                    subject: typeof parsed.subject === 'string' && ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"].includes(parsed.subject)
+                        ? parsed.subject as any
+                        : "其他",
+                    knowledgePoints: Array.isArray(parsed.knowledgePoints) ? parsed.knowledgePoints : []
+                };
+            }
+            return null;
+        };
+
+        try {
+            // 1. Direct Parse
+            const parsed = JSON.parse(text);
+            const result = safeParseParsedQuestion(parsed);
             if (result.success) {
                 console.log("[OpenAI] ✓ Direct parse and validation succeeded");
                 return result.data;
             } else {
+                // If structure is valid JSON but invalid schema, try partial recovery
+                const partial = recoverPartialData(parsed);
+                if (partial) return partial;
+
+                // Otherwise throw original error
                 console.warn("[OpenAI] ⚠ Validation failed:", result.error.format());
-                // Try to extract JSON from potential markdown wrapping
-                const extracted = this.extractJson(text);
-                const parsedExtracted = JSON.parse(extracted);
-                return validateParsedQuestion(parsedExtracted);
+                throw result.error;
             }
         } catch (error) {
             console.warn("[OpenAI] ⚠ Direct parse failed, attempting extraction");
 
             try {
-                // Fallback: extract JSON from markdown or text
+                // 2. Extract JSON
                 const jsonString = this.extractJson(text);
-                const parsed = JSON.parse(jsonString);
-                return validateParsedQuestion(parsed);
+                return tryParseAndValidate(jsonString);
             } catch (extractError) {
                 console.warn("[OpenAI] ⚠ Extraction failed, trying jsonrepair");
 
                 try {
-                    // Last resort: use jsonrepair
+                    // 3. JsonRepair
                     const jsonString = this.extractJson(text);
                     const repairedJson = jsonrepair(jsonString);
                     const parsed = JSON.parse(repairedJson);
-                    return validateParsedQuestion(parsed);
+
+                    // Validate regular first
+                    const result = safeParseParsedQuestion(parsed);
+                    if (result.success) return result.data;
+
+                    // If failed, try partial recovery
+                    const partial = recoverPartialData(parsed);
+                    if (partial) {
+                        console.log("[OpenAI] ✓ Recovered partial data using jsonrepair");
+                        return partial;
+                    }
+
+                    return validateParsedQuestion(parsed); // Will throw if invalid
                 } catch (finalError) {
                     console.error("[OpenAI] ✗ All parsing attempts failed");
                     console.error("[OpenAI] Original text (first 500 chars):", text.substring(0, 500));
@@ -109,6 +144,7 @@ export class OpenAIProvider implements AIService {
         console.log("=".repeat(80));
         console.log("[OpenAI] Image size:", imageBase64.length, "bytes");
         console.log("[OpenAI] MimeType:", mimeType);
+        console.log("[OpenAI] Model:", this.model);
         console.log("[OpenAI] Language:", language);
         console.log("[OpenAI] Grade:", grade || "all");
         console.log("-".repeat(80));
@@ -136,7 +172,7 @@ export class OpenAIProvider implements AIService {
                         ],
                     },
                 ],
-                response_format: { type: "json_object" },
+                // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
                 max_tokens: 4096,
             });
 
@@ -196,7 +232,8 @@ export class OpenAIProvider implements AIService {
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt },
                 ],
-                response_format: { type: "json_object" },
+                // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
+                max_tokens: 4096,
             });
 
             const text = response.choices[0]?.message?.content || "";
