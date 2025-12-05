@@ -28,6 +28,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+          
+      # 🚨 新增步骤：设置 QEMU 模拟器
+      - name: Set up QEMU (Enable multi-arch)
+        uses: docker/setup-qemu-action@v3
+      # --------------------------------
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
