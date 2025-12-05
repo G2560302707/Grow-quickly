@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft, House } from "lucide-react";
 import Link from "next/link";
 import { NotebookCard } from "@/components/notebook-card";
 import { CreateNotebookDialog } from "@/components/create-notebook-dialog";
@@ -93,10 +93,17 @@ export default function NotebooksPage() {
                                 {t.notebooks?.subtitle || "Manage your mistakes by subject"}
                             </p>
                         </div>
-                        <Button onClick={() => setDialogOpen(true)}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            {t.notebooks?.create || "New Notebook"}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button onClick={() => setDialogOpen(true)}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                {t.notebooks?.create || "New Notebook"}
+                            </Button>
+                            <Link href="/">
+                                <Button variant="ghost" size="icon">
+                                    <House className="h-5 w-5" />
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
 

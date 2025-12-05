@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { STANDARD_TAGS, MATH_CURRICULUM, MATH_TAG_INDEX } from "@/lib/knowledge-tags";
 import { getCustomTags, addCustomTag, removeCustomTag, type CustomTagsData } from "@/lib/custom-tags";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, TrendingUp, Plus, Trash2, ChevronDown, ChevronRight, House } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -415,6 +415,13 @@ export default function TagsPage() {
                     <p className="text-muted-foreground mt-1">
                         {t.tags?.subtitle || "View and manage knowledge point tags"}
                     </p>
+                </div>
+                <div className="ml-auto flex items-center">
+                    <Link href="/">
+                        <Button variant="ghost" size="icon">
+                            <House className="h-5 w-5" />
+                        </Button>
+                    </Link>
                 </div>
             </div>
 

@@ -2,9 +2,10 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, RefreshCw, CheckCircle, Eye, Send, XCircle, ArrowLeft } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle, Eye, Send, XCircle, ArrowLeft, House } from "lucide-react";
 import { ParsedQuestion } from "@/lib/ai/types";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Textarea } from "@/components/ui/textarea";
@@ -106,10 +107,17 @@ function PracticeContent() {
 
     return (
         <div className="max-w-3xl mx-auto space-y-8">
-            <Button variant="ghost" onClick={() => router.back()} className="mb-4">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {t.common?.back || "返回"}
-            </Button>
+            <div className="flex justify-between items-center mb-4">
+                <Button variant="ghost" onClick={() => router.back()}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    {t.common?.back || "返回"}
+                </Button>
+                <Link href="/">
+                    <Button variant="ghost" size="icon">
+                        <House className="h-5 w-5" />
+                    </Button>
+                </Link>
+            </div>
             <div className="text-center space-y-4">
                 <h1 className="text-3xl font-bold">{t.practice.title}</h1>
                 <p className="text-muted-foreground">

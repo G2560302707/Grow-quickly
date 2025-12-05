@@ -5,7 +5,7 @@ import { WrongAnswerStats } from "@/components/wrong-answer-stats";
 import { PracticeStats } from "@/components/practice-stats";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BarChart3, TrendingUp, Activity } from "lucide-react";
+import { ArrowLeft, BarChart3, TrendingUp, Activity, House } from "lucide-react";
 import Link from "next/link";
 
 export default function StatsPage() {
@@ -27,6 +27,13 @@ export default function StatsPage() {
                     <p className="text-muted-foreground mt-1">
                         {language === 'zh' ? "查看您的学习进度和数据分析" : "View your learning progress and data analysis"}
                     </p>
+                </div>
+                <div className="ml-auto flex items-center">
+                    <Link href="/">
+                        <Button variant="ghost" size="icon">
+                            <House className="h-5 w-5" />
+                        </Button>
+                    </Link>
                 </div>
             </div>
 

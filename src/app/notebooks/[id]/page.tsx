@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, House } from "lucide-react";
 import Link from "next/link";
 import { ErrorList } from "@/components/error-list";
 
@@ -66,12 +66,19 @@ export default function NotebookDetailPage() {
                                 {(t.notebooks?.totalErrors || "Total {count} errors").replace("{count}", (notebook._count?.errorItems || 0).toString())}
                             </p>
                         </div>
-                        <Link href={`/notebooks/${notebook.id}/add`}>
-                            <Button>
-                                <Plus className="mr-2 h-4 w-4" />
-                                {t.notebooks?.addError || "Add Error"}
-                            </Button>
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Link href={`/notebooks/${notebook.id}/add`}>
+                                <Button>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    {t.notebooks?.addError || "Add Error"}
+                                </Button>
+                            </Link>
+                            <Link href="/">
+                                <Button variant="ghost" size="icon">
+                                    <House className="h-5 w-5" />
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
 
