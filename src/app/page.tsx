@@ -122,9 +122,11 @@ function HomeContent() {
                     ? '⚠️ AI 返回了无效的响应\n\n请重试，如果问题持续请联系支持'
                     : '⚠️ AI returned invalid response\n\nPlease try again, contact support if issue persists';
             } else if (errorText.includes('AI_AUTH_ERROR')) {
-                userMessage = language === 'zh'
-                    ? '⚠️ API 密钥无效\n\n请检查环境变量 GOOGLE_API_KEY'
-                    : '⚠️ Invalid API key\n\nPlease check GOOGLE_API_KEY environment variable';
+                userMessage = t.errors.aiAuth || (
+                    language === 'zh'
+                        ? '⚠️ API 密钥无效\n\n请检查环境变量 GOOGLE_API_KEY'
+                        : '⚠️ Invalid API key\n\nPlease check GOOGLE_API_KEY environment variable'
+                );
             }
 
             alert(userMessage);

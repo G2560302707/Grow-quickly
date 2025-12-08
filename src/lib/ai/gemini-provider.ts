@@ -12,7 +12,7 @@ export class GeminiProvider implements AIService {
         const apiKey = config?.apiKey;
 
         if (!apiKey) {
-            throw new Error("GOOGLE_API_KEY is required for Gemini provider");
+            throw new Error("AI_AUTH_ERROR: GOOGLE_API_KEY is required for Gemini provider");
         }
 
         this.genAI = new GoogleGenerativeAI(apiKey);

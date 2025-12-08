@@ -13,7 +13,7 @@ export class OpenAIProvider implements AIService {
         const baseURL = config?.baseUrl;
 
         if (!apiKey) {
-            throw new Error("OPENAI_API_KEY is required for OpenAI provider");
+            throw new Error("AI_AUTH_ERROR: OPENAI_API_KEY is required for OpenAI provider");
         }
 
         this.openai = new OpenAI({

@@ -134,11 +134,15 @@ export async function POST(req: Request) {
         if (error.message && (
             error.message === 'AI_CONNECTION_FAILED' ||
             error.message === 'AI_RESPONSE_ERROR' ||
-            error.message === 'AI_AUTH_ERROR' ||
+            error.message.includes('AI_AUTH_ERROR') ||
             error.message === 'AI_UNKNOWN_ERROR'
         )) {
-            // 直接传递 AI Provider 定义的错误类型
-            errorMessage = error.message;
+            // 直接传递 AI Provider 定义的错误类型 (如果是 AI_AUTH_ERROR，提取出来)
+            if (error.message.includes('AI_AUTH_ERROR')) {
+                errorMessage = 'AI_AUTH_ERROR';
+            } else {
+                errorMessage = error.message;
+            }
         } else if (error.message?.includes('Zod') || error.message?.includes('validate')) {
             // Zod 验证错误
             errorMessage = 'AI_RESPONSE_ERROR';
