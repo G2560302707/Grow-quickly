@@ -3,31 +3,48 @@ import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
 
 export async function middleware(req: NextRequest) {
-    const token = await getToken({
-        req,
-        secret: process.env.NEXTAUTH_SECRET,
+    // Debug logging for middleware
+    console.log(`[Middleware] Processing: ${req.method} ${req.nextUrl.pathname}`);
 
-    });
+    try {
+        const token = await getToken({
+            req,
+            secret: process.env.NEXTAUTH_SECRET,
+            cookieName: "next-auth.session-token", // Explicitly look for the standardized cookie
+        });
 
-    const isAuth = !!token;
-    const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
+        const isAuth = !!token;
+        const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
 
-    if (isAuthPage) {
-        if (isAuth) {
-            return NextResponse.redirect(new URL("/", req.url));
+        console.log(`[Middleware] Auth Status: ${isAuth ? 'Authenticated' : 'Unauthenticated'}`, {
+            path: req.nextUrl.pathname,
+            isAuthPage,
+            hasToken: !!token,
+            cookies: req.cookies.getAll().map(c => c.name) // Log cookie names only for safety
+        });
+
+        if (isAuthPage) {
+            if (isAuth) {
+                console.log("[Middleware] Redirecting authenticated user to /");
+                return NextResponse.redirect(new URL("/", req.url));
+            }
+            return null;
         }
-        return null;
-    }
 
-    if (!isAuth) {
-        let from = req.nextUrl.pathname;
-        if (req.nextUrl.search) {
-            from += req.nextUrl.search;
+        if (!isAuth) {
+            let from = req.nextUrl.pathname;
+            if (req.nextUrl.search) {
+                from += req.nextUrl.search;
+            }
+
+            console.log(`[Middleware] Redirecting unauthenticated user to /login?callbackUrl=${from}`);
+            return NextResponse.redirect(
+                new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
+            );
         }
-
-        return NextResponse.redirect(
-            new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
-        );
+    } catch (e) {
+        console.error("[Middleware] Error processing token:", e);
+        return NextResponse.next();
     }
 }
 

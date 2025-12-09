@@ -14,8 +14,21 @@ export const authOptions: NextAuthOptions = {
     pages: {
         signIn: "/login",
     },
-    // Cookie configuration is automatically handled by NextAuth based on protocol
-    // useSecureCookies is omitted to allow auto-detection (true for https, false for http)
+    // Force using a single cookie name to avoid HTTP/HTTPS mismatches in proxy environments
+    // This allows running without NEXTAUTH_URL behind Cloudflare Tunnel
+    cookies: {
+        sessionToken: {
+            name: "next-auth.session-token",
+            options: {
+                httpOnly: true,
+                sameSite: "lax",
+                path: "/",
+                // Only use secure cookies if explicitly running on HTTPS (via NEXTAUTH_URL)
+                // This enables HTTP local IP access in Docker/Production if NEXTAUTH_URL is unset
+                secure: process.env.NODE_ENV === "production" && process.env.NEXTAUTH_URL?.startsWith("https"),
+            },
+        },
+    },
     providers: [
         CredentialsProvider({
             name: "Credentials",
