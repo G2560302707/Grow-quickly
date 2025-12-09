@@ -14,18 +14,8 @@ export const authOptions: NextAuthOptions = {
     pages: {
         signIn: "/login",
     },
-    useSecureCookies: process.env.NODE_ENV === "production",
-    cookies: {
-        sessionToken: {
-            name: process.env.NODE_ENV === "production" ? "__Secure-next-auth.session-token" : "next-auth.session-token",
-            options: {
-                httpOnly: true,
-                sameSite: "lax",
-                path: "/",
-                secure: process.env.NODE_ENV === "production",
-            },
-        },
-    },
+    // Cookie configuration is automatically handled by NextAuth based on protocol
+    // useSecureCookies is omitted to allow auto-detection (true for https, false for http)
     providers: [
         CredentialsProvider({
             name: "Credentials",
