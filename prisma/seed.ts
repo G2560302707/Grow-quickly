@@ -15,7 +15,14 @@ async function main() {
     });
 
     if (existingUser) {
-        console.log(`Admin user already exists. Skipping creation.`);
+        console.log(`Admin user already exists. Updating defaults...`);
+        await prisma.user.update({
+            where: { email },
+            data: {
+                educationStage: 'junior_high',
+                enrollmentYear: 2025,
+            }
+        });
         return;
     }
 
@@ -29,6 +36,8 @@ async function main() {
             name,
             role: 'admin',
             isActive: true,
+            educationStage: 'junior_high',
+            enrollmentYear: 2025,
         },
     });
 

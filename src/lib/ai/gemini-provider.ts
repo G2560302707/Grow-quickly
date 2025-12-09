@@ -1,8 +1,7 @@
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
-import { jsonrepair } from 'jsonrepair';
 import { generateAnalyzePrompt, generateSimilarQuestionPrompt } from './prompts';
-import { validateParsedQuestion, safeParseParsedQuestion } from './schema';
+import { safeParseParsedQuestion } from './schema';
 import { getAppConfig } from '../config';
 
 export class GeminiProvider implements AIService {
@@ -24,122 +23,66 @@ export class GeminiProvider implements AIService {
         });
     }
 
-    private extractJson(text: string): string {
-        let jsonString = text;
+    private extractTag(text: string, tagName: string): string | null {
+        const startTag = `<${tagName}>`;
+        const endTag = `</${tagName}>`;
+        const startIndex = text.indexOf(startTag);
+        const endIndex = text.lastIndexOf(endTag);
 
-        // First try to extract from code blocks
-        const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-        if (codeBlockMatch) {
-            jsonString = codeBlockMatch[1].trim();
-        } else {
-            // Find the first { and the MATCHING closing }
-            const firstOpen = text.indexOf('{');
-            if (firstOpen !== -1) {
-                let braceCount = 0;
-                let inString = false;
-                let escapeNext = false;
-                let closingIndex = -1;
-
-                for (let i = firstOpen; i < text.length; i++) {
-                    const char = text[i];
-
-                    if (escapeNext) {
-                        escapeNext = false;
-                        continue;
-                    }
-
-                    if (char === '\\') {
-                        escapeNext = true;
-                        continue;
-                    }
-
-                    if (char === '"' && !escapeNext) {
-                        inString = !inString;
-                        continue;
-                    }
-
-                    if (!inString) {
-                        if (char === '{') {
-                            braceCount++;
-                        } else if (char === '}') {
-                            braceCount--;
-                            if (braceCount === 0) {
-                                closingIndex = i;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (closingIndex !== -1) {
-                    jsonString = text.substring(firstOpen, closingIndex + 1);
-                } else {
-                    // Fallback to old method if bracket matching fails
-                    const lastClose = text.lastIndexOf('}');
-                    if (lastClose !== -1 && lastClose > firstOpen) {
-                        jsonString = text.substring(firstOpen, lastClose + 1);
-                    }
-                }
-            }
+        if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
+            return null;
         }
-        return jsonString;
-    }
 
-    private cleanJson(text: string): string {
-        // 1. Remove markdown code blocks if present (already done by extractJson, but good to be safe)
-        // 2. Fix multi-line strings: Replace literal newlines inside quotes with \n
-        return text.replace(/"((?:[^"\\]|\\.)*)"/g, (match) => {
-            return match.replace(/\n/g, "\\n").replace(/\r/g, "");
-        });
+        return text.substring(startIndex + startTag.length, endIndex).trim();
     }
 
     private parseResponse(text: string): ParsedQuestion {
         console.log("[Gemini] Parsing AI response, length:", text.length);
 
-        try {
-            // With JSON mode enabled, response should be valid JSON
-            const parsed = JSON.parse(text);
+        const questionText = this.extractTag(text, "question_text");
+        const answerText = this.extractTag(text, "answer_text");
+        const analysis = this.extractTag(text, "analysis");
+        const subjectRaw = this.extractTag(text, "subject");
+        const knowledgePointsRaw = this.extractTag(text, "knowledge_points");
 
-            console.log("[Gemini] Parsed object subject:", parsed.subject);
-            console.log("[Gemini] Parsed object subject type:", typeof parsed.subject);
+        // Basic Validation
+        if (!questionText || !answerText || !analysis) {
+            console.error("[Gemini] ✗ Missing critical XML tags");
+            console.log("Raw text sample:", text.substring(0, 500));
+            throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
+        }
 
-            // Validate with Zod schema
-            const result = safeParseParsedQuestion(parsed);
+        // Process Subject
+        let subject: ParsedQuestion['subject'] = '其他';
+        const validSubjects = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
+        if (subjectRaw && validSubjects.includes(subjectRaw)) {
+            subject = subjectRaw as any;
+        }
 
-            if (result.success) {
-                console.log("[Gemini] ✓ Direct parse and validation succeeded");
-                return result.data;
-            } else {
-                console.warn("[Gemini] ⚠ Validation failed:", result.error.format());
-                console.warn("[Gemini] Full parsed object:", JSON.stringify(parsed, null, 2));
-                // Try to extract JSON from potential markdown wrapping
-                const extracted = this.extractJson(text);
-                const parsedExtracted = JSON.parse(extracted);
-                return validateParsedQuestion(parsedExtracted);
-            }
-        } catch (error) {
-            console.warn("[Gemini] ⚠ Direct parse failed, attempting extraction");
+        // Process Knowledge Points
+        let knowledgePoints: string[] = [];
+        if (knowledgePointsRaw) {
+            // Split by comma or newline, trim whitespaces
+            knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
+        }
 
-            try {
-                // Fallback: extract JSON from markdown or text
-                const jsonString = this.extractJson(text);
-                const parsed = JSON.parse(jsonString);
-                return validateParsedQuestion(parsed);
-            } catch (extractError) {
-                console.warn("[Gemini] ⚠ Extraction failed, trying jsonrepair");
+        // Construct Result
+        const result: ParsedQuestion = {
+            questionText,
+            answerText,
+            analysis,
+            subject,
+            knowledgePoints
+        };
 
-                try {
-                    // Last resort: use jsonrepair
-                    const jsonString = this.extractJson(text);
-                    const repairedJson = jsonrepair(jsonString);
-                    const parsed = JSON.parse(repairedJson);
-                    return validateParsedQuestion(parsed);
-                } catch (finalError) {
-                    console.error("[Gemini] ✗ All parsing attempts failed");
-                    console.error("[Gemini] Original text (first 500 chars):", text.substring(0, 500));
-                    throw new Error("Invalid JSON response from AI: Unable to parse or validate");
-                }
-            }
+        // Final Schema Validation
+        const validation = safeParseParsedQuestion(result);
+        if (validation.success) {
+            console.log("[Gemini] ✓ Validated successfully via XML tags");
+            return validation.data;
+        } else {
+            console.warn("[Gemini] ⚠ Schema validation warning:", validation.error.format());
+            return result;
         }
     }
 
@@ -178,7 +121,7 @@ export class GeminiProvider implements AIService {
                     }
                 ],
                 generationConfig: {
-                    responseMimeType: "application/json",  // Enable JSON mode
+                    // responseMimeType: "application/json",  // Disable JSON mode for XML output
                 }
             });
             const response = await result.response;
@@ -234,7 +177,7 @@ export class GeminiProvider implements AIService {
             const result = await this.model.generateContent({
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 generationConfig: {
-                    responseMimeType: "application/json",  // Enable JSON mode
+                    // responseMimeType: "application/json",  // Disable JSON mode for XML output
                 }
             });
             const response = await result.response;

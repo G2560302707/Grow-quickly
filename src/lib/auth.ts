@@ -65,8 +65,22 @@ export const authOptions: NextAuthOptions = {
             }
         })
     ],
+    // Enable debug messages in the console
+    debug: true,
+    logger: {
+        error(code, metadata) {
+            console.error(`[NextAuth][Error] ${code}`, metadata)
+        },
+        warn(code) {
+            console.warn(`[NextAuth][Warn] ${code}`)
+        },
+        debug(code, metadata) {
+            console.log(`[NextAuth][Debug] ${code}`, metadata)
+        }
+    },
     callbacks: {
         async session({ session, token }) {
+            console.log("[NextAuth] Session callback", { userId: token.id });
             return {
                 ...session,
                 user: {
@@ -76,15 +90,25 @@ export const authOptions: NextAuthOptions = {
                 }
             }
         },
-        async jwt({ token, user }) {
+        async jwt({ token, user, account, profile }) {
             if (user) {
+                console.log("[NextAuth] JWT callback - Initial signin", { userId: user.id });
                 return {
                     ...token,
                     id: user.id,
                     role: (user as any).role,
                 }
             }
+            console.log("[NextAuth] JWT callback - Subsequent call");
             return token
         }
     }
 }
+
+// Log startup check
+console.log("[AuthConfig] Loading...", {
+    NODE_ENV: process.env.NODE_ENV,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    HAS_SECRET: !!process.env.NEXTAUTH_SECRET,
+    AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST
+});

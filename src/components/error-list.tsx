@@ -287,15 +287,39 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                                 <CardContent>
                                     <div className="text-sm line-clamp-3">
                                         {(() => {
-                                            // 提取第一段文本(去除Markdown格式)
-                                            const firstParagraph = (item.questionText || "")
-                                                .split('\n\n')[0]  // 取第一段
-                                                .replace(/[#*_`$]/g, '')  // 移除Markdown符号
+                                            // 提取文本并清理 LaTeX/Markdown 格式
+                                            const rawText = (item.questionText || "").split('\n\n')[0]; // 取第一段
+
+                                            const cleanText = rawText
+                                                // 1. 移除 LaTeX 布局命令 (Layout)
+                                                .replace(/\\left/g, '')
+                                                .replace(/\\right/g, '')
+                                                .replace(/\\begin\{.*?\}/g, '')
+                                                .replace(/\\end\{.*?\}/g, '')
+                                                .replace(/\\text\{.*?\}/g, '')
+                                                .replace(/\\mbox\{.*?\}/g, '')
+                                                // 2. 替换常用数学符号 (Symbols)
+                                                .replace(/\\times/g, '×')
+                                                .replace(/\\div/g, '÷')
+                                                .replace(/\\cdot/g, '·')
+                                                .replace(/\\le/g, '≤')
+                                                .replace(/\\ge/g, '≥')
+                                                .replace(/\\neq/g, '≠')
+                                                .replace(/\\approx/g, '≈')
+                                                .replace(/\\pm/g, '±')
+                                                .replace(/\\infty/g, '∞')
+                                                .replace(/\\circ/g, '°')
+                                                .replace(/\\triangle/g, '△')
+                                                .replace(/\\angle/g, '∠')
+                                                .replace(/\\because/g, '∵')
+                                                .replace(/\\therefore/g, '∴')
+                                                // 3. 移除 Markdown 符号与剩余的反斜杠
+                                                .replace(/[#*_`$]/g, '')
                                                 .trim();
 
-                                            return firstParagraph.length > 150
-                                                ? firstParagraph.substring(0, 150) + "..."
-                                                : firstParagraph;
+                                            return cleanText.length > 150
+                                                ? cleanText.substring(0, 150) + "..."
+                                                : cleanText;
                                         })()}
                                     </div>
                                     <div className="flex flex-wrap gap-2 mt-3">

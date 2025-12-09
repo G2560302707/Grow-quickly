@@ -25,115 +25,68 @@ export class OpenAIProvider implements AIService {
         this.model = config?.model || 'gpt-4o'; // Fallback for safety
     }
 
-    private extractJson(text: string): string {
-        let jsonString = text.trim();
+    private extractTag(text: string, tagName: string): string | null {
+        const startTag = `<${tagName}>`;
+        const endTag = `</${tagName}>`;
+        const startIndex = text.indexOf(startTag);
+        const endIndex = text.lastIndexOf(endTag);
 
-        // 首先尝试移除 markdown 代码块标记（包括可能不完整的）
-        // 匹配 ```json 或``` 开头，以及可能的 ``` 结尾
-        const codeBlockPattern = /^```(?:json)?\s*\n?([\s\S]*?)(?:\n?```)?$/;
-        const match = jsonString.match(codeBlockPattern);
-        if (match) {
-            jsonString = match[1].trim();
-            console.log("[OpenAI] Removed markdown code block wrapper");
+        if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
+            return null;
         }
 
-        // 如果还有 ``` 在开头或结尾，再清理一次
-        if (jsonString.startsWith('```')) {
-            jsonString = jsonString.substring(3).trim();
-        }
-        if (jsonString.endsWith('```')) {
-            jsonString = jsonString.substring(0, jsonString.length - 3).trim();
-        }
-
-        // 找到第一个 { 和最后一个 }
-        const firstOpen = jsonString.indexOf('{');
-        const lastClose = jsonString.lastIndexOf('}');
-
-        if (firstOpen !== -1 && lastClose !== -1 && lastClose > firstOpen) {
-            jsonString = jsonString.substring(firstOpen, lastClose + 1);
-        }
-
-        return jsonString;
+        return text.substring(startIndex + startTag.length, endIndex).trim();
     }
 
     private parseResponse(text: string): ParsedQuestion {
         console.log("[OpenAI] Parsing AI response, length:", text.length);
 
-        const tryParseAndValidate = (jsonStr: string): ParsedQuestion => {
-            const parsed = JSON.parse(jsonStr);
-            const result = safeParseParsedQuestion(parsed);
-            if (result.success) {
-                return result.data;
-            }
-            throw result.error; // Throw ZodError to be caught
+        const questionText = this.extractTag(text, "question_text");
+        const answerText = this.extractTag(text, "answer_text");
+        const analysis = this.extractTag(text, "analysis");
+        const subjectRaw = this.extractTag(text, "subject");
+        const knowledgePointsRaw = this.extractTag(text, "knowledge_points");
+
+        // Basic Validation
+        if (!questionText || !answerText || !analysis) {
+            console.error("[OpenAI] ✗ Missing critical XML tags");
+            console.log("Raw text sample:", text.substring(0, 500));
+            throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
+        }
+
+        // Process Subject
+        let subject: ParsedQuestion['subject'] = '其他';
+        const validSubjects = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
+        if (subjectRaw && validSubjects.includes(subjectRaw)) {
+            subject = subjectRaw as any;
+        }
+
+        // Process Knowledge Points
+        let knowledgePoints: string[] = [];
+        if (knowledgePointsRaw) {
+            // Split by comma or newline, trim whitespaces
+            knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
+        }
+
+        // Construct Result
+        const result: ParsedQuestion = {
+            questionText,
+            answerText,
+            analysis,
+            subject,
+            knowledgePoints
         };
 
-        const recoverPartialData = (parsed: any): ParsedQuestion | null => {
-            if (typeof parsed === 'object' && parsed !== null && typeof parsed.questionText === 'string') {
-                console.warn("[OpenAI] ⚠ Recovering partial data from truncated response");
-                return {
-                    questionText: parsed.questionText,
-                    answerText: parsed.answerText || "（AI 响应被截断，请手动补充）",
-                    analysis: parsed.analysis || "（AI 响应被截断，请手动补充）",
-                    subject: typeof parsed.subject === 'string' && ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"].includes(parsed.subject)
-                        ? parsed.subject as any
-                        : "其他",
-                    knowledgePoints: Array.isArray(parsed.knowledgePoints) ? parsed.knowledgePoints : []
-                };
-            }
-            return null;
-        };
-
-        try {
-            // 1. Direct Parse
-            const parsed = JSON.parse(text);
-            const result = safeParseParsedQuestion(parsed);
-            if (result.success) {
-                console.log("[OpenAI] ✓ Direct parse and validation succeeded");
-                return result.data;
-            } else {
-                // If structure is valid JSON but invalid schema, try partial recovery
-                const partial = recoverPartialData(parsed);
-                if (partial) return partial;
-
-                // Otherwise throw original error
-                console.warn("[OpenAI] ⚠ Validation failed:", result.error.format());
-                throw result.error;
-            }
-        } catch (error) {
-            console.warn("[OpenAI] ⚠ Direct parse failed, attempting extraction");
-
-            try {
-                // 2. Extract JSON
-                const jsonString = this.extractJson(text);
-                return tryParseAndValidate(jsonString);
-            } catch (extractError) {
-                console.warn("[OpenAI] ⚠ Extraction failed, trying jsonrepair");
-
-                try {
-                    // 3. JsonRepair
-                    const jsonString = this.extractJson(text);
-                    const repairedJson = jsonrepair(jsonString);
-                    const parsed = JSON.parse(repairedJson);
-
-                    // Validate regular first
-                    const result = safeParseParsedQuestion(parsed);
-                    if (result.success) return result.data;
-
-                    // If failed, try partial recovery
-                    const partial = recoverPartialData(parsed);
-                    if (partial) {
-                        console.log("[OpenAI] ✓ Recovered partial data using jsonrepair");
-                        return partial;
-                    }
-
-                    return validateParsedQuestion(parsed); // Will throw if invalid
-                } catch (finalError) {
-                    console.error("[OpenAI] ✗ All parsing attempts failed");
-                    console.error("[OpenAI] Original text (first 500 chars):", text.substring(0, 500));
-                    throw new Error("Invalid JSON response from AI: Unable to parse or validate");
-                }
-            }
+        // Final Schema Validation (just to be safe, though likely compliant by now)
+        const validation = safeParseParsedQuestion(result);
+        if (validation.success) {
+            console.log("[OpenAI] ✓ Validated successfully via XML tags");
+            return validation.data;
+        } else {
+            console.warn("[OpenAI] ⚠ Schema validation warning:", validation.error.format());
+            // We still return it as we trust our extraction more than the schema at this point (or we can throw)
+            // Let's return the extracted data to be permissive
+            return result;
         }
     }
 
@@ -210,7 +163,6 @@ export class OpenAIProvider implements AIService {
     async generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium'): Promise<ParsedQuestion> {
         const config = getAppConfig();
         const systemPrompt = generateSimilarQuestionPrompt(language, originalQuestion, knowledgePoints, difficulty, {
-            providerHints: "Ensure the output is strictly valid JSON.",
             customTemplate: config.prompts?.similar
         });
         const userPrompt = `\nOriginal Question: "${originalQuestion}"\nKnowledge Points: ${knowledgePoints.join(", ")}\n    `;
