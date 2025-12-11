@@ -15,7 +15,7 @@ export interface ParsedQuestionLegacy {
 export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'harder';
 
 export interface AIService {
-    analyzeImage(imageBase64: string, mimeType?: string, language?: 'zh' | 'en', grade?: 7 | 8 | 9 | null, subject?: string | null): Promise<ParsedQuestionFromSchema>;
+    analyzeImage(imageBase64: string, mimeType?: string, language?: 'zh' | 'en', grade?: 7 | 8 | 9 | 10 | 11 | 12 | null, subject?: string | null): Promise<ParsedQuestionFromSchema>;
     generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language?: 'zh' | 'en', difficulty?: DifficultyLevel): Promise<ParsedQuestionFromSchema>;
 }
 

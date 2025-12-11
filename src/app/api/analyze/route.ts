@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         }
 
         // 先获取用户年级信息，用于动态生成 AI prompt 中的标签列表
-        let userGrade: 7 | 8 | 9 | null = null;
+        let userGrade: 7 | 8 | 9 | 10 | 11 | 12 | null = null;
         let subjectName: 'math' | 'physics' | 'chemistry' | 'english' | null = null;
 
         if (session?.user?.email) {

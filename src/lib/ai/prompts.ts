@@ -118,40 +118,55 @@ function replaceVariables(template: string, variables: Record<string, string>): 
 
 /**
  * 获取指定年级的累进数学标签
- * 初一：只包含七年级标签
- * 初二：包含七年级+八年级标签
- * 初三：包含七年级+八年级+九年级标签
- * @param grade - 年级 (7, 8, 9) 或 null
+ * 初一(7)：只包含七年级标签
+ * 初二(8)：包含七年级+八年级标签
+ * 初三(9)：包含七年级+八年级+九年级标签
+ * 高一(10)：只包含高一标签（不含初中）
+ * 高二(11)：包含高一+高二标签
+ * 高三(12)：包含高一+高二+高三标签
+ * @param grade - 年级 (7-9:初中, 10-12:高中) 或 null
  * @returns 标签数组
  */
-export function getMathTagsForGrade(grade: 7 | 8 | 9 | null): string[] {
+export function getMathTagsForGrade(grade: 7 | 8 | 9 | 10 | 11 | 12 | null): string[] {
   if (!grade) {
     // 如果没有年级信息，返回所有年级的标签
     return [
       ...getMathTagsByGrade(7),
       ...getMathTagsByGrade(8),
-      ...getMathTagsByGrade(9)
+      ...getMathTagsByGrade(9),
+      ...getMathTagsByGrade(10),
+      ...getMathTagsByGrade(11),
+      ...getMathTagsByGrade(12)
     ];
   }
 
-  // 累进式标签：当前年级及之前所有年级
-  const tags: string[] = [];
-  if (grade >= 7) tags.push(...getMathTagsByGrade(7));
-  if (grade >= 8) tags.push(...getMathTagsByGrade(8));
-  if (grade >= 9) tags.push(...getMathTagsByGrade(9));
-
-  return tags;
+  // 判断是初中还是高中
+  if (grade >= 7 && grade <= 9) {
+    // 初中累进式标签：当前年级及之前所有年级
+    const tags: string[] = [];
+    if (grade >= 7) tags.push(...getMathTagsByGrade(7));
+    if (grade >= 8) tags.push(...getMathTagsByGrade(8));
+    if (grade >= 9) tags.push(...getMathTagsByGrade(9));
+    return tags;
+  } else {
+    // 高中累进式标签：从高一开始累进（不含初中内容）
+    const tags: string[] = [];
+    if (grade >= 10) tags.push(...getMathTagsByGrade(10));
+    if (grade >= 11) tags.push(...getMathTagsByGrade(11));
+    if (grade >= 12) tags.push(...getMathTagsByGrade(12));
+    return tags;
+  }
 }
 
 /**
  * Generates the analyze image prompt
  * @param language - Target language for analysis ('zh' or 'en')
- * @param grade - Optional grade level (7, 8, 9) for cumulative tag filtering
+ * @param grade - Optional grade level (7-9:初中, 10-12:高中) for cumulative tag filtering
  * @param options - Optional customizations
  */
 export function generateAnalyzePrompt(
   language: 'zh' | 'en',
-  grade?: 7 | 8 | 9 | null,
+  grade?: 7 | 8 | 9 | 10 | 11 | 12 | null,
   subject?: string | null,
   options?: PromptOptions
 ): string {

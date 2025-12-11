@@ -90,7 +90,7 @@ export class OpenAIProvider implements AIService {
         }
     }
 
-    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: 7 | 8 | 9 | null, subject?: string | null): Promise<ParsedQuestion> {
+    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: 7 | 8 | 9 | 10 | 11 | 12 | null, subject?: string | null): Promise<ParsedQuestion> {
         const systemPrompt = generateAnalyzePrompt(language, grade, subject);
 
         console.log("\n" + "=".repeat(80));

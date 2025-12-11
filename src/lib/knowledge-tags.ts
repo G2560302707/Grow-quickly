@@ -38,7 +38,7 @@ type MathCurriculum = Record<string, CurriculumChapter[]>;
  */
 export interface MathTagIndex {
     name: string;        // 标签名称
-    grade: 7 | 8 | 9;   // 年级
+    grade: 7 | 8 | 9 | 10 | 11 | 12;   // 年级 (7-9:初中, 10-12:高中)
     semester: 1 | 2;    // 学期
     chapter: string;    // 章节
     section: string;    // 小节
@@ -668,6 +668,400 @@ export const MATH_CURRICULUM: MathCurriculum = {
                 {
                     section: '29.2 三视图',
                     tags: ['三视图', '主视图', '左视图', '俯视图', '由三视图还原几何体']
+                }
+            ]
+        }
+    ],
+    // ==================== 高中数学 ====================
+    '高一上（必修一）': [
+        {
+            chapter: '第1章 集合与常用逻辑用语',
+            sections: [
+                {
+                    section: '1.1 集合的概念',
+                    tags: ['集合的概念', '集合的表示法', '元素与集合的关系', '集合的分类']
+                },
+                {
+                    section: '1.2 集合间的基本关系',
+                    tags: ['子集', '真子集', '空集', '集合相等']
+                },
+                {
+                    section: '1.3 集合的基本运算',
+                    tags: ['交集', '并集', '补集', '全集']
+                },
+                {
+                    section: '1.4 常用逻辑用语',
+                    tags: ['充分条件', '必要条件', '充要条件', '全称量词', '存在量词', '命题的否定']
+                }
+            ]
+        },
+        {
+            chapter: '第2章 一元二次函数、方程和不等式',
+            sections: [
+                {
+                    section: '2.1 等式与不等式的性质',
+                    tags: ['等式的性质', '不等式的性质', '比较大小']
+                },
+                {
+                    section: '2.2 基本不等式',
+                    tags: ['基本不等式', '基本不等式求最值', '基本不等式的应用']
+                },
+                {
+                    section: '2.3 一元二次不等式',
+                    tags: ['一元二次不等式', '一元二次不等式的解法', '二次函数与一元二次方程的关系']
+                }
+            ]
+        },
+        {
+            chapter: '第3章 函数的概念与性质',
+            sections: [
+                {
+                    section: '3.1 函数的概念及其表示',
+                    tags: ['函数的概念', '函数的定义域', '函数的值域', '函数的对应法则', '函数的表示方法']
+                },
+                {
+                    section: '3.2 函数的基本性质',
+                    tags: ['函数的单调性', '函数的奇偶性', '函数的最大值', '函数的最小值']
+                },
+                {
+                    section: '3.3 幂函数',
+                    tags: ['幂函数', '幂函数的图象', '幂函数的性质']
+                }
+            ]
+        },
+        {
+            chapter: '第4章 指数函数与对数函数',
+            sections: [
+                {
+                    section: '4.1 指数',
+                    tags: ['指数的概念', '分数指数幂', '指数运算法则']
+                },
+                {
+                    section: '4.2 指数函数',
+                    tags: ['指数函数', '指数函数的图象', '指数函数的性质']
+                },
+                {
+                    section: '4.3 对数',
+                    tags: ['对数的概念', '对数运算法则', '换底公式', '常用对数', '自然对数']
+                },
+                {
+                    section: '4.4 对数函数',
+                    tags: ['对数函数', '对数函数的图象', '对数函数的性质']
+                },
+                {
+                    section: '4.5 函数的应用',
+                    tags: ['函数零点', '零点存在性定理', '二分法', '函数模型应用']
+                }
+            ]
+        }
+    ],
+    '高一下（必修二）': [
+        {
+            chapter: '第5章 平面向量及其应用',
+            sections: [
+                {
+                    section: '5.1 向量的基本概念',
+                    tags: ['向量的概念', '向量的表示', '相等向量', '共线向量', '零向量', '单位向量']
+                },
+                {
+                    section: '5.2 向量的加法与减法',
+                    tags: ['向量的加法', '向量的减法', '三角形法则', '平行四边形法则']
+                },
+                {
+                    section: '5.3 向量的数乘运算',
+                    tags: ['向量的数乘', '向量共线定理']
+                },
+                {
+                    section: '5.4 向量的数量积',
+                    tags: ['向量的数量积', '向量夹角', '向量垂直判定', '向量的模']
+                },
+                {
+                    section: '5.5 平面向量基本定理',
+                    tags: ['平面向量基本定理', '向量的坐标表示', '向量坐标运算']
+                }
+            ]
+        },
+        {
+            chapter: '第6章 复数',
+            sections: [
+                {
+                    section: '6.1 复数的概念',
+                    tags: ['复数的概念', '实部', '虚部', '纯虚数', '复数相等']
+                },
+                {
+                    section: '6.2 复数的几何意义',
+                    tags: ['复平面', '复数的几何意义', '复数的模']
+                },
+                {
+                    section: '6.3 复数的运算',
+                    tags: ['复数的加法', '复数的减法', '复数的乘法', '复数的除法']
+                }
+            ]
+        },
+        {
+            chapter: '第7章 立体几何初步',
+            sections: [
+                {
+                    section: '7.1 空间几何体',
+                    tags: ['棱柱', '棱锥', '棱台', '圆柱', '圆锥', '圆台', '球', '组合体']
+                },
+                {
+                    section: '7.2 空间几何体的三视图与直观图',
+                    tags: ['三视图', '直观图', '斜二测画法']
+                },
+                {
+                    section: '7.3 空间几何体的表面积与体积',
+                    tags: ['棱柱的表面积', '棱锥的表面积', '圆柱的表面积', '圆锥的表面积', '球的表面积', '棱柱的体积', '棱锥的体积', '圆柱的体积', '圆锥的体积', '球的体积']
+                },
+                {
+                    section: '7.4 空间点、直线、平面的位置关系',
+                    tags: ['平面的基本性质', '点线面位置关系', '直线与直线平行', '直线与平面平行', '平面与平面平行', '直线与直线垂直', '直线与平面垂直', '平面与平面垂直']
+                }
+            ]
+        },
+        {
+            chapter: '第8章 统计',
+            sections: [
+                {
+                    section: '8.1 随机抽样',
+                    tags: ['简单随机抽样', '系统抽样', '分层抽样']
+                },
+                {
+                    section: '8.2 用样本估计总体',
+                    tags: ['频率分布直方图', '频率分布折线图', '茎叶图', '平均数', '众数', '中位数', '标准差', '方差']
+                }
+            ]
+        },
+        {
+            chapter: '第9章 概率',
+            sections: [
+                {
+                    section: '9.1 随机事件与概率',
+                    tags: ['随机事件', '概率', '频率与概率']
+                },
+                {
+                    section: '9.2 古典概型',
+                    tags: ['古典概型', '古典概率计算']
+                },
+                {
+                    section: '9.3 几何概型',
+                    tags: ['几何概型', '几何概率计算']
+                }
+            ]
+        },
+        {
+            chapter: '第10章 三角函数',
+            sections: [
+                {
+                    section: '10.1 任意角和弧度制',
+                    tags: ['任意角', '弧度制', '角度与弧度换算']
+                },
+                {
+                    section: '10.2 三角函数的概念',
+                    tags: ['三角函数的定义', '三角函数线', '同角三角函数关系']
+                },
+                {
+                    section: '10.3 诱导公式',
+                    tags: ['诱导公式']
+                },
+                {
+                    section: '10.4 三角函数的图象与性质',
+                    tags: ['正弦函数图象', '余弦函数图象', '正切函数图象', '三角函数的周期性', '三角函数的单调性', '三角函数的奇偶性']
+                },
+                {
+                    section: '10.5 函数y=Asin(ωx+φ)的图象与性质',
+                    tags: ['y=Asin(ωx+φ)', '振幅', '周期', '初相', '三角函数图象变换']
+                },
+                {
+                    section: '10.6 三角恒等变换',
+                    tags: ['两角和差公式', '二倍角公式', '半角公式', '辅助角公式']
+                }
+            ]
+        }
+    ],
+    // ==================== 高二（选择性必修） ====================
+    '高二上（选择性必修一）': [
+        {
+            chapter: '第1章 数列',
+            sections: [
+                {
+                    section: '1.1 数列的概念',
+                    tags: ['数列的概念', '数列的通项公式', '数列的递推公式']
+                },
+                {
+                    section: '1.2 等差数列',
+                    tags: ['等差数列', '等差数列的通项公式', '等差数列的性质', '等差数列前n项和']
+                },
+                {
+                    section: '1.3 等比数列',
+                    tags: ['等比数列', '等比数列的通项公式', '等比数列的性质', '等比数列前n项和']
+                },
+                {
+                    section: '1.4 数列求和',
+                    tags: ['裂项相消法', '错位相减法', '倒序相加法', '分组求和法']
+                }
+            ]
+        },
+        {
+            chapter: '第2章 解三角形',
+            sections: [
+                {
+                    section: '2.1 正弦定理',
+                    tags: ['正弦定理', '正弦定理的应用']
+                },
+                {
+                    section: '2.2 余弦定理',
+                    tags: ['余弦定理', '余弦定理的应用']
+                },
+                {
+                    section: '2.3 解三角形的应用',
+                    tags: ['解三角形', '三角形面积公式', '测量问题']
+                }
+            ]
+        }
+    ],
+    '高二下（选择性必修二）': [
+        {
+            chapter: '第3章 直线与圆的方程',
+            sections: [
+                {
+                    section: '3.1 直线的方程',
+                    tags: ['直线的斜率', '点斜式', '斜截式', '两点式', '一般式', '直线方程的互化']
+                },
+                {
+                    section: '3.2 直线的位置关系',
+                    tags: ['直线平行', '直线垂直', '直线的交点']
+                },
+                {
+                    section: '3.3 距离公式',
+                    tags: ['两点间距离公式', '点到直线的距离', '两平行线间的距离']
+                },
+                {
+                    section: '3.4 圆的方程',
+                    tags: ['圆的标准方程', '圆的一般方程', '圆的方程的应用']
+                },
+                {
+                    section: '3.5 直线与圆的位置关系',
+                    tags: ['直线与圆相交', '直线与圆相切', '直线与圆相离', '弦长公式']
+                }
+            ]
+        },
+        {
+            chapter: '第4章 圆锥曲线',
+            sections: [
+                {
+                    section: '4.1 椭圆',
+                    tags: ['椭圆的定义', '椭圆的标准方程', '椭圆的几何性质', '长轴', '短轴', '焦点', '离心率']
+                },
+                {
+                    section: '4.2 双曲线',
+                    tags: ['双曲线的定义', '双曲线的标准方程', '双曲线的几何性质', '渐近线', '双曲线离心率']
+                },
+                {
+                    section: '4.3 抛物线',
+                    tags: ['抛物线的定义', '抛物线的标准方程', '抛物线的几何性质', '焦点', '准线']
+                },
+                {
+                    section: '4.4 直线与圆锥曲线',
+                    tags: ['直线与椭圆', '直线与双曲线', '直线与抛物线', '弦长问题', '中点弦问题', '点差法']
+                }
+            ]
+        }
+    ],
+    '高二下（选择性必修三）': [
+        {
+            chapter: '第5章 概率与统计进阶',
+            sections: [
+                {
+                    section: '5.1 离散型随机变量',
+                    tags: ['随机变量', '离散型随机变量', '概率分布列']
+                },
+                {
+                    section: '5.2 二项分布与超几何分布',
+                    tags: ['二项分布', '超几何分布', 'n次独立重复试验']
+                },
+                {
+                    section: '5.3 数字特征',
+                    tags: ['数学期望', '方差', '期望的性质', '方差的性质']
+                },
+                {
+                    section: '5.4 正态分布',
+                    tags: ['正态分布', '正态曲线', '标准正态分布', '3σ原则']
+                },
+                {
+                    section: '5.5 统计推断',
+                    tags: ['独立性检验', '卡方检验', '线性回归', '回归方程']
+                }
+            ]
+        }
+    ],
+    // ==================== 高三（选修与综合） ====================
+    '高三（选修与综合）': [
+        {
+            chapter: '第1章 导数及其应用',
+            sections: [
+                {
+                    section: '1.1 导数的概念',
+                    tags: ['导数的定义', '导数的几何意义', '切线方程']
+                },
+                {
+                    section: '1.2 导数的运算',
+                    tags: ['基本初等函数的导数', '导数的运算法则', '复合函数求导']
+                },
+                {
+                    section: '1.3 导数与函数的单调性',
+                    tags: ['导数与单调性', '利用导数判断单调区间']
+                },
+                {
+                    section: '1.4 导数与极值、最值',
+                    tags: ['极大值', '极小值', '函数的最大值', '函数的最小值', '极值点']
+                },
+                {
+                    section: '1.5 导数的应用',
+                    tags: ['导数应用题', '最优化问题', '不等式证明', '恒成立问题', '存在性问题']
+                }
+            ]
+        },
+        {
+            chapter: '第2章 坐标系与参数方程',
+            sections: [
+                {
+                    section: '2.1 参数方程',
+                    tags: ['参数方程', '直线的参数方程', '圆的参数方程', '椭圆的参数方程', '参数方程与普通方程的互化']
+                },
+                {
+                    section: '2.2 极坐标',
+                    tags: ['极坐标系', '极坐标与直角坐标的互化', '极坐标方程']
+                }
+            ]
+        },
+        {
+            chapter: '第3章 不等式选讲',
+            sections: [
+                {
+                    section: '3.1 绝对值不等式',
+                    tags: ['绝对值不等式', '绝对值不等式的解法', '三角不等式']
+                },
+                {
+                    section: '3.2 柯西不等式',
+                    tags: ['柯西不等式', '柯西不等式的应用']
+                },
+                {
+                    section: '3.3 平均值不等式',
+                    tags: ['算术-几何平均不等式', '平均值不等式链', '权方和不等式']
+                }
+            ]
+        },
+        {
+            chapter: '第4章 空间向量与立体几何',
+            sections: [
+                {
+                    section: '4.1 空间向量',
+                    tags: ['空间向量', '空间向量的坐标', '空间向量的运算']
+                },
+                {
+                    section: '4.2 空间向量的应用',
+                    tags: ['空间角', '异面直线所成的角', '直线与平面所成的角', '二面角', '空间距离']
                 }
             ]
         }
@@ -1352,15 +1746,15 @@ export function normalizeTags(tags: string[]): string[] {
 }
 
 /**
- * 根据年级和学科标准化标签
+ * 根据年级和学科智能匹配标准标签
  * @param tags AI生成的标签数组
- * @param grade 年级 (7, 8, 9 对应初中)
+ * @param grade 年级 (7-9:初中, 10-12:高中)
  * @param subjectName 学科名称
  * @returns 标准化后的去重标签数组
  */
 export function normalizeTagsByGradeAndSubject(
     tags: string[],
-    grade: 7 | 8 | 9 | null,
+    grade: 7 | 8 | 9 | 10 | 11 | 12 | null,
     subjectName: 'math' | 'physics' | 'chemistry' | 'english' | null
 ): string[] {
     const normalized = tags.map(tag => {
@@ -1469,15 +1863,20 @@ function extractTagsFromSubject(subjectData: any): string[] {
 
 /**
  * 从教育阶段和入学年份推算当前年级
- * @param educationStage 教育阶段 ('junior_high' 等)
+ * @param educationStage 教育阶段 ('junior_high' 或 'senior_high')
  * @param enrollmentYear 入学年份
- * @returns 年级 (7, 8, 9) 或 null
+ * @returns 年级 (7-9:初中, 10-12:高中) 或 null
  */
 export function calculateGrade(
     educationStage: string | null,
     enrollmentYear: number | null
-): 7 | 8 | 9 | null {
-    if (educationStage !== 'junior_high' || !enrollmentYear) {
+): 7 | 8 | 9 | 10 | 11 | 12 | null {
+    if (!enrollmentYear) {
+        return null;
+    }
+
+    // 只处理初中和高中
+    if (educationStage !== 'junior_high' && educationStage !== 'senior_high') {
         return null;
     }
 
@@ -1492,11 +1891,18 @@ export function calculateGrade(
         yearsInSchool -= 1;
     }
 
-    // 初中: 入学第1年=7年级, 第2年=8年级, 第3年=9年级
-    const grade = 7 + yearsInSchool;
-
-    if (grade >= 7 && grade <= 9) {
-        return grade as 7 | 8 | 9;
+    if (educationStage === 'junior_high') {
+        // 初中: 入学第1年=7年级, 第2年=8年级, 第3年=9年级
+        const grade = 7 + yearsInSchool;
+        if (grade >= 7 && grade <= 9) {
+            return grade as 7 | 8 | 9;
+        }
+    } else if (educationStage === 'senior_high') {
+        // 高中: 入学第1年=10年级(高一), 第2年=11年级(高二), 第3年=12年级(高三)
+        const grade = 10 + yearsInSchool;
+        if (grade >= 10 && grade <= 12) {
+            return grade as 10 | 11 | 12;
+        }
     }
 
     return null;
@@ -1576,11 +1982,19 @@ export function getTagSuggestions(input: string, existingTags: string[]): string
  * @param gradeSemester 如 "七年级上"
  * @returns [年级数字, 学期数字]
  */
-function parseGradeSemester(gradeSemester: string): [7 | 8 | 9, 1 | 2] {
-    const gradeMap: Record<string, 7 | 8 | 9> = {
+function parseGradeSemester(gradeSemester: string): [7 | 8 | 9 | 10 | 11 | 12, 1 | 2] {
+    // 初中年级映射
+    const juniorGradeMap: Record<string, 7 | 8 | 9> = {
         '七年级': 7,
         '八年级': 8,
         '九年级': 9
+    };
+
+    // 高中年级映射
+    const seniorGradeMap: Record<string, 10 | 11 | 12> = {
+        '高一': 10,
+        '高二': 11,
+        '高三': 12
     };
 
     const semesterMap: Record<string, 1 | 2> = {
@@ -1588,13 +2002,26 @@ function parseGradeSemester(gradeSemester: string): [7 | 8 | 9, 1 | 2] {
         '下': 2
     };
 
-    const gradeMatch = gradeSemester.match(/(七|八|九)年级/);
-    const semesterMatch = gradeSemester.match(/(上|下)/);
+    // 尝试匹配初中年级
+    const juniorMatch = gradeSemester.match(/(七|八|九)年级/);
+    if (juniorMatch) {
+        const gradeStr = juniorMatch[1] + '年级';
+        const semesterMatch = gradeSemester.match(/(上|下)/);
+        const semesterStr = semesterMatch ? semesterMatch[1] : '上';
+        return [juniorGradeMap[gradeStr], semesterMap[semesterStr]];
+    }
 
-    const gradeStr = gradeMatch ? gradeMatch[1] + '年级' : '七年级';
-    const semesterStr = semesterMatch ? semesterMatch[1] : '上';
+    // 尝试匹配高中年级
+    const seniorMatch = gradeSemester.match(/(高一|高二|高三)/);
+    if (seniorMatch) {
+        const gradeStr = seniorMatch[1];
+        const semesterMatch = gradeSemester.match(/(上|下)/);
+        const semesterStr = semesterMatch ? semesterMatch[1] : '上';
+        return [seniorGradeMap[gradeStr], semesterMap[semesterStr]];
+    }
 
-    return [gradeMap[gradeStr], semesterMap[semesterStr]];
+    // 默认返回七年级上
+    return [7, 1];
 }
 
 /**
@@ -1655,14 +2082,56 @@ export function getAllMathTags(): string[] {
 
 /**
  * 按年级和学期筛选数学标签
- * @param grade 年级 (7, 8, 9)
+ * 直接从课程大纲按顺序获取，保证标签按章节顺序排列
+ * @param grade 年级 (7-9:初中, 10-12:高中)
  * @param semester 学期 (1=上, 2=下),可选
- * @returns 标签名称数组
+ * @returns 标签名称数组（按课程顺序）
  */
-export function getMathTagsByGrade(grade: 7 | 8 | 9, semester?: 1 | 2): string[] {
-    return Array.from(MATH_TAG_INDEX.values())
-        .filter(tag => tag.grade === grade && (!semester || tag.semester === semester))
-        .map(tag => tag.name);
+export function getMathTagsByGrade(grade: 7 | 8 | 9 | 10 | 11 | 12, semester?: 1 | 2): string[] {
+    const tags: string[] = [];
+
+    // 年级到学期 key 的映射
+    const gradeToKeys: Record<number, string[]> = {
+        7: ['七年级上', '七年级下'],
+        8: ['八年级上', '八年级下'],
+        9: ['九年级上', '九年级下'],
+        10: ['高一上（必修一）', '高一下（必修二）'],
+        11: ['高二上（选择性必修一）', '高二下（选择性必修二）', '高二下（选择性必修三）'],
+        12: ['高三（选修与综合）']
+    };
+
+    const keys = gradeToKeys[grade] || [];
+
+    keys.forEach(key => {
+        // 如果指定了学期，只获取对应学期
+        if (semester) {
+            const expectedSemester = key.includes('上') ? 1 : 2;
+            // 高三没有上下学期区分，总是包含
+            if (expectedSemester !== semester && !key.includes('高三')) {
+                return;
+            }
+        }
+
+        const chapters = MATH_CURRICULUM[key];
+        if (!chapters) return;
+
+        chapters.forEach(({ sections }) => {
+            sections.forEach(({ tags: sectionTags, subsections }) => {
+                // 添加 section 级别的标签
+                if (sectionTags) {
+                    tags.push(...sectionTags);
+                }
+                // 添加 subsection 级别的标签
+                if (subsections) {
+                    subsections.forEach(({ tags: subTags }) => {
+                        tags.push(...subTags);
+                    });
+                }
+            });
+        });
+    });
+
+    return tags;
 }
 
 /**
