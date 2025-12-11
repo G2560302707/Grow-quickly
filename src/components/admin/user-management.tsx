@@ -5,6 +5,8 @@ import { useSession } from "next-auth/react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
     Table,
     TableBody,
@@ -15,17 +17,42 @@ import {
 } from "@/components/ui/table";
 import { Trash2, Ban, CheckCircle, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { AdminUser } from "@/types/api";
+import { AdminUser, AppConfig } from "@/types/api";
 
 export function UserManagement() {
     const { data: session } = useSession();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
+    const [allowRegistration, setAllowRegistration] = useState(true);
+    const [savingRegistration, setSavingRegistration] = useState(false);
 
     useEffect(() => {
         fetchUsers();
+        fetchConfig();
     }, []);
+
+    const fetchConfig = async () => {
+        try {
+            const data = await apiClient.get<AppConfig>("/api/settings");
+            setAllowRegistration(data.allowRegistration !== false);
+        } catch (error) {
+            console.error("Failed to fetch config", error);
+        }
+    };
+
+    const handleToggleRegistration = async (checked: boolean) => {
+        setSavingRegistration(true);
+        try {
+            await apiClient.post("/api/settings", { allowRegistration: checked });
+            setAllowRegistration(checked);
+        } catch (error) {
+            console.error("Failed to update registration setting", error);
+            alert(t.common.error);
+        } finally {
+            setSavingRegistration(false);
+        }
+    };
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -74,6 +101,26 @@ export function UserManagement() {
 
     return (
         <div className="space-y-4">
+            {/* 注册开关 */}
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                <div className="space-y-0.5">
+                    <Label className="text-base">
+                        {language === 'zh' ? "允许新用户注册" : "Allow New Registrations"}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                        {language === 'zh' ? "关闭后，新用户将无法注册账号" : "When disabled, new users cannot register"}
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    {savingRegistration && <Loader2 className="h-4 w-4 animate-spin" />}
+                    <Switch
+                        checked={allowRegistration}
+                        onCheckedChange={handleToggleRegistration}
+                        disabled={savingRegistration}
+                    />
+                </div>
+            </div>
+
             <div className="border rounded-lg overflow-hidden">
                 <Table>
                     <TableHeader>

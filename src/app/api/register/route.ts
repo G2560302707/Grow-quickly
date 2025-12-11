@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { getAppConfig } from "@/lib/config"
 
 const userSchema = z.object({
     email: z.string().email(),
@@ -13,6 +14,15 @@ const userSchema = z.object({
 
 export async function POST(req: Request) {
     try {
+        // 检查是否允许注册
+        const config = getAppConfig();
+        if (config.allowRegistration === false) {
+            return NextResponse.json(
+                { user: null, message: "Registration is currently disabled" },
+                { status: 403 }
+            );
+        }
+
         const body = await req.json()
         const { email, password, name, educationStage, enrollmentYear } = userSchema.parse(body)
 

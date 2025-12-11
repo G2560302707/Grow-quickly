@@ -99,6 +99,7 @@ export interface UpdateUserProfileRequest {
 
 export interface AppConfig {
     aiProvider: 'gemini' | 'openai';
+    allowRegistration?: boolean;
     openai?: {
         apiKey?: string;
         baseUrl?: string;

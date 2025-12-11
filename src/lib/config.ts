@@ -5,6 +5,7 @@ const CONFIG_FILE_PATH = path.join(process.cwd(), 'config', 'app-config.json');
 
 export interface AppConfig {
     aiProvider: 'gemini' | 'openai';
+    allowRegistration?: boolean;
     openai?: {
         apiKey?: string;
         baseUrl?: string;
@@ -23,6 +24,7 @@ export interface AppConfig {
 
 const DEFAULT_CONFIG: AppConfig = {
     aiProvider: (process.env.AI_PROVIDER as 'gemini' | 'openai') || 'gemini',
+    allowRegistration: true,
     openai: {
         apiKey: process.env.OPENAI_API_KEY,
         baseUrl: process.env.OPENAI_BASE_URL,

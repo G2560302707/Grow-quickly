@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { RegisterRequest } from "@/types/api";
 
@@ -24,6 +24,22 @@ export default function RegisterPage() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [allowRegistration, setAllowRegistration] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        checkRegistrationStatus();
+    }, []);
+
+    const checkRegistrationStatus = async () => {
+        try {
+            const res = await fetch("/api/register/status");
+            const data = await res.json();
+            setAllowRegistration(data.allowRegistration);
+        } catch (error) {
+            console.error("Failed to check registration status", error);
+            setAllowRegistration(true); // 默认允许
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -54,6 +70,45 @@ export default function RegisterPage() {
             setLoading(false);
         }
     };
+
+    // 加载中状态
+    if (allowRegistration === null) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
+
+    // 注册已禁用
+    if (allowRegistration === false) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+                <Card className="w-full max-w-md">
+                    <CardHeader>
+                        <CardTitle className="text-2xl text-center">
+                            {language === 'zh' ? '注册已关闭' : 'Registration Disabled'}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex flex-col items-center gap-4 py-6">
+                            <AlertCircle className="h-12 w-12 text-muted-foreground" />
+                            <p className="text-center text-muted-foreground">
+                                {language === 'zh'
+                                    ? '管理员已关闭新用户注册功能。如需账号，请联系管理员。'
+                                    : 'Registration is currently disabled by administrator. Please contact admin for access.'}
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <Link href="/login" className="text-primary hover:underline">
+                                {language === 'zh' ? '返回登录' : 'Back to Login'}
+                            </Link>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
