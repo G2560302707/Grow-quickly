@@ -20,6 +20,9 @@ export class OpenAIProvider implements AIService {
         this.openai = new OpenAI({
             apiKey: apiKey,
             baseURL: baseURL || undefined,
+            defaultHeaders: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
         });
 
         this.model = config?.model || 'gpt-4o'; // Fallback for safety
@@ -46,6 +49,7 @@ export class OpenAIProvider implements AIService {
         const analysis = this.extractTag(text, "analysis");
         const subjectRaw = this.extractTag(text, "subject");
         const knowledgePointsRaw = this.extractTag(text, "knowledge_points");
+        const requiresImageRaw = this.extractTag(text, "requires_image");
 
         // Basic Validation
         if (!questionText || !answerText || !analysis) {
@@ -68,13 +72,17 @@ export class OpenAIProvider implements AIService {
             knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
         }
 
+        // Process requiresImage (default to false if not present or unrecognized)
+        const requiresImage = requiresImageRaw?.toLowerCase().trim() === 'true';
+
         // Construct Result
         const result: ParsedQuestion = {
             questionText,
             answerText,
             analysis,
             subject,
-            knowledgePoints
+            knowledgePoints,
+            requiresImage
         };
 
         // Final Schema Validation (just to be safe, though likely compliant by now)
@@ -129,6 +137,18 @@ export class OpenAIProvider implements AIService {
                 // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
                 max_tokens: 4096,
             });
+
+            // 调试：打印完整响应对象
+            console.log("\n[OpenAI] 📦 Full API Response:");
+            console.log("Response object:", response);
+            console.log("Response stringified:", JSON.stringify(response, null, 2));
+
+            // 检查响应是否有效
+            if (!response || !response.choices || response.choices.length === 0) {
+                console.error("[OpenAI] ❌ Invalid API response - no choices array");
+                console.error("[OpenAI] Response was:", JSON.stringify(response));
+                throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
+            }
 
             const text = response.choices[0]?.message?.content || "";
 
@@ -223,6 +243,97 @@ export class OpenAIProvider implements AIService {
         }
     }
 
+    async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string): Promise<{ answerText: string; analysis: string; knowledgePoints: string[] }> {
+        const { generateReanswerPrompt } = await import('./prompts');
+        const prompt = generateReanswerPrompt(language, questionText, subject);
+
+        console.log("\n" + "=".repeat(80));
+        console.log("[OpenAI] 🔄 Reanswer Question Request");
+        console.log("=".repeat(80));
+        console.log("[OpenAI] Question length:", questionText.length);
+        console.log("[OpenAI] Subject:", subject || "auto");
+        console.log("[OpenAI] Has image:", !!imageBase64);
+        console.log("-".repeat(80));
+        console.log("[OpenAI] 📝 Full Prompt:");
+        console.log(prompt);
+        console.log("=".repeat(80) + "\n");
+
+        try {
+            // 根据是否有图片构建不同的消息内容
+            let userContent: any = "请根据上述题目提供答案和解析。";
+            if (imageBase64) {
+                // 如果有图片，构建多模态消息
+                const imageUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
+                console.log("[OpenAI] 🖼️ 图片已添加到请求中，图片数据长度:", imageUrl.length);
+                userContent = [
+                    { type: "text", text: "请结合图片和题目描述提供答案和解析。" },
+                    { type: "image_url", image_url: { url: imageUrl } }
+                ];
+            } else {
+                console.log("[OpenAI] ⚠️ 没有图片数据，imageBase64 为:", typeof imageBase64, imageBase64 ? "有值" : "空");
+            }
+
+            // 打印请求参数
+            const requestParams = {
+                model: this.model,
+                messages: [
+                    { role: "system", content: prompt.substring(0, 200) + "..." },
+                    { role: "user", content: typeof userContent === 'string' ? userContent : "[包含图片的多模态消息]" }
+                ],
+                max_tokens: 4096
+            };
+            console.log("\n[OpenAI] 📤 Request Parameters:");
+            console.log(JSON.stringify(requestParams, null, 2));
+
+            const response = await this.openai.chat.completions.create({
+                model: this.model,
+                messages: [
+                    { role: "system", content: prompt },
+                    { role: "user", content: userContent }
+                ],
+                max_tokens: 4096,
+            });
+
+            // 打印完整响应
+            console.log("\n[OpenAI] 📥 Full API Response:");
+            console.log("Response type:", typeof response);
+            console.log("Response:", JSON.stringify(response, null, 2));
+
+            // 检查响应是否有效
+            if (!response || !response.choices || response.choices.length === 0) {
+                console.error("[OpenAI] ❌ Invalid API response - no choices array");
+                console.error("[OpenAI] Response was:", JSON.stringify(response));
+                throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
+            }
+
+            const text = response.choices[0]?.message?.content || "";
+
+            console.log("\n" + "=".repeat(80));
+            console.log("[OpenAI] 🤖 AI Raw Response");
+            console.log("=".repeat(80));
+            console.log(text);
+            console.log("=".repeat(80) + "\n");
+
+            if (!text) throw new Error("Empty response from AI");
+
+            // 解析响应
+            const answerText = this.extractTag(text, "answer_text") || "";
+            const analysis = this.extractTag(text, "analysis") || "";
+            const knowledgePointsRaw = this.extractTag(text, "knowledge_points") || "";
+            const knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
+
+            console.log("[OpenAI] ✅ Reanswer parsed successfully");
+
+            return { answerText, analysis, knowledgePoints };
+
+        } catch (error) {
+            console.error("[OpenAI] ❌ Error during reanswer");
+            console.error(error);
+            this.handleError(error);
+            throw error;
+        }
+    }
+
     private handleError(error: unknown) {
         console.error("OpenAI Error:", error);
         if (error instanceof Error) {
@@ -240,3 +351,4 @@ export class OpenAIProvider implements AIService {
         throw new Error("AI_UNKNOWN_ERROR");
     }
 }
+

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save } from "lucide-react";
+import { Save, RefreshCw, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TagInput } from "@/components/tag-input";
@@ -40,6 +40,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
         paperLevel: "a"
     });
     const { t, language } = useLanguage();
+    const [isReanswering, setIsReanswering] = useState(false);
 
     // Fetch user info and calculate grade on mount
     useEffect(() => {
@@ -52,6 +53,58 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
             })
             .catch(err => console.error("Failed to fetch user info for grade calculation:", err));
     }, [language]);
+
+    // 重新解题函数
+    const handleReanswer = async () => {
+        if (!data.questionText.trim()) {
+            alert(language === 'zh' ? '请先输入题目内容' : 'Please enter question text first');
+            return;
+        }
+
+        setIsReanswering(true);
+        try {
+            // 根据 requiresImage 标识决定是否传递原始图片
+            const requestBody: any = {
+                questionText: data.questionText,
+                language,
+                subject: data.subject
+            };
+
+            // 如果题目需要图片（如几何题），且有原始图片，则一起传递
+            if (data.requiresImage && imagePreview) {
+                requestBody.imageBase64 = imagePreview;
+                console.log("[Reanswer] 发送图片 + 文字（几何题等需要看图的题目）");
+            } else {
+                console.log("[Reanswer] 仅发送文字（不需要图片的题目）");
+            }
+
+            const result = await apiClient.post<{ answerText: string; analysis: string; knowledgePoints: string[] }>("/api/reanswer", requestBody);
+
+            setData(prev => ({
+                ...prev,
+                answerText: result.answerText,
+                analysis: result.analysis,
+                // 保留原有知识点，不更新
+            }));
+
+            alert(language === 'zh' ? '✅ 答案和解析已更新！' : '✅ Answer and analysis updated!');
+        } catch (error: any) {
+            console.error("Reanswer failed:", error);
+            const msg = error.data?.message || '';
+            let errorText = language === 'zh' ? '重新解题失败' : 'Reanswer failed';
+
+            if (msg.includes('AI_AUTH_ERROR')) {
+                errorText = language === 'zh' ? 'AI 密钥配置错误，请检查设置' : 'AI key configuration error';
+            } else if (msg.includes('AI_CONNECTION_FAILED')) {
+                errorText = language === 'zh' ? '网络连接失败' : 'Network connection failed';
+            }
+
+            alert(errorText);
+        } finally {
+            setIsReanswering(false);
+        }
+    };
+
 
     return (
         <div className="space-y-6">
@@ -122,6 +175,30 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             className="min-h-[150px] font-mono text-sm"
                             placeholder="支持 Markdown 和 LaTeX..."
                         />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleReanswer}
+                            disabled={isReanswering || !data.questionText.trim()}
+                            className="w-full"
+                        >
+                            {isReanswering ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    {language === 'zh' ? 'AI 正在解题...' : 'AI solving...'}
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    {language === 'zh' ? '🔄 重新解题（根据校正后的题目）' : '🔄 Reanswer (based on corrected question)'}
+                                </>
+                            )}
+                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                            {language === 'zh'
+                                ? '💡 如果题目识别有误，校正题目后点击此按钮让 AI 重新生成答案和解析'
+                                : '💡 If the question was misrecognized, correct it and click to regenerate answer'}
+                        </p>
                     </div>
 
                     <div className="space-y-2">

@@ -44,6 +44,7 @@ export class GeminiProvider implements AIService {
         const analysis = this.extractTag(text, "analysis");
         const subjectRaw = this.extractTag(text, "subject");
         const knowledgePointsRaw = this.extractTag(text, "knowledge_points");
+        const requiresImageRaw = this.extractTag(text, "requires_image");
 
         // Basic Validation
         if (!questionText || !answerText || !analysis) {
@@ -66,13 +67,17 @@ export class GeminiProvider implements AIService {
             knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
         }
 
+        // Process requiresImage (default to false if not present or unrecognized)
+        const requiresImage = requiresImageRaw?.toLowerCase().trim() === 'true';
+
         // Construct Result
         const result: ParsedQuestion = {
             questionText,
             answerText,
             analysis,
             subject,
-            knowledgePoints
+            knowledgePoints,
+            requiresImage
         };
 
         // Final Schema Validation
@@ -206,6 +211,65 @@ export class GeminiProvider implements AIService {
             console.error("=".repeat(80));
             console.error(error);
             console.error("=".repeat(80) + "\n");
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async reanswerQuestion(questionText: string, language: 'zh' | 'en' = 'zh', subject?: string | null, imageBase64?: string): Promise<{ answerText: string; analysis: string; knowledgePoints: string[] }> {
+        const { generateReanswerPrompt } = await import('./prompts');
+        const prompt = generateReanswerPrompt(language, questionText, subject);
+
+        console.log("\n" + "=".repeat(80));
+        console.log("[Gemini] 🔄 Reanswer Question Request");
+        console.log("=".repeat(80));
+        console.log("[Gemini] Question length:", questionText.length);
+        console.log("[Gemini] Subject:", subject || "auto");
+        console.log("[Gemini] Has image:", !!imageBase64);
+        console.log("-".repeat(80));
+        console.log("[Gemini] 📝 Full Prompt:");
+        console.log(prompt);
+        console.log("=".repeat(80) + "\n");
+
+        try {
+            // 根据是否有图片构建不同的请求内容
+            let parts: any[] = [{ text: prompt }];
+            if (imageBase64) {
+                // 移除 data:image/xxx;base64, 前缀（如果存在）
+                const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+                parts = [
+                    { text: prompt },
+                    { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
+                ];
+            }
+
+            const result = await this.model.generateContent({
+                contents: [{ role: 'user', parts }],
+            });
+            const response = await result.response;
+            const text = response.text();
+
+            console.log("\n" + "=".repeat(80));
+            console.log("[Gemini] 🤖 AI Raw Response");
+            console.log("=".repeat(80));
+            console.log(text);
+            console.log("=".repeat(80) + "\n");
+
+            if (!text) throw new Error("Empty response from AI");
+
+            // 解析响应
+            const answerText = this.extractTag(text, "answer_text") || "";
+            const analysis = this.extractTag(text, "analysis") || "";
+            const knowledgePointsRaw = this.extractTag(text, "knowledge_points") || "";
+            const knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
+
+            console.log("[Gemini] ✅ Reanswer parsed successfully");
+
+            return { answerText, analysis, knowledgePoints };
+
+        } catch (error) {
+            console.error("[Gemini] ❌ Error during reanswer");
+            console.error(error);
             this.handleError(error);
             throw error;
         }

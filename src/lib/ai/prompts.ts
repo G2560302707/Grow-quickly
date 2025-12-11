@@ -37,7 +37,7 @@ export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE
 <analysis>
 在此处填写详细的步骤解析。
 * 必须使用简体中文。
-* **直接使用标准的 LaTeX 符号**（如 $\frac{1}{2}$），**不要**进行 JSON 转义（不要写成 \\frac）。
+* **直接使用标准的 LaTeX 符号**（如 $\\frac{1}{2}$），**不要**进行 JSON 转义（不要写成 \\\\frac）。
 </analysis>
 
 <subject>
@@ -48,6 +48,10 @@ export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE
 在此处填写知识点，使用逗号分隔，例如：知识点1, 知识点2, 知识点3
 </knowledge_points>
 
+<requires_image>
+判断这道题是否需要依赖图片才能正确解答。如果题目包含几何图形、函数图像、实验装置图、电路图等必须看图才能理解的内容，填写 true；如果只需要文字描述即可理解（如英语题、纯文字数学题），填写 false。
+</requires_image>
+
 【知识点标签列表（KNOWLEDGE POINT LIST）】
 {{knowledge_points_list}}
 
@@ -56,7 +60,7 @@ export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE
 - 每题最多 5 个标签。
 
 【!!! 关键格式与内容约束 (CRITICAL RULES) !!!】
-1. **格式严格**：必须严格包含上述 5 个 XML 标签，除此之外不要输出任何其他“开场白”或“结束语”。
+1. **格式严格**：必须严格包含上述 6 个 XML 标签，除此之外不要输出任何其他“开场白”或“结束语”。
 2. **纯文本**：内容作为纯文本处理，**不要转义反斜杠**。
 3. **内容完整**：如果包含子问题，请在 question_text 中完整列出。
 4. **禁止图片**：严禁包含任何图片链接或 markdown 图片语法。
@@ -256,6 +260,79 @@ export function generateSimilarQuestionPrompt(
     language_instruction: langInstruction,
     original_question: originalQuestion.replace(/"/g, '\\"').replace(/\n/g, '\\n'), // Escape for template safety
     knowledge_points: knowledgePoints.join(", "),
+    provider_hints: options?.providerHints || ''
+  }).trim();
+}
+
+/**
+ * 重新解题提示词模板
+ * 用于根据校正后的题目文本重新生成答案和解析
+ */
+export const DEFAULT_REANSWER_TEMPLATE = `【角色与核心任务 (ROLE AND CORE TASK)】
+你是一位经验丰富的专业教师。用户已经提供了一道**校正后的题目文本**，请你为这道题目提供正确的答案和详细的解析。
+
+{{language_instruction}}
+
+【题目内容 (QUESTION)】
+{{question_text}}
+
+【学科提示 (SUBJECT HINT)】
+{{subject_hint}}
+
+【核心输出要求 (OUTPUT REQUIREMENTS)】
+你的响应输出**必须严格遵循以下自定义标签格式**。**严禁**使用 JSON 或 Markdown 代码块。
+
+请严格按照以下结构输出内容（不要包含任何其他文字）：
+
+<answer_text>
+在此处填写正确答案。使用 Markdown 和 LaTeX 符号。
+</answer_text>
+
+<analysis>
+在此处填写详细的步骤解析。
+* 必须使用简体中文。
+* **直接使用标准的 LaTeX 符号**（如 $\\frac{1}{2}$），**不要**进行 JSON 转义。
+* 解析要清晰、完整，适合学生理解。
+</analysis>
+
+<knowledge_points>
+在此处填写知识点，使用逗号分隔，例如：知识点1, 知识点2, 知识点3
+</knowledge_points>
+
+【!!! 关键格式与内容约束 (CRITICAL RULES) !!!】
+1. **格式严格**：必须严格包含上述 3 个 XML 标签，不要输出其他内容。
+2. **纯文本**：内容作为纯文本处理，**不要转义反斜杠**。
+3. **题目不变**：不要修改或重复题目内容，只提供答案和解析。
+
+{{provider_hints}}`;
+
+/**
+ * 生成重新解题提示词
+ * @param language - 语言 ('zh' 或 'en')
+ * @param questionText - 校正后的题目文本
+ * @param subject - 学科提示（可选）
+ * @param options - 自定义选项
+ */
+export function generateReanswerPrompt(
+  language: 'zh' | 'en',
+  questionText: string,
+  subject?: string | null,
+  options?: PromptOptions
+): string {
+  const langInstruction = language === 'zh'
+    ? "IMPORTANT: 解析必须使用简体中文。如果题目是英文，答案保持英文，但解析用中文。"
+    : "Please ensure all text fields are in English.";
+
+  const subjectHint = subject
+    ? `本题学科：${subject}`
+    : "请根据题目内容判断学科。";
+
+  const template = options?.customTemplate || DEFAULT_REANSWER_TEMPLATE;
+
+  return replaceVariables(template, {
+    language_instruction: langInstruction,
+    question_text: questionText,
+    subject_hint: subjectHint,
     provider_hints: options?.providerHints || ''
   }).trim();
 }
