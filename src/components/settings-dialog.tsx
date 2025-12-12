@@ -107,10 +107,10 @@ export function SettingsDialog() {
         setSaving(true);
         try {
             await apiClient.post("/api/settings", config);
-            alert(language === 'zh' ? "设置已保存" : "Settings saved");
+            alert(t.settings?.messages?.saved || "Settings saved");
         } catch (error) {
             console.error("Failed to save settings:", error);
-            alert(language === 'zh' ? "保存失败" : "Failed to save");
+            alert(t.settings?.messages?.saveFailed || "Failed to save");
         } finally {
             setSaving(false);
         }
@@ -121,7 +121,7 @@ export function SettingsDialog() {
         try {
             // 验证密码一致性（如果用户输入了密码）
             if (profile.password && profile.password !== confirmPassword) {
-                alert(language === 'zh' ? '两次密码不一致' : 'Passwords do not match');
+                alert(t.settings?.messages?.passwordMismatch || 'Passwords do not match');
                 setProfileSaving(false);
                 return;
             }
@@ -142,7 +142,7 @@ export function SettingsDialog() {
 
             await apiClient.patch("/api/user", payload);
 
-            alert(language === 'zh' ? "个人信息已更新" : "Profile updated");
+            alert(t.settings?.messages?.profileUpdated || "Profile updated");
             setProfile(prev => ({ ...prev, password: "" })); // Clear password field
             setConfirmPassword(""); // Clear confirm password field
             setShowPassword(false);
@@ -150,7 +150,7 @@ export function SettingsDialog() {
             window.location.reload(); // Reload to update user name in UI
         } catch (error: any) {
             console.error("Failed to update profile:", error);
-            const message = error.data?.message || (language === 'zh' ? "更新失败" : "Update failed");
+            const message = error.data?.message || (t.settings?.messages?.updateFailed || "Update failed");
             alert(message);
         } finally {
             setProfileSaving(false);
@@ -227,7 +227,7 @@ export function SettingsDialog() {
                 <DialogHeader>
                     <DialogTitle>{t.settings?.title || "Settings"}</DialogTitle>
                     <DialogDescription>
-                        {language === 'zh' ? '管理您的应用偏好和数据。' : 'Manage your preferences and data.'}
+                        {t.settings?.desc || 'Manage your preferences and data.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -235,29 +235,29 @@ export function SettingsDialog() {
                     <TabsList className={`grid w-full ${(session?.user as any)?.role === 'admin' ? 'grid-cols-6' : 'grid-cols-5'}`}>
                         <TabsTrigger value="general">
                             <Languages className="h-4 w-4 mr-2" />
-                            {language === 'zh' ? "通用" : "General"}
+                            {t.settings?.tabs?.general || "General"}
                         </TabsTrigger>
                         <TabsTrigger value="account">
                             <User className="h-4 w-4 mr-2" />
-                            {language === 'zh' ? "账户" : "Account"}
+                            {t.settings?.tabs?.account || "Account"}
                         </TabsTrigger>
                         <TabsTrigger value="ai">
                             <Bot className="h-4 w-4 mr-2" />
-                            {language === 'zh' ? "AI 提供商" : "AI Provider"}
+                            {t.settings?.tabs?.ai || "AI Provider"}
                         </TabsTrigger>
                         <TabsTrigger value="prompts">
                             <MessageSquareText className="h-4 w-4 mr-2" />
-                            {language === 'zh' ? "提示词" : "Prompts"}
+                            {t.settings?.tabs?.prompts || "Prompts"}
                         </TabsTrigger>
                         {(session?.user as any)?.role === 'admin' && (
                             <TabsTrigger value="admin">
                                 <Shield className="h-4 w-4 mr-2" />
-                                {language === 'zh' ? "用户管理" : "User Management"}
+                                {t.settings?.tabs?.admin || "User Management"}
                             </TabsTrigger>
                         )}
                         <TabsTrigger value="danger">
                             <AlertTriangle className="h-4 w-4 mr-2" />
-                            {language === 'zh' ? "危险" : "Danger"}
+                            {t.settings?.tabs?.danger || "Danger"}
                         </TabsTrigger>
                     </TabsList>
 
@@ -265,7 +265,7 @@ export function SettingsDialog() {
                     <TabsContent value="general" className="space-y-4 py-4">
                         <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
                             <div className="space-y-2">
-                                <Label>{language === 'zh' ? "语言" : "Language"}</Label>
+                                <Label>{t.settings?.language || "Language"}</Label>
                                 <Select
                                     value={language}
                                     onValueChange={(val: 'zh' | 'en') => setLanguage(val)}
@@ -292,14 +292,14 @@ export function SettingsDialog() {
                             <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label>{language === 'zh' ? "姓名" : "Name"}</Label>
+                                        <Label>{t.auth?.name || "Name"}</Label>
                                         <Input
                                             value={profile.name || ""}
                                             onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>{language === 'zh' ? "邮箱" : "Email"}</Label>
+                                        <Label>{t.auth?.email || "Email"}</Label>
                                         <Input
                                             value={profile.email || ""}
                                             onChange={(e) => setProfile({ ...profile, email: e.target.value })}
@@ -310,24 +310,24 @@ export function SettingsDialog() {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label>{language === 'zh' ? "教育阶段" : "Education Stage"}</Label>
+                                        <Label>{t.auth?.educationStage || "Education Stage"}</Label>
                                         <Select
                                             value={profile.educationStage || ""}
                                             onValueChange={(val) => setProfile({ ...profile, educationStage: val })}
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder={language === 'zh' ? "选择阶段" : "Select Stage"} />
+                                                <SelectValue placeholder={t.auth?.selectStage || "Select Stage"} />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="primary">{language === 'zh' ? '小学' : 'Primary School'}</SelectItem>
-                                                <SelectItem value="junior_high">{language === 'zh' ? '初中' : 'Junior High'}</SelectItem>
-                                                <SelectItem value="senior_high">{language === 'zh' ? '高中' : 'Senior High'}</SelectItem>
-                                                <SelectItem value="university">{language === 'zh' ? '大学' : 'University'}</SelectItem>
+                                                <SelectItem value="primary">{t.auth?.primary || 'Primary School'}</SelectItem>
+                                                <SelectItem value="junior_high">{t.auth?.juniorHigh || 'Junior High'}</SelectItem>
+                                                <SelectItem value="senior_high">{t.auth?.seniorHigh || 'Senior High'}</SelectItem>
+                                                <SelectItem value="university">{t.auth?.university || 'University'}</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>{language === 'zh' ? "入学年份" : "Enrollment Year"}</Label>
+                                        <Label>{t.auth?.enrollmentYear || "Enrollment Year"}</Label>
                                         <Input
                                             type="number"
                                             value={profile.enrollmentYear || ""}
@@ -339,7 +339,7 @@ export function SettingsDialog() {
 
                                 <div className="space-y-3 pt-2 border-t">
                                     <div className="space-y-2">
-                                        <Label>{language === 'zh' ? "修改密码 (留空不修改)" : "Change Password (Leave empty to keep)"}</Label>
+                                        <Label>{t.settings?.account?.changePassword || "Change Password (Leave empty to keep)"}</Label>
                                         <div className="relative">
                                             <Input
                                                 type={showPassword ? "text" : "password"}
@@ -367,7 +367,7 @@ export function SettingsDialog() {
                                     </div>
                                     {profile.password && (
                                         <div className="space-y-2">
-                                            <Label>{language === 'zh' ? "确认密码" : "Confirm Password"}</Label>
+                                            <Label>{t.auth?.confirmPassword || "Confirm Password"}</Label>
                                             <div className="relative">
                                                 <Input
                                                     type={showConfirmPassword ? "text" : "password"}
@@ -398,7 +398,7 @@ export function SettingsDialog() {
 
                                 <Button onClick={handleSaveProfile} disabled={profileSaving} className="w-full">
                                     {profileSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {language === 'zh' ? "更新个人信息" : "Update Profile"}
+                                    {t.settings?.account?.update || "Update Profile"}
                                 </Button>
                             </div>
                         )}
@@ -413,7 +413,7 @@ export function SettingsDialog() {
                         ) : (
                             <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
                                 <div className="space-y-2">
-                                    <Label>{language === 'zh' ? "AI 提供商" : "AI Provider"}</Label>
+                                    <Label>{t.settings?.tabs?.ai || "AI Provider"}</Label>
                                     <Select
                                         value={config.aiProvider}
                                         onValueChange={(val: 'gemini' | 'openai') => setConfig(prev => ({ ...prev, aiProvider: val }))}
@@ -520,7 +520,7 @@ export function SettingsDialog() {
 
                                 <Button onClick={handleSaveSettings} disabled={saving} className="w-full">
                                     {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {language === 'zh' ? "保存 AI 设置" : "Save AI Settings"}
+                                    {t.settings?.ai?.save || "Save AI Settings"}
                                 </Button>
                             </div>
                         )}
@@ -531,7 +531,7 @@ export function SettingsDialog() {
                         <PromptSettings config={config} onUpdate={updatePrompts} />
                         <Button onClick={handleSaveSettings} disabled={saving} className="w-full">
                             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {language === 'zh' ? "保存提示词设置" : "Save Prompt Settings"}
+                            {t.settings?.prompts?.save || "Save Prompt Settings"}
                         </Button>
                     </TabsContent>
 
@@ -565,9 +565,7 @@ export function SettingsDialog() {
                                     </Button>
                                 </div>
                                 <p className="text-xs text-red-600 mt-2">
-                                    {language === 'zh'
-                                        ? '此操作将永久删除所有练习记录,不可恢复。'
-                                        : 'This will permanently delete all practice history. Irreversible.'}
+                                    {t.settings?.clearDataDesc || 'This will permanently delete all practice history. Irreversible.'}
                                 </p>
                             </div>
 
@@ -591,9 +589,7 @@ export function SettingsDialog() {
                                     </Button>
                                 </div>
                                 <p className="text-xs text-red-600 mt-2">
-                                    {language === 'zh'
-                                        ? '此操作将永久删除所有错题记录,不可恢复。'
-                                        : 'This will permanently delete all error items. Irreversible.'}
+                                    {t.settings?.clearErrorDataDesc || 'This will permanently delete all error items. Irreversible.'}
                                 </p>
                             </div>
                         </div>

@@ -119,7 +119,7 @@ export default function TagsPage() {
                             {t.tags?.subjects?.math || '数学'}
                         </CardTitle>
                         <span className="text-sm text-muted-foreground">
-                            {isExpanded ? (language === 'zh' ? '收起' : 'Collapse') : (language === 'zh' ? '展开' : 'Expand')}
+                            {isExpanded ? (t.common?.collapse || "Collapse") : (t.common?.expand || "Expand")}
                         </span>
                     </CardHeader>
                     {isExpanded && (
@@ -139,7 +139,7 @@ export default function TagsPage() {
                                                 {gradeSemester}
                                             </h3>
                                             <span className="text-xs text-muted-foreground">
-                                                {chapters.length} {language === 'zh' ? '章' : 'chapters'}
+                                                {chapters.length} {t.tags?.unitChapters || "chapters"}
                                             </span>
                                         </div>
 
@@ -161,7 +161,7 @@ export default function TagsPage() {
                                                                 {chapter} ({chapterTags.length})
                                                             </h4>
                                                             <div className="flex flex-wrap gap-2">
-                                                                {chapterTags.map((tag) => {
+                                                                {Array.from(new Set(chapterTags)).map((tag) => {
                                                                     const stat = stats.find((s) => s.tag === tag);
                                                                     return (
                                                                         <Badge key={tag} variant="outline" className="cursor-default hover:bg-accent">
@@ -206,7 +206,7 @@ export default function TagsPage() {
                                 {subjectName}
                             </CardTitle>
                             <span className="text-sm text-muted-foreground">
-                                {isExpanded ? (language === 'zh' ? '收起' : 'Collapse') : (language === 'zh' ? '展开' : 'Expand')}
+                                {isExpanded ? (t.common?.collapse || "Collapse") : (t.common?.expand || "Expand")}
                             </span>
                         </CardHeader>
                         {isExpanded && (

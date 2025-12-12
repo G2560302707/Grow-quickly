@@ -13,7 +13,10 @@ interface ProgressFeedbackProps {
     className?: string;
 }
 
+import { useLanguage } from "@/contexts/LanguageContext";
+
 export function ProgressFeedback({ status, progress, message, className }: ProgressFeedbackProps) {
+    const { t } = useLanguage();
     if (status === 'idle') return null;
 
     return (
@@ -40,7 +43,7 @@ export function ProgressFeedback({ status, progress, message, className }: Progr
                     </div>
 
                     <p className="text-sm text-muted-foreground">
-                        {progress !== undefined ? `${Math.round(progress)}%` : 'Please wait...'}
+                        {progress !== undefined ? `${Math.round(progress)}%` : (t.common.pleaseWait || 'Please wait...')}
                     </p>
                 </div>
             </div>

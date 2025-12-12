@@ -108,25 +108,17 @@ function HomeContent() {
         } catch (error: any) {
             console.error('分析错误:', error);
 
-            let userMessage = language === 'zh' ? '分析失败，请重试' : 'Analysis failed, please try again';
+            let userMessage = t.common?.messages?.analysisFailed || 'Analysis failed, please try again';
 
             // Check if it's our ApiError
             const errorText = error.data ? JSON.stringify(error.data) : error.message || "";
 
             if (errorText.includes('AI_CONNECTION_FAILED')) {
-                userMessage = language === 'zh'
-                    ? '⚠️ 无法连接到 AI 服务\n\n请检查：\n• 网络连接是否正常\n• 是否需要配置代理\n• 防火墙设置'
-                    : '⚠️ Cannot connect to AI service\n\nPlease check:\n• Internet connection\n• Proxy settings\n• Firewall configuration';
+                userMessage = t.errors?.aiConnectionFailed || '⚠️ Cannot connect to AI service\n\nPlease check:\n• Internet connection\n• Proxy settings\n• Firewall configuration';
             } else if (errorText.includes('AI_RESPONSE_ERROR')) {
-                userMessage = language === 'zh'
-                    ? '⚠️ AI 返回了无效的响应\n\n请重试，如果问题持续请联系支持'
-                    : '⚠️ AI returned invalid response\n\nPlease try again, contact support if issue persists';
+                userMessage = t.errors?.aiResponseError || '⚠️ AI returned invalid response\n\nPlease try again, contact support if issue persists';
             } else if (errorText.includes('AI_AUTH_ERROR')) {
-                userMessage = t.errors.aiAuth || (
-                    language === 'zh'
-                        ? '⚠️ API 密钥无效\n\n请检查环境变量 GOOGLE_API_KEY'
-                        : '⚠️ Invalid API key\n\nPlease check GOOGLE_API_KEY environment variable'
-                );
+                userMessage = t.errors?.aiAuth || '⚠️ Invalid API key\n\nPlease check GOOGLE_API_KEY environment variable';
             }
 
             alert(userMessage);
@@ -145,7 +137,7 @@ function HomeContent() {
             setStep("upload");
             setParsedData(null);
             setCurrentImage(null);
-            alert(language === 'zh' ? '保存成功！' : 'Saved successfully!');
+            alert(t.common?.messages?.saveSuccess || 'Saved successfully!');
 
             // Redirect to notebook page if subjectId is present
             if (finalData.subjectId) {
@@ -153,7 +145,7 @@ function HomeContent() {
             }
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '保存失败' : 'Failed to save');
+            alert(t.common?.messages?.saveFailed || 'Failed to save');
         }
     };
 
@@ -187,7 +179,7 @@ function HomeContent() {
                             size="icon"
                             className="rounded-full text-muted-foreground hover:text-destructive"
                             onClick={() => signOut({ callbackUrl: '/login' })}
-                            title={language === 'zh' ? '退出登录' : 'Logout'}
+                            title={t.app?.logout || 'Logout'}
                         >
                             <LogOut className="h-5 w-5" />
                         </Button>
@@ -231,7 +223,7 @@ function HomeContent() {
                                 >
                                     <div className="flex items-center gap-2">
                                         <Tags className="h-5 w-5" />
-                                        <span>{language === 'zh' ? '标签管理' : 'Tags'}</span>
+                                        <span>{t.app?.tags || 'Tags'}</span>
                                     </div>
                                 </Button>
                             </Link>
@@ -244,7 +236,7 @@ function HomeContent() {
                                 >
                                     <div className="flex items-center gap-2">
                                         <BarChart3 className="h-5 w-5" />
-                                        <span>{language === 'zh' ? '统计中心' : 'Stats'}</span>
+                                        <span>{t.app?.stats || 'Stats'}</span>
                                     </div>
                                 </Button>
                             </Link>

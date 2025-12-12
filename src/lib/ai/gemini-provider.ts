@@ -279,7 +279,7 @@ export class GeminiProvider implements AIService {
         console.error("Gemini Error:", error);
         if (error instanceof Error) {
             const msg = error.message.toLowerCase();
-            if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {
+            if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect') || msg.includes('503') || msg.includes('overloaded') || msg.includes('unavailable')) {
                 throw new Error("AI_CONNECTION_FAILED");
             }
             if (msg.includes('invalid json') || msg.includes('parse')) {

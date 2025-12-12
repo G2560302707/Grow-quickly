@@ -105,10 +105,10 @@ export function UserManagement() {
             <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
                 <div className="space-y-0.5">
                     <Label className="text-base">
-                        {language === 'zh' ? "允许新用户注册" : "Allow New Registrations"}
+                        {t.admin?.allowRegistration || "Allow New Registrations"}
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                        {language === 'zh' ? "关闭后，新用户将无法注册账号" : "When disabled, new users cannot register"}
+                        {t.admin?.allowRegistrationDesc || "When disabled, new users cannot register"}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">

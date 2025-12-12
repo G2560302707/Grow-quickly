@@ -56,7 +56,7 @@ export default function ErrorDetailPage() {
             setItem(data);
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '加载失败' : 'Failed to load item');
+            alert(t.common?.messages?.loadFailed || 'Failed to load item');
             router.push("/notebooks");
         } finally {
             setLoading(false);
@@ -71,22 +71,22 @@ export default function ErrorDetailPage() {
         try {
             await apiClient.patch(`/api/error-items/${item.id}/mastery`, { masteryLevel: newLevel });
             setItem({ ...item, masteryLevel: newLevel });
-            alert(newLevel > 0 ? (language === 'zh' ? '已标记为已掌握' : 'Marked as mastered') : (language === 'zh' ? '已取消掌握标记' : 'Unmarked'));
+            alert(newLevel > 0 ? (t.common?.messages?.markMastered || 'Marked as mastered') : (t.common?.messages?.unmarkMastered || 'Unmarked'));
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '更新失败' : 'Update failed');
+            alert(t.common?.messages?.updateFailed || 'Update failed');
         }
     };
 
     const deleteItem = async () => {
         if (!item) return;
 
-        const confirmMessage = language === 'zh' ? '确定要删除这道错题吗？' : 'Are you sure you want to delete this error item?';
+        const confirmMessage = t.common?.messages?.confirmDelete || 'Are you sure you want to delete this error item?';
         if (!confirm(confirmMessage)) return;
 
         try {
             await apiClient.delete(`/api/error-items/${item.id}/delete`);
-            alert(language === 'zh' ? '删除成功' : 'Deleted successfully');
+            alert(t.common?.messages?.deleteSuccess || 'Deleted successfully');
             if (item.subjectId) {
                 router.push(`/notebooks/${item.subjectId}`);
             } else {
@@ -94,7 +94,7 @@ export default function ErrorDetailPage() {
             }
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '删除失败' : 'Delete failed');
+            alert(t.common?.messages?.deleteFailed || 'Delete failed');
         }
     };
 
@@ -133,7 +133,7 @@ export default function ErrorDetailPage() {
 
             setIsEditingTags(false);
             await fetchItem(params.id as string);
-            alert(language === 'zh' ? '标签更新成功！' : 'Tags updated successfully!');
+            alert(t.common?.messages?.tagUpdateSuccess || 'Tags updated successfully!');
         } catch (error) {
             console.error("[Frontend] Error updating:", error);
             alert(language === 'zh' ? '更新失败' : 'Update failed');
@@ -162,7 +162,7 @@ export default function ErrorDetailPage() {
 
             setIsEditingMetadata(false);
             fetchItem(params.id as string);
-            alert(language === 'zh' ? '信息更新成功！' : 'Metadata updated successfully!');
+            alert(t.common?.messages?.metaUpdateSuccess || 'Metadata updated successfully!');
         } catch (error) {
             console.error(error);
             alert(language === 'zh' ? '更新失败' : 'Update failed');
@@ -182,10 +182,10 @@ export default function ErrorDetailPage() {
             await apiClient.patch(`/api/error-items/${item.id}/notes`, { userNotes: notesInput });
             setItem({ ...item, userNotes: notesInput });
             setIsEditingNotes(false);
-            alert(language === 'zh' ? '笔记保存成功' : 'Notes saved successfully');
+            alert(t.common?.messages?.noteSaveSuccess || 'Notes saved successfully');
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '保存失败' : 'Save failed');
+            alert(t.common?.messages?.saveFailed || 'Save failed');
         }
     };
 
@@ -264,7 +264,7 @@ export default function ErrorDetailPage() {
                                     <div
                                         className="cursor-pointer hover:opacity-90 transition-opacity"
                                         onClick={() => setIsImageViewerOpen(true)}
-                                        title={language === 'zh' ? '点击查看大图' : 'Click to view full image'}
+                                        title={t.detail?.clickToView || 'Click to view full image'}
                                     >
                                         <p className="text-sm font-medium mb-2 text-muted-foreground">
                                             {t.detail.originalProblem || "原始问题"}
@@ -275,7 +275,7 @@ export default function ErrorDetailPage() {
                                             className="w-full rounded-lg border hover:border-primary/50 transition-colors"
                                         />
                                         <p className="text-xs text-muted-foreground mt-1 text-center">
-                                            💡 {language === 'zh' ? '点击图片查看大图' : 'Click to enlarge'}
+                                            💡 {t.detail?.clickToEnlarge || 'Click to enlarge'}
                                         </p>
                                     </div>
                                 )}
@@ -333,7 +333,7 @@ export default function ErrorDetailPage() {
                                 <div className="space-y-2 pt-4 border-t">
                                     <div className="flex justify-between items-center">
                                         <h4 className="text-sm font-semibold">
-                                            {language === 'zh' ? '试题信息' : 'Question Info'}
+                                            {t.detail?.questionInfo || 'Question Info'}
                                         </h4>
                                         {!isEditingMetadata && (
                                             <Button
@@ -342,7 +342,7 @@ export default function ErrorDetailPage() {
                                                 onClick={startEditingMetadata}
                                             >
                                                 <Edit className="h-4 w-4 mr-1" />
-                                                {language === 'zh' ? '编辑' : 'Edit'}
+                                                {t.common?.edit || 'Edit'}
                                             </Button>
                                         )}
                                     </div>
@@ -356,7 +356,7 @@ export default function ErrorDetailPage() {
                                                 <Input
                                                     value={gradeSemesterInput}
                                                     onChange={(e) => setGradeSemesterInput(e.target.value)}
-                                                    placeholder={language === 'zh' ? '例如：初一，上期' : 'e.g. Grade 7, Semester 1'}
+                                                    placeholder={t.notebook?.gradeSemesterPlaceholder || 'e.g. Grade 7, Semester 1'}
                                                 />
                                             </div>
                                             <div className="space-y-2">
@@ -380,11 +380,11 @@ export default function ErrorDetailPage() {
                                             <div className="flex gap-2">
                                                 <Button size="sm" onClick={saveMetadataHandler}>
                                                     <Save className="h-4 w-4 mr-1" />
-                                                    {language === 'zh' ? '保存' : 'Save'}
+                                                    {t.common?.save || 'Save'}
                                                 </Button>
                                                 <Button size="sm" variant="outline" onClick={cancelEditingMetadata}>
                                                     <X className="h-4 w-4 mr-1" />
-                                                    {language === 'zh' ? '取消' : 'Cancel'}
+                                                    {t.common?.cancel || 'Cancel'}
                                                 </Button>
                                             </div>
                                         </div>
@@ -393,13 +393,13 @@ export default function ErrorDetailPage() {
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">{t.filter.grade}:</span>
                                                 <span className="font-medium">
-                                                    {item.gradeSemester || (language === 'zh' ? '未设置' : 'Not set')}
+                                                    {item.gradeSemester || (t.common?.notSet || 'Not set')}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">{t.filter.paperLevel}:</span>
                                                 <span className="font-medium">
-                                                    {item.paperLevel ? (t.editor.paperLevels?.[item.paperLevel as 'a' | 'b' | 'other'] || item.paperLevel) : (language === 'zh' ? '未设置' : 'Not set')}
+                                                    {item.paperLevel ? (t.editor.paperLevels?.[item.paperLevel as 'a' | 'b' | 'other'] || item.paperLevel) : (t.common?.notSet || 'Not set')}
                                                 </span>
                                             </div>
                                         </div>
@@ -505,7 +505,7 @@ export default function ErrorDetailPage() {
                                 className="absolute -top-12 right-0 text-white hover:text-gray-300 text-lg font-semibold bg-black/50 px-4 py-2 rounded"
                                 onClick={() => setIsImageViewerOpen(false)}
                             >
-                                {language === 'zh' ? '✕ 关闭' : '✕ Close'}
+                                {t.detail?.close || '✕ Close'}
                             </button>
                             <img
                                 src={item.originalImageUrl}
@@ -514,7 +514,7 @@ export default function ErrorDetailPage() {
                                 onClick={(e) => e.stopPropagation()}
                             />
                             <p className="text-center text-white/70 text-sm mt-4">
-                                {language === 'zh' ? '点击图片外部区域关闭' : 'Click outside to close'}
+                                {t.detail?.clickOutside || 'Click outside to close'}
                             </p>
                         </div>
                     </div>

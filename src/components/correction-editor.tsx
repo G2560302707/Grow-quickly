@@ -57,7 +57,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
     // 重新解题函数
     const handleReanswer = async () => {
         if (!data.questionText.trim()) {
-            alert(language === 'zh' ? '请先输入题目内容' : 'Please enter question text first');
+            alert(t.editor.enterQuestionFirst || 'Please enter question text first');
             return;
         }
 
@@ -87,14 +87,14 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 // 保留原有知识点，不更新
             }));
 
-            alert(language === 'zh' ? '✅ 答案和解析已更新！' : '✅ Answer and analysis updated!');
+            alert(t.editor.reanswerSuccess || '✅ Answer and analysis updated!');
         } catch (error: any) {
             console.error("Reanswer failed:", error);
             const msg = error.data?.message || '';
 
             // @ts-ignore - reanswer 可能不在类型定义中
             const reanswerErrors = t.errors?.reanswer || {};
-            let errorText = reanswerErrors.default || (language === 'zh' ? '重新解题失败' : 'Reanswer failed');
+            let errorText = reanswerErrors.default || 'Reanswer failed';
 
             if (msg.includes('AI_AUTH_ERROR')) {
                 errorText = reanswerErrors.authError || t.errors?.AI_AUTH_ERROR || errorText;
@@ -179,7 +179,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             value={data.questionText}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData({ ...data, questionText: e.target.value })}
                             className="min-h-[150px] font-mono text-sm"
-                            placeholder="支持 Markdown 和 LaTeX..."
+                            placeholder={t.editor.placeholder || "Supports Markdown and LaTeX..."}
                         />
                         <Button
                             variant="outline"
@@ -191,19 +191,17 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             {isReanswering ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    {language === 'zh' ? 'AI 正在解题...' : 'AI solving...'}
+                                    {t.editor.reanswering || 'AI solving...'}
                                 </>
                             ) : (
                                 <>
                                     <RefreshCw className="mr-2 h-4 w-4" />
-                                    {language === 'zh' ? '🔄 重新解题（根据校正后的题目）' : '🔄 Reanswer (based on corrected question)'}
+                                    {t.editor.reanswer || '🔄 Reanswer (based on corrected question)'}
                                 </>
                             )}
                         </Button>
                         <p className="text-xs text-muted-foreground">
-                            {language === 'zh'
-                                ? '💡 如果题目识别有误，校正题目后点击此按钮让 AI 重新生成答案和解析'
-                                : '💡 If the question was misrecognized, correct it and click to regenerate answer'}
+                            {t.editor.reanswerHint || '💡 If the question was misrecognized, correct it and click to regenerate answer'}
                         </p>
                     </div>
 
@@ -213,7 +211,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             value={data.answerText}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData({ ...data, answerText: e.target.value })}
                             className="min-h-[100px] font-mono text-sm"
-                            placeholder="支持 Markdown 和 LaTeX..."
+                            placeholder={t.editor.placeholder || "Supports Markdown and LaTeX..."}
                         />
                     </div>
 
@@ -223,7 +221,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             value={data.analysis}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData({ ...data, analysis: e.target.value })}
                             className="min-h-[200px] font-mono text-sm"
-                            placeholder="支持 Markdown 和 LaTeX..."
+                            placeholder={t.editor.placeholder || "Supports Markdown and LaTeX..."}
                         />
                     </div>
 
@@ -233,6 +231,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             value={data.knowledgePoints}
                             onChange={(tags) => setData({ ...data, knowledgePoints: tags })}
                             placeholder={t.editor.tagsPlaceholder || "Enter knowledge tags..."}
+                            enterHint={t.editor.createTagHint}
                         />
                         <p className="text-xs text-muted-foreground">
                             {t.editor.tagsHint || "💡 Tag suggestions will appear as you type"}

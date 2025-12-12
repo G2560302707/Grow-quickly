@@ -30,13 +30,13 @@ export default function LoginPage() {
             });
 
             if (result?.error) {
-                setError(language === 'zh' ? '登录失败，请检查邮箱和密码' : 'Login failed, please check your credentials');
+                setError(t.auth?.login?.failed || 'Login failed');
             } else {
                 router.push("/");
                 router.refresh();
             }
         } catch (error) {
-            setError(language === 'zh' ? '发生错误，请重试' : 'An error occurred, please try again');
+            setError(t.auth?.login?.error || 'An error occurred');
         } finally {
             setLoading(false);
         }
@@ -47,14 +47,14 @@ export default function LoginPage() {
             <Card className="w-full max-w-md">
                 <CardHeader>
                     <CardTitle className="text-2xl text-center">
-                        {language === 'zh' ? '登录到错题本' : 'Login to Wrong Notebook'}
+                        {t.auth?.login?.title || 'Login'}
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">
-                                {language === 'zh' ? '邮箱' : 'Email'}
+                                {t.auth?.email || 'Email'}
                             </label>
                             <Input
                                 type="email"
@@ -65,7 +65,7 @@ export default function LoginPage() {
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">
-                                {language === 'zh' ? '密码' : 'Password'}
+                                {t.auth?.password || 'Password'}
                             </label>
                             <Input
                                 type="password"
@@ -79,13 +79,13 @@ export default function LoginPage() {
                         )}
                         <Button type="submit" className="w-full" disabled={loading}>
                             {loading
-                                ? (language === 'zh' ? '登录中...' : 'Logging in...')
-                                : (language === 'zh' ? '登录' : 'Login')}
+                                ? (t.auth?.login?.loggingIn || 'Logging in...')
+                                : (t.auth?.login?.action || 'Login')}
                         </Button>
                         <div className="text-center text-sm text-muted-foreground">
-                            {language === 'zh' ? '还没有账号？' : "Don't have an account? "}
+                            {t.auth?.login?.noAccount || "Don't have an account? "}
                             <Link href="/register" className="text-primary hover:underline">
-                                {language === 'zh' ? '立即注册' : 'Register now'}
+                                {t.auth?.login?.registerNow || 'Register now'}
                             </Link>
                         </div>
                     </form>

@@ -13,9 +13,10 @@ interface TagInputProps {
     onChange: (tags: string[]) => void;
     placeholder?: string;
     className?: string;
+    enterHint?: string;
 }
 
-export function TagInput({ value = [], onChange, placeholder = "输入标签...", className = "" }: TagInputProps) {
+export function TagInput({ value = [], onChange, placeholder = "Enter tags...", className = "", enterHint }: TagInputProps) {
     const [input, setInput] = useState("");
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -169,7 +170,7 @@ export function TagInput({ value = [], onChange, placeholder = "输入标签..."
             {/* 提示文本 */}
             {input && !showSuggestions && (
                 <div className="text-xs text-muted-foreground mt-1">
-                    按 Enter 创建新标签 "{input}"
+                    {enterHint ? `${enterHint} "${input}"` : `Press Enter to create "${input}"`}
                 </div>
             )}
         </div>

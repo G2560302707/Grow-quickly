@@ -2131,7 +2131,7 @@ export function getMathTagsByGrade(grade: 7 | 8 | 9 | 10 | 11 | 12, semester?: 1
         });
     });
 
-    return tags;
+    return Array.from(new Set(tags));
 }
 
 /**

@@ -55,14 +55,19 @@ function PracticeContent() {
             console.error(error);
             const msg = error.data?.message || "";
 
-            let errorKey = 'default';
-            if (msg.includes('AI_CONNECTION_FAILED')) errorKey = 'connection';
-            else if (msg.includes('AI_RESPONSE_ERROR')) errorKey = 'response';
-            else if (msg.includes('AI_AUTH_ERROR')) errorKey = 'auth';
-            else if (msg.includes('AI_UNKNOWN_ERROR')) errorKey = 'unknown';
+            let errorMessage = t.practice.errors?.default || "Failed to generate";
 
-            // @ts-ignore
-            setError(t.practice.errors?.[errorKey] || t.practice.errors?.default || "Failed to generate");
+            if (msg.includes('AI_CONNECTION_FAILED')) {
+                errorMessage = t.errors?.aiConnectionFailed || errorMessage;
+            } else if (msg.includes('AI_RESPONSE_ERROR')) {
+                errorMessage = t.errors?.aiResponseError || errorMessage;
+            } else if (msg.includes('AI_AUTH_ERROR')) {
+                errorMessage = t.errors?.aiAuth || errorMessage;
+            } else if (msg.includes('AI_UNKNOWN_ERROR')) {
+                errorMessage = t.errors?.AI_UNKNOWN_ERROR || errorMessage;
+            }
+
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -126,8 +131,8 @@ function PracticeContent() {
 
                 {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-                        <strong className="font-bold">{language === 'zh' ? '出错了：' : 'Error: '}</strong>
-                        <span className="block sm:inline"> {error}</span>
+                        <strong className="font-bold">{t.common?.error || "Error"}: </strong>
+                        <span className="block whitespace-pre-wrap"> {error}</span>
                     </div>
                 )}
 

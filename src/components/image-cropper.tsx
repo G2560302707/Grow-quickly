@@ -158,10 +158,10 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete }: ImageC
                         </p>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={onClose}>
-                                {t.common.cancel || "取消"}
+                                {t.common.cancel || "Cancel"}
                             </Button>
                             <Button onClick={handleConfirm}>
-                                {t.common.confirm || "确认"}
+                                {t.common.confirm || "Confirm"}
                             </Button>
                         </div>
                     </div>

@@ -22,10 +22,10 @@ export default function StatsPage() {
                 <div>
                     <h1 className="text-3xl font-bold flex items-center gap-2">
                         <BarChart3 className="h-8 w-8" />
-                        {language === 'zh' ? "统计中心" : "Statistics Center"}
+                        {t.stats?.headerTitle || "Statistics Center"}
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        {language === 'zh' ? "查看您的学习进度和数据分析" : "View your learning progress and data analysis"}
+                        {t.stats?.headerDesc || "View your learning progress and data analysis"}
                     </p>
                 </div>
                 <div className="ml-auto flex items-center">
