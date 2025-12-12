@@ -6,11 +6,11 @@ import { z } from "zod";
 import { hash } from "bcryptjs";
 
 const userUpdateSchema = z.object({
-    name: z.string().min(1).optional(),
-    email: z.string().email().optional(),
-    password: z.string().min(6).optional().or(z.literal("")),
+    name: z.string().optional(),
+    email: z.string().optional(),
+    password: z.string().optional(),
     educationStage: z.string().optional(),
-    enrollmentYear: z.number().optional(),
+    enrollmentYear: z.number().optional().nullable(),
 });
 
 export async function GET() {
@@ -55,12 +55,29 @@ export async function PATCH(req: Request) {
         const { name, email, password, educationStage, enrollmentYear } = userUpdateSchema.parse(body);
 
         const updateData: any = {};
-        if (name) updateData.name = name;
-        if (email) updateData.email = email;
-        if (educationStage) updateData.educationStage = educationStage;
-        if (enrollmentYear) updateData.enrollmentYear = enrollmentYear;
 
-        if (password && password.length >= 6) {
+        // 只有非空字符串才会触发更新
+        if (name && name.trim()) updateData.name = name.trim();
+        if (educationStage && educationStage.trim()) updateData.educationStage = educationStage.trim();
+        if (typeof enrollmentYear === 'number' && !isNaN(enrollmentYear)) {
+            updateData.enrollmentYear = enrollmentYear;
+        }
+
+        // 验证邮箱格式（如果提供了邮箱）
+        // 支持标准邮箱和本地邮箱（如 admin@localhost）
+        if (email && email.trim()) {
+            const emailRegex = /^[^\s@]+@[^\s@]+$/;
+            if (!emailRegex.test(email.trim())) {
+                return NextResponse.json({ message: "Invalid email format" }, { status: 400 });
+            }
+            updateData.email = email.trim();
+        }
+
+        // 验证密码长度（如果提供了密码）
+        if (password && password.length > 0) {
+            if (password.length < 6) {
+                return NextResponse.json({ message: "Password must be at least 6 characters" }, { status: 400 });
+            }
             updateData.password = await hash(password, 10);
         }
 
