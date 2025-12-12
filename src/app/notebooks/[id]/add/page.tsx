@@ -100,8 +100,11 @@ export default function AddErrorPage() {
             if (backendErrorType) {
                 // 检查是否是已知的 AI 错误类型
                 if (t.errors && backendErrorType in t.errors) {
-                    errorMessage = t.errors[backendErrorType as keyof typeof t.errors];
-                    console.log(`[AddError] Matched error type: ${backendErrorType} -> ${errorMessage}`);
+                    const mappedError = t.errors[backendErrorType as keyof typeof t.errors];
+                    if (typeof mappedError === 'string') {
+                        errorMessage = mappedError;
+                        console.log(`[AddError] Matched error type: ${backendErrorType} -> ${errorMessage}`);
+                    }
                 } else {
                     // 使用后端返回的具体错误消息
                     errorMessage = backendErrorType;

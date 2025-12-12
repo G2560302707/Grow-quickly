@@ -211,7 +211,6 @@ export const translations = {
                 auth: "Authentication failed. Please check your API key configuration.",
                 unknown: "An unknown error occurred. Please try again later.",
                 default: "Failed to generate question. Please try again.",
-                generic: "Failed to generate practice question. Please try again.",
             },
             difficulty: {
                 label: "Difficulty",
@@ -538,6 +537,7 @@ export const translations = {
             },
             tagsPlaceholder: "输入知识点标签，可从建议中选择...",
             tagsHint: "💡 输入时会显示标签建议，支持从标准标签库选择",
+            createTagHint: "按回车键创建新标签",
             paperLevel: "所属卷等级",
             paperLevels: {
                 a: "A卷",
@@ -726,7 +726,7 @@ export const translations = {
             title: "练习统计",
             headerTitle: "统计中心",
             headerDesc: "查看您的学习进度和数据分析",
-            totalPracticed: "累计练习",
+            totalPractices: "累计练习",
             correctRate: "正确率",
             activeDays: "活跃月份",
             subjectDistribution: "学科分布",

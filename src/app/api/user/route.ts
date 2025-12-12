@@ -37,6 +37,8 @@ export async function GET() {
             return notFound("User not found");
         }
 
+        console.log("[API] /api/user returning:", JSON.stringify(user, null, 2));
+
         return NextResponse.json(user);
     } catch (error) {
         console.error("Failed to fetch user profile:", error);

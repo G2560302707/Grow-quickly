@@ -82,7 +82,7 @@ export default function NotebookDetailPage() {
                     </div>
                 </div>
 
-                <ErrorList subjectId={notebook.id} />
+                <ErrorList subjectId={notebook.id} subjectName={notebook.name} />
             </div>
         </main>
     );

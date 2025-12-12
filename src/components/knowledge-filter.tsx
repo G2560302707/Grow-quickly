@@ -8,11 +8,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { MATH_CURRICULUM } from "@/lib/knowledge-tags";
+import { MATH_CURRICULUM, GRADE_TO_KEYS_MAP, inferSubjectFromName } from "@/lib/knowledge-tags";
+import { apiClient } from "@/lib/api-client";
 
 interface KnowledgeFilterProps {
     gradeSemester?: string;
     tag?: string | null;
+    subjectName?: string;
     onFilterChange: (filters: {
         gradeSemester?: string;
         chapter?: string;
@@ -24,6 +26,7 @@ interface KnowledgeFilterProps {
 export function KnowledgeFilter({
     gradeSemester: initialGrade,
     tag: initialTag,
+    subjectName,
     onFilterChange,
     className
 }: KnowledgeFilterProps) {
@@ -39,6 +42,30 @@ export function KnowledgeFilter({
     useEffect(() => {
         if (initialTag !== undefined) setTag(initialTag || "");
     }, [initialTag]);
+
+    const [availableGradeKeys, setAvailableGradeKeys] = useState<string[]>(Object.keys(MATH_CURRICULUM));
+
+    useEffect(() => {
+        apiClient.get<{ educationStage?: string }>('/api/user')
+            .then(user => {
+                console.log("[KnowledgeFilter] User info loaded:", user);
+                const stage = user.educationStage;
+                let grades: number[] = [];
+                // 初中生和高中生都可能需要使用初高中完整体系（预习/复习）
+                if (stage === 'juniorHigh' || stage === 'junior_high') grades = [7, 8, 9, 10, 11, 12];
+                else if (stage === 'seniorHigh' || stage === 'senior_high') grades = [7, 8, 9, 10, 11, 12];
+
+                console.log("[KnowledgeFilter] Calculated grades:", grades);
+
+                if (grades.length > 0) {
+                    const keys = grades.flatMap(g => GRADE_TO_KEYS_MAP[g] || []);
+                    console.log("[KnowledgeFilter] Mapped keys:", keys);
+                    const validKeys = keys.filter(k => k in MATH_CURRICULUM);
+                    if (validKeys.length > 0) setAvailableGradeKeys(validKeys);
+                }
+            })
+            .catch(err => console.error("Failed to load user info for filter:", err));
+    }, []);
 
     const handleGradeChange = (val: string) => {
         setGradeSemester(val);
@@ -83,6 +110,8 @@ export function KnowledgeFilter({
         return [...sectionTags, ...subTags];
     }) : [];
 
+    const isMath = !subjectName || inferSubjectFromName(subjectName) === 'math';
+
     return (
         <div className={`flex gap-2 ${className}`}>
             <Select value={gradeSemester} onValueChange={handleGradeChange}>
@@ -91,13 +120,13 @@ export function KnowledgeFilter({
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">全部年级</SelectItem>
-                    {Object.keys(MATH_CURRICULUM).map(gs => (
+                    {availableGradeKeys.map(gs => (
                         <SelectItem key={gs} value={gs}>{gs}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
 
-            <Select value={chapter} onValueChange={handleChapterChange} disabled={!gradeSemester || gradeSemester === "all"}>
+            <Select value={chapter} onValueChange={handleChapterChange} disabled={!gradeSemester || gradeSemester === "all" || !isMath}>
                 <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="章节" />
                 </SelectTrigger>

@@ -673,7 +673,7 @@ export const MATH_CURRICULUM: MathCurriculum = {
         }
     ],
     // ==================== 高中数学 ====================
-    '高一上（必修一）': [
+    '高一上': [
         {
             chapter: '第1章 集合与常用逻辑用语',
             sections: [
@@ -755,7 +755,7 @@ export const MATH_CURRICULUM: MathCurriculum = {
             ]
         }
     ],
-    '高一下（必修二）': [
+    '高一下': [
         {
             chapter: '第5章 平面向量及其应用',
             sections: [
@@ -880,7 +880,7 @@ export const MATH_CURRICULUM: MathCurriculum = {
         }
     ],
     // ==================== 高二（选择性必修） ====================
-    '高二上（选择性必修一）': [
+    '高二上': [
         {
             chapter: '第1章 数列',
             sections: [
@@ -920,7 +920,7 @@ export const MATH_CURRICULUM: MathCurriculum = {
             ]
         }
     ],
-    '高二下（选择性必修二）': [
+    '高二下': [
         {
             chapter: '第3章 直线与圆的方程',
             sections: [
@@ -967,8 +967,7 @@ export const MATH_CURRICULUM: MathCurriculum = {
                 }
             ]
         }
-    ],
-    '高二下（选择性必修三）': [
+        ,
         {
             chapter: '第5章 概率与统计进阶',
             sections: [
@@ -996,7 +995,7 @@ export const MATH_CURRICULUM: MathCurriculum = {
         }
     ],
     // ==================== 高三（选修与综合） ====================
-    '高三（选修与综合）': [
+    '高三': [
         {
             chapter: '第1章 导数及其应用',
             sections: [
@@ -2087,20 +2086,19 @@ export function getAllMathTags(): string[] {
  * @param semester 学期 (1=上, 2=下),可选
  * @returns 标签名称数组（按课程顺序）
  */
+export const GRADE_TO_KEYS_MAP: Record<number, string[]> = {
+    7: ['七年级上', '七年级下'],
+    8: ['八年级上', '八年级下'],
+    9: ['九年级上', '九年级下'],
+    10: ['高一上', '高一下'],
+    11: ['高二上', '高二下'],
+    12: ['高三']
+};
+
 export function getMathTagsByGrade(grade: 7 | 8 | 9 | 10 | 11 | 12, semester?: 1 | 2): string[] {
     const tags: string[] = [];
 
-    // 年级到学期 key 的映射
-    const gradeToKeys: Record<number, string[]> = {
-        7: ['七年级上', '七年级下'],
-        8: ['八年级上', '八年级下'],
-        9: ['九年级上', '九年级下'],
-        10: ['高一上（必修一）', '高一下（必修二）'],
-        11: ['高二上（选择性必修一）', '高二下（选择性必修二）', '高二下（选择性必修三）'],
-        12: ['高三（选修与综合）']
-    };
-
-    const keys = gradeToKeys[grade] || [];
+    const keys = GRADE_TO_KEYS_MAP[grade] || [];
 
     keys.forEach(key => {
         // 如果指定了学期，只获取对应学期

@@ -26,9 +26,10 @@ import { apiClient } from "@/lib/api-client";
 
 interface ErrorListProps {
     subjectId?: string;
+    subjectName?: string;
 }
 
-export function ErrorList({ subjectId }: ErrorListProps = {}) {
+export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
     const [items, setItems] = useState<ErrorItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -206,6 +207,7 @@ export function ErrorList({ subjectId }: ErrorListProps = {}) {
                         gradeSemester={gradeFilter}
                         tag={selectedTag}
                         onFilterChange={handleFilterChange}
+                        subjectName={subjectName}
                     />
                 </div>
                 <div className="flex gap-2">
