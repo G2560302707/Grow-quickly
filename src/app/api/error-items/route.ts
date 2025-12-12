@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { calculateGrade } from "@/lib/grade-calculator";
+import { unauthorized, internalError } from "@/lib/api-errors";
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
         // We must strictly require a valid session user.
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized - No user found in DB" }, { status: 401 });
+            return unauthorized("No user found in DB");
         }
 
         // Calculate grade if not provided
@@ -83,9 +84,6 @@ export async function POST(req: Request) {
         return NextResponse.json(errorItem, { status: 201 });
     } catch (error) {
         console.error("Error saving item:", error);
-        return NextResponse.json(
-            { message: "Failed to save error item" },
-            { status: 500 }
-        );
+        return internalError("Failed to save error item");
     }
 }

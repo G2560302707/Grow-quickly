@@ -280,6 +280,12 @@ export const translations = {
             aiAuth: "⚠️ API Key Not Configured\n\nPlease check your environment variables (GOOGLE_API_KEY or OPENAI_API_KEY)",
             AI_UNKNOWN_ERROR: "Unknown AI error occurred.",
             GENERIC_ERROR: "Failed to generate question.",
+            reanswer: {
+                default: "Reanswer failed",
+                authError: "⚠️ AI key configuration error\n\nPlease check your API key in settings",
+                connectionFailed: "⚠️ AI service connection failed\n\nPossible causes:\n• Network issue\n• AI service temporarily unavailable\n• Proxy required\n\nPlease try again later",
+                responseError: "⚠️ AI response format error\n\nPlease retry, contact support if issue persists",
+            },
         },
         admin: {
             title: "User Management",
@@ -583,6 +589,12 @@ export const translations = {
             aiAuth: "⚠️ 未配置 API 密钥\n\n请检查环境变量配置 (GOOGLE_API_KEY 或 OPENAI_API_KEY)",
             AI_UNKNOWN_ERROR: "发生未知 AI 错误。",
             GENERIC_ERROR: "生成题目失败，请稍后重试。",
+            reanswer: {
+                default: "重新解题失败",
+                authError: "⚠️ AI 密钥配置错误\n\n请检查设置中的 API Key 是否正确",
+                connectionFailed: "⚠️ AI 服务连接失败\n\n可能原因：\n• 网络连接问题\n• AI 服务暂时不可用\n• 需要代理访问\n\n请稍后重试",
+                responseError: "⚠️ AI 返回格式错误\n\n请重试，如果问题持续请联系支持",
+            },
         },
         admin: {
             title: "用户管理",

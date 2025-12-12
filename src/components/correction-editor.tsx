@@ -91,15 +91,21 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
         } catch (error: any) {
             console.error("Reanswer failed:", error);
             const msg = error.data?.message || '';
-            let errorText = language === 'zh' ? '重新解题失败' : 'Reanswer failed';
+
+            // @ts-ignore - reanswer 可能不在类型定义中
+            const reanswerErrors = t.errors?.reanswer || {};
+            let errorText = reanswerErrors.default || (language === 'zh' ? '重新解题失败' : 'Reanswer failed');
 
             if (msg.includes('AI_AUTH_ERROR')) {
-                errorText = language === 'zh' ? 'AI 密钥配置错误，请检查设置' : 'AI key configuration error';
+                errorText = reanswerErrors.authError || t.errors?.AI_AUTH_ERROR || errorText;
             } else if (msg.includes('AI_CONNECTION_FAILED')) {
-                errorText = language === 'zh' ? '网络连接失败' : 'Network connection failed';
+                errorText = reanswerErrors.connectionFailed || t.errors?.AI_CONNECTION_FAILED || errorText;
+            } else if (msg.includes('AI_RESPONSE_ERROR')) {
+                errorText = reanswerErrors.responseError || t.errors?.AI_RESPONSE_ERROR || errorText;
             }
 
             alert(errorText);
+
         } finally {
             setIsReanswering(false);
         }

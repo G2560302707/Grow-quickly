@@ -3,12 +3,13 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/auth-utils"
+import { forbidden, internalError } from "@/lib/api-errors"
 
 export async function GET() {
     const session = await getServerSession(authOptions)
 
     if (!requireAdmin(session)) {
-        return new NextResponse("Unauthorized", { status: 403 })
+        return forbidden("Admin access required")
     }
 
     try {
@@ -35,6 +36,6 @@ export async function GET() {
         return NextResponse.json(users)
     } catch (error) {
         console.error("[ADMIN_USERS_GET]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        return internalError("Failed to fetch users")
     }
 }

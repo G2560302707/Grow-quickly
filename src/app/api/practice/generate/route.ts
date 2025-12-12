@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { getAIService } from "@/lib/ai";
+import { notFound, internalError } from "@/lib/api-errors";
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
         });
 
         if (!errorItemWithSubject) {
-            return NextResponse.json({ message: "Item not found" }, { status: 404 });
+            return notFound("Item not found");
         }
 
         let tags: string[] = [];
@@ -43,9 +44,6 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error("Error generating practice:", error);
         const errorMessage = error instanceof Error ? error.message : "Failed to generate practice question";
-        return NextResponse.json(
-            { message: errorMessage },
-            { status: 500 }
-        );
+        return internalError(errorMessage);
     }
 }

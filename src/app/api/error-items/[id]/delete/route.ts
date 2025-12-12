@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { unauthorized, forbidden, notFound, internalError } from "@/lib/api-errors";
 
 export async function DELETE(
     req: Request,
@@ -24,7 +25,7 @@ export async function DELETE(
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized - No user found in DB" }, { status: 401 });
+            return unauthorized("No user found in DB");
         }
 
         // Verify ownership before deletion
@@ -33,11 +34,11 @@ export async function DELETE(
         });
 
         if (!errorItem) {
-            return NextResponse.json({ message: "Item not found" }, { status: 404 });
+            return notFound("Item not found");
         }
 
         if (errorItem.userId !== user.id) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+            return forbidden("Not authorized to delete this item");
         }
 
         // Delete the item
@@ -48,9 +49,6 @@ export async function DELETE(
         return NextResponse.json({ message: "Deleted successfully" });
     } catch (error) {
         console.error("Error deleting item:", error);
-        return NextResponse.json(
-            { message: "Failed to delete error item" },
-            { status: 500 }
-        );
+        return internalError("Failed to delete error item");
     }
 }

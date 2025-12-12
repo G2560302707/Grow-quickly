@@ -1,8 +1,31 @@
+# Docker 构建时排除的文件
 Dockerfile
 .dockerignore
+docker-compose*.yml
+
+# 依赖和构建产物
 node_modules
 npm-debug.log
-README.md
 .next
+
+# 版本控制
 .git
+.gitignore
+
+# 环境配置
 .env
+.env.*
+
+# 测试文件（不需要进入生产镜像）
+src/__tests__
+vitest.config.ts
+coverage
+
+# 开发工具
+.vscode
+.idea
+*.log
+
+# 文档
+README.md
+docs

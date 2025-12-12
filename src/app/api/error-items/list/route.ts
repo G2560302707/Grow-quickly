@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { unauthorized, internalError } from "@/lib/api-errors";
 
 export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized - No user found in DB" }, { status: 401 });
+            return unauthorized("No user found in DB");
         }
 
         const whereClause: any = {
@@ -101,10 +102,7 @@ export async function GET(req: Request) {
         return NextResponse.json(errorItems);
     } catch (error) {
         console.error("Error fetching items:", error);
-        return NextResponse.json(
-            { message: "Failed to fetch error items" },
-            { status: 500 }
-        );
+        return internalError("Failed to fetch error items");
     }
 }
 

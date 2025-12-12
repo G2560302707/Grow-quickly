@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { unauthorized, internalError } from "@/lib/api-errors";
 
 export async function PATCH(
     req: Request,
@@ -24,7 +25,7 @@ export async function PATCH(
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized - No user found in DB" }, { status: 401 });
+            return unauthorized("No user found in DB");
         }
 
         const { masteryLevel } = await req.json();
@@ -41,9 +42,6 @@ export async function PATCH(
         return NextResponse.json(errorItem);
     } catch (error) {
         console.error("Error updating item:", error);
-        return NextResponse.json(
-            { message: "Failed to update error item" },
-            { status: 500 }
-        );
+        return internalError("Failed to update error item");
     }
 }

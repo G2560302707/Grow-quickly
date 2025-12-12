@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { unauthorized, badRequest, conflict, internalError } from "@/lib/api-errors";
 
 /**
  * GET /api/notebooks
@@ -34,7 +35,7 @@ export async function GET() {
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+            return unauthorized();
         }
 
         let notebooks = await prisma.subject.findMany({
@@ -87,10 +88,7 @@ export async function GET() {
         return NextResponse.json(notebooks);
     } catch (error) {
         console.error("Error fetching notebooks:", error);
-        return NextResponse.json(
-            { message: "Failed to fetch notebooks" },
-            { status: 500 }
-        );
+        return internalError("Failed to fetch notebooks");
     }
 }
 
@@ -125,17 +123,14 @@ export async function POST(req: Request) {
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+            return unauthorized();
         }
 
         const body = await req.json();
         const { name } = body;
 
         if (!name || !name.trim()) {
-            return NextResponse.json(
-                { message: "Notebook name is required" },
-                { status: 400 }
-            );
+            return badRequest("Notebook name is required");
         }
 
         // 检查是否已存在同名错题本
@@ -149,10 +144,7 @@ export async function POST(req: Request) {
         });
 
         if (existing) {
-            return NextResponse.json(
-                { message: "Notebook with this name already exists" },
-                { status: 409 }
-            );
+            return conflict("Notebook with this name already exists");
         }
 
         const notebook = await prisma.subject.create({
@@ -172,9 +164,6 @@ export async function POST(req: Request) {
         return NextResponse.json(notebook, { status: 201 });
     } catch (error) {
         console.error("Error creating notebook:", error);
-        return NextResponse.json(
-            { message: "Failed to create notebook" },
-            { status: 500 }
-        );
+        return internalError("Failed to create notebook");
     }
 }

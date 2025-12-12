@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { unauthorized, forbidden, notFound, internalError } from "@/lib/api-errors";
 
 export async function GET(
     req: Request,
@@ -24,7 +25,7 @@ export async function GET(
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized - No user found in DB" }, { status: 401 });
+            return unauthorized("No user found in DB");
         }
 
         const errorItem = await prisma.errorItem.findUnique({
@@ -37,21 +38,18 @@ export async function GET(
         });
 
         if (!errorItem) {
-            return NextResponse.json({ message: "Item not found" }, { status: 404 });
+            return notFound("Item not found");
         }
 
         // Ensure the user owns this item
         if (errorItem.userId !== user.id) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+            return forbidden("Not authorized to access this item");
         }
 
         return NextResponse.json(errorItem);
     } catch (error) {
         console.error("Error fetching item:", error);
-        return NextResponse.json(
-            { message: "Failed to fetch error item" },
-            { status: 500 }
-        );
+        return internalError("Failed to fetch error item");
     }
 }
 
@@ -75,7 +73,7 @@ export async function PUT(
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+            return unauthorized();
         }
 
         const body = await req.json();
@@ -86,11 +84,11 @@ export async function PUT(
         });
 
         if (!errorItem) {
-            return NextResponse.json({ message: "Item not found" }, { status: 404 });
+            return notFound("Item not found");
         }
 
         if (errorItem.userId !== user.id) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+            return forbidden("Not authorized to update this item");
         }
 
         // 构建更新数据对象,只包含提供的字段
@@ -113,9 +111,6 @@ export async function PUT(
         return NextResponse.json(updated);
     } catch (error) {
         console.error("Error updating item:", error);
-        return NextResponse.json(
-            { message: "Failed to update error item" },
-            { status: 500 }
-        );
+        return internalError("Failed to update error item");
     }
 }

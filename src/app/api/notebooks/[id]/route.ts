@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { unauthorized, forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
 
 /**
  * GET /api/notebooks/[id]
@@ -38,7 +39,7 @@ export async function GET(
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+            return unauthorized();
         }
 
         const notebook = await prisma.subject.findUnique({
@@ -53,20 +54,17 @@ export async function GET(
         });
 
         if (!notebook) {
-            return NextResponse.json({ message: "Notebook not found" }, { status: 404 });
+            return notFound("Notebook not found");
         }
 
         if (notebook.userId !== user.id) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+            return forbidden("Not authorized to access this notebook");
         }
 
         return NextResponse.json(notebook);
     } catch (error) {
         console.error("Error fetching notebook:", error);
-        return NextResponse.json(
-            { message: "Failed to fetch notebook" },
-            { status: 500 }
-        );
+        return internalError("Failed to fetch notebook");
     }
 }
 
@@ -105,7 +103,7 @@ export async function PUT(
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+            return unauthorized();
         }
 
         const notebook = await prisma.subject.findUnique({
@@ -113,21 +111,18 @@ export async function PUT(
         });
 
         if (!notebook) {
-            return NextResponse.json({ message: "Notebook not found" }, { status: 404 });
+            return notFound("Notebook not found");
         }
 
         if (notebook.userId !== user.id) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+            return forbidden("Not authorized to update this notebook");
         }
 
         const body = await req.json();
         const { name } = body;
 
         if (!name || !name.trim()) {
-            return NextResponse.json(
-                { message: "Notebook name is required" },
-                { status: 400 }
-            );
+            return badRequest("Notebook name is required");
         }
 
         const updated = await prisma.subject.update({
@@ -147,10 +142,7 @@ export async function PUT(
         return NextResponse.json(updated);
     } catch (error) {
         console.error("Error updating notebook:", error);
-        return NextResponse.json(
-            { message: "Failed to update notebook" },
-            { status: 500 }
-        );
+        return internalError("Failed to update notebook");
     }
 }
 
@@ -189,7 +181,7 @@ export async function DELETE(
         }
 
         if (!user) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+            return unauthorized();
         }
 
         const notebook = await prisma.subject.findUnique({
@@ -204,19 +196,16 @@ export async function DELETE(
         });
 
         if (!notebook) {
-            return NextResponse.json({ message: "Notebook not found" }, { status: 404 });
+            return notFound("Notebook not found");
         }
 
         if (notebook.userId !== user.id) {
-            return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+            return forbidden("Not authorized to delete this notebook");
         }
 
         // 检查是否有错题
         if (notebook._count.errorItems > 0) {
-            return NextResponse.json(
-                { message: "Cannot delete notebook with error items. Please move or delete all items first." },
-                { status: 400 }
-            );
+            return badRequest("Cannot delete notebook with error items. Please move or delete all items first.");
         }
 
         await prisma.subject.delete({
@@ -226,9 +215,6 @@ export async function DELETE(
         return NextResponse.json({ message: "Notebook deleted successfully" });
     } catch (error) {
         console.error("Error deleting notebook:", error);
-        return NextResponse.json(
-            { message: "Failed to delete notebook" },
-            { status: 500 }
-        );
+        return internalError("Failed to delete notebook");
     }
 }

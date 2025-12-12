@@ -3,12 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { startOfMonth, subMonths, format, startOfWeek, subDays } from "date-fns";
+import { unauthorized, internalError } from "@/lib/api-errors";
 
 export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
-        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        return unauthorized();
     }
 
     // @ts-ignore
@@ -89,9 +90,6 @@ export async function GET(req: Request) {
 
     } catch (error) {
         console.error("Error fetching analytics:", error);
-        return NextResponse.json(
-            { message: "Failed to fetch analytics" },
-            { status: 500 }
-        );
+        return internalError("Failed to fetch analytics");
     }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAppConfig, updateAppConfig } from "@/lib/config";
+import { internalError } from "@/lib/api-errors";
 
 export async function GET() {
     const config = getAppConfig();
@@ -19,6 +20,6 @@ export async function POST(req: Request) {
         return NextResponse.json(updatedConfig);
     } catch (error) {
         console.error("Failed to update settings:", error);
-        return NextResponse.json({ message: "Failed to update settings" }, { status: 500 });
+        return internalError("Failed to update settings");
     }
 }

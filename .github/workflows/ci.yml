@@ -1,0 +1,154 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+    paths:
+      - 'Dockerfile'
+      - 'docker-entrypoint.sh'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'prisma/**'
+      - 'vitest.config.ts'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # ============================================
+  # 阶段 1: 单元测试 (快速反馈)
+  # ============================================
+  unit-test:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+  # ============================================
+  # 阶段 2: 集成测试 (完整验证)
+  # ============================================
+  integration-test:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    needs: unit-test  # 单元测试通过后才运行
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+  # ============================================
+  # 阶段 3: 构建验证 (确保可以构建)
+  # ============================================
+  build-check:
+    runs-on: ubuntu-latest
+    name: Build Check
+    needs: integration-test
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build application
+        run: npm run build
+
+  # ============================================
+  # 阶段 4: Docker 构建与发布 (仅 main/tag)
+  # ============================================
+  docker-build:
+    runs-on: ubuntu-latest
+    name: Docker Build & Push
+    needs: build-check
+    # 只在 main 分支或 tag 推送时构建镜像，PR 只做测试
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 提取 Docker 元数据（自动生成版本标签）
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            # Git Tag v1.0.0 → 1.0.0, 1.0, 1
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # main 分支 → latest
+            type=raw,value=latest,enable={{is_default_branch}}
+            # 所有推送 → sha-abc1234
+            type=sha,prefix=sha-
+
+      # 设置 QEMU 模拟器（多架构支持）
+      - name: Set up QEMU (Enable multi-arch)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

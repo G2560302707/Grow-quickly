@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { normalizeTags, normalizeTagsByGradeAndSubject, calculateGrade, inferSubjectFromName } from "@/lib/knowledge-tags";
 import { prisma } from "@/lib/prisma";
+import { badRequest, internalError, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 
 export async function POST(req: Request) {
     console.log("[API] /api/analyze called");
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
 
         if (!imageBase64) {
             console.log("[API] Missing image data");
-            return NextResponse.json({ message: "Missing image data" }, { status: 400 });
+            return badRequest("Missing image data");
         }
 
         // Parse Data URL if present
@@ -128,7 +129,6 @@ export async function POST(req: Request) {
 
         // 返回具体的错误类型，便于前端显示详细提示
         let errorMessage = error.message || "Failed to analyze image";
-        let statusCode = 500;
 
         // 识别特定错误类型
         if (error.message && (
@@ -148,9 +148,6 @@ export async function POST(req: Request) {
             errorMessage = 'AI_RESPONSE_ERROR';
         }
 
-        return NextResponse.json(
-            { message: errorMessage, error: error.message },
-            { status: statusCode }
-        );
+        return createErrorResponse(errorMessage, 500, ErrorCode.AI_ERROR, error.message);
     }
 }

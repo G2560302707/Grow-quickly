@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAIService } from "@/lib/ai";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { badRequest, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 
 export async function POST(req: Request) {
     console.log("[API] /api/reanswer called");
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
         console.log(`[API] Reanswer request. Question length: ${questionText?.length}, Language: ${language}, Subject: ${subject}, HasImage: ${!!imageBase64}`);
 
         if (!questionText || questionText.trim().length === 0) {
-            return NextResponse.json({ message: "Missing question text" }, { status: 400 });
+            return badRequest("Missing question text");
         }
 
         const aiService = getAIService();
@@ -44,9 +45,6 @@ export async function POST(req: Request) {
             errorMessage = 'AI_RESPONSE_ERROR';
         }
 
-        return NextResponse.json(
-            { message: errorMessage },
-            { status: 500 }
-        );
+        return createErrorResponse(errorMessage, 500, ErrorCode.AI_ERROR);
     }
 }

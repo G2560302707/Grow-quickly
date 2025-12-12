@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { hash } from "bcryptjs";
+import { unauthorized, notFound, badRequest, validationError, internalError } from "@/lib/api-errors";
 
 const userUpdateSchema = z.object({
     name: z.string().optional(),
@@ -17,7 +18,7 @@ export async function GET() {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
-        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        return unauthorized();
     }
 
     try {
@@ -33,13 +34,13 @@ export async function GET() {
         });
 
         if (!user) {
-            return NextResponse.json({ message: "User not found" }, { status: 404 });
+            return notFound("User not found");
         }
 
         return NextResponse.json(user);
     } catch (error) {
         console.error("Failed to fetch user profile:", error);
-        return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+        return internalError("Failed to fetch user profile");
     }
 }
 
@@ -47,7 +48,7 @@ export async function PATCH(req: Request) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
-        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        return unauthorized();
     }
 
     try {
@@ -68,7 +69,7 @@ export async function PATCH(req: Request) {
         if (email && email.trim()) {
             const emailRegex = /^[^\s@]+@[^\s@]+$/;
             if (!emailRegex.test(email.trim())) {
-                return NextResponse.json({ message: "Invalid email format" }, { status: 400 });
+                return badRequest("Invalid email format");
             }
             updateData.email = email.trim();
         }
@@ -76,7 +77,7 @@ export async function PATCH(req: Request) {
         // 验证密码长度（如果提供了密码）
         if (password && password.length > 0) {
             if (password.length < 6) {
-                return NextResponse.json({ message: "Password must be at least 6 characters" }, { status: 400 });
+                return badRequest("Password must be at least 6 characters");
             }
             updateData.password = await hash(password, 10);
         }
@@ -96,8 +97,8 @@ export async function PATCH(req: Request) {
     } catch (error) {
         console.error("Failed to update user profile:", error);
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ message: "Invalid input", errors: error.issues }, { status: 400 });
+            return validationError("Invalid input", error.issues);
         }
-        return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+        return internalError("Failed to update user profile");
     }
 }
