@@ -3,10 +3,14 @@ name: Build and Push Docker Image
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'
     paths:
       - 'Dockerfile'
-      - 'index.js'
+      - 'docker-entrypoint.sh'
+      - 'src/**'
       - 'package.json'
+      - 'prisma/**'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -28,11 +32,26 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
-      # 🚨 新增步骤：设置 QEMU 模拟器
+
+      # 提取 Docker 元数据（自动生成版本标签）
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            # Git Tag v1.0.0 → 1.0.0, 1.0, 1
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # main 分支 → latest
+            type=raw,value=latest,enable={{is_default_branch}}
+            # 所有推送 → sha-abc1234
+            type=sha,prefix=sha-
+
+      # 设置 QEMU 模拟器（多架构支持）
       - name: Set up QEMU (Enable multi-arch)
         uses: docker/setup-qemu-action@v3
-      # --------------------------------
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -43,11 +62,7 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ghcr.io/${{ github.repository}}:latest
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.description=HTTP Server
-            org.opencontainers.image.licenses=MIT
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
