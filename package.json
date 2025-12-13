@@ -31,6 +31,7 @@
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
+    "global-agent": "^3.0.0",
     "jsonrepair": "^3.13.1",
     "katex": "^0.16.25",
     "next": "16.0.8",
@@ -46,6 +47,7 @@
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
+    "undici": "^7.16.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {
