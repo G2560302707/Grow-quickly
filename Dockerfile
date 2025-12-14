@@ -46,8 +46,10 @@ RUN apk add --no-cache su-exec openssl \
     && addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 
-# Install Prisma CLI globally (same version as project)
-RUN npm install -g prisma@5.22.0
+# Copy Prisma CLI and engine files from builder
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 COPY --from=builder /app/public ./public
 

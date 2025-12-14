@@ -5,8 +5,8 @@ set -e
 SOURCE_DB="/app/prisma/dev.db"
 TARGET_DB="/app/data/dev.db"
 SEED_MARKER="/app/data/.seed_completed"
-# Use globally installed Prisma CLI
-PRISMA_BIN="prisma"
+# Use local Prisma CLI from node_modules
+PRISMA_BIN="node /app/node_modules/prisma/build/index.js"
 
 # Fix permissions for data and config directories
 chown -R nextjs:nodejs /app/data /app/config
