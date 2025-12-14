@@ -45,3 +45,4 @@ next-env.d.ts
 
 # App config (contains secrets)
 /config/app-config.json
+dist-scripts

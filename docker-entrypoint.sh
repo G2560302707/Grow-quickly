@@ -57,7 +57,7 @@ else
         if [ "$PREVIOUS_VERSION" != "$CURRENT_VERSION" ]; then
             echo "[Entrypoint] Version upgrade detected: $PREVIOUS_VERSION -> $CURRENT_VERSION"
             echo "[Entrypoint] Rebuilding system tags to sync with new version..."
-            cd /app && node --import tsx ./scripts/rebuild-system-tags.ts && {
+            cd /app && node ./dist-scripts/scripts/rebuild-system-tags.js && {
                 echo "[Entrypoint] System tags rebuilt successfully."
             } || echo "[Entrypoint] Tag rebuild failed (non-fatal, continuing...)."
             # Update version marker

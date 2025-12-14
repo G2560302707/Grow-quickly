@@ -33,6 +33,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 
+# Pre-compile runtime scripts to JS (so we don't need tsx in runner)
+RUN npx tsc scripts/rebuild-system-tags.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2020
+
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
@@ -63,11 +66,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Copy config directory for runtime
 COPY --from=builder --chown=nextjs:nodejs /app/config ./config
 
-# Copy scripts and dependencies for runtime tag rebuild
-COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
-COPY --from=builder --chown=nextjs:nodejs /app/src/lib/tag-data.ts ./src/lib/tag-data.ts
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tsx ./node_modules/tsx
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/esbuild ./node_modules/esbuild
+# Copy pre-compiled runtime scripts
+COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts
 
 # Create data directory for SQLite persistence
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
