@@ -5,10 +5,11 @@ set -e
 SOURCE_DB="/app/prisma/dev.db"
 TARGET_DB="/app/data/dev.db"
 SEED_MARKER="/app/data/.seed_completed"
+# Use Prisma CLI copied from builder stage to node_modules
+PRISMA_BIN="./node_modules/.bin/prisma"
 
-# Fix permissions for data directory and config directory
-chown -R nextjs:nodejs /app/data
-chown -R nextjs:nodejs /app/config
+# Fix permissions for data and config directories
+chown -R nextjs:nodejs /app/data /app/config
 
 # Check if the persistent database exists
 if [ ! -f "$TARGET_DB" ]; then
@@ -27,13 +28,13 @@ else
     echo "[Entrypoint] Database already exists at $TARGET_DB."
     # Run migrations to ensure DB schema is up to date with new code version
     echo "[Entrypoint] Running database migrations to sync schema..."
-    cd /app && npx prisma migrate deploy --schema=./prisma/schema.prisma && {
+    cd /app && $PRISMA_BIN migrate deploy --schema=./prisma/schema.prisma && {
         echo "[Entrypoint] Migrations completed successfully."
         
         # Check if seed has been run (for upgrades from older versions)
         if [ ! -f "$SEED_MARKER" ]; then
             echo "[Entrypoint] First-time upgrade detected. Running database seed to populate system tags..."
-            cd /app && npx prisma db seed && {
+            cd /app && $PRISMA_BIN db seed && {
                 echo "[Entrypoint] Seed completed successfully."
                 touch "$SEED_MARKER"
             } || echo "[Entrypoint] Seed failed or already populated."
@@ -43,4 +44,5 @@ fi
 
 # Execute the main container command as nextjs user
 exec su-exec nextjs:nodejs "$@"
+
 

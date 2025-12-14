@@ -35,7 +35,7 @@
 **选项 A：直接使用 Docker 命令**
 
 ```bash
-docker run -d -p 3000:3000 --name wrong-notebook \
+docker run -d --name wrong-notebook \
   -e NEXTAUTH_SECRET="your_secret_key" \
   -p 3000:3000 \
   -v $(pwd)/data:/app/data \

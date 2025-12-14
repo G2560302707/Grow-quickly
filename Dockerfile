@@ -22,11 +22,9 @@ RUN apk add --no-cache openssl
 # Generate Prisma Client and Seed Database
 # We temporarily set DATABASE_URL to a local file for the build process to generate the file
 ENV DATABASE_URL="file:/app/prisma/dev.db"
-RUN npx prisma generate
-# Run migration to create the dev.db file
-RUN npx prisma migrate deploy
-# Seed the database with initial data (admin user)
-RUN npx prisma db seed
+RUN npx prisma generate \
+    && npx prisma migrate deploy \
+    && npx prisma db seed
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -43,14 +41,15 @@ ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install su-exec for permission handling
-RUN apk add --no-cache su-exec
+# Install dependencies and create user
+RUN apk add --no-cache su-exec openssl \
+    && addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Copy Prisma CLI and engines from builder stage (reuse existing dependency)
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
 COPY --from=builder /app/public ./public
 
@@ -68,8 +67,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/config ./config
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 # Copy entrypoint script
-COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
+COPY --chown=nextjs:nodejs --chmod=755 docker-entrypoint.sh ./
 
 EXPOSE 3000
 
