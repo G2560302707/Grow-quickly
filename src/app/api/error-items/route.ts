@@ -14,8 +14,8 @@ export async function POST(req: Request) {
             questionText,
             answerText,
             analysis,
-            knowledgePoints,
-            originalImageUrl, // We'll need to handle image storage properly later, for now assuming URL or base64
+            knowledgePoints, // 仍接收数组，但改为关联到 KnowledgeTag
+            originalImageUrl,
             subjectId,
             gradeSemester,
             paperLevel,
@@ -28,9 +28,6 @@ export async function POST(req: Request) {
             });
         }
 
-        // Fallback logic removed for security. 
-        // We must strictly require a valid session user.
-
         if (!user) {
             return unauthorized("No user found in DB");
         }
@@ -38,33 +35,49 @@ export async function POST(req: Request) {
         // Calculate grade if not provided
         let finalGradeSemester = gradeSemester;
         if (!finalGradeSemester && user.educationStage && user.enrollmentYear) {
-            // Default to English or handle language if passed in body? 
-            // For backend simplicity, let's default to English or check if we can infer.
-            // Actually, the frontend should send the calculated value. 
-            // If it falls back here, it might be better to use a default.
-            // Let's assume frontend sends it most of the time.
             finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear);
         }
 
-        console.log("[API] Creating ErrorItem with data:", {
-            userId: user.id,
-            questionText: questionText || "",
-            answerText: answerText || "",
-            analysis: analysis || "",
-            knowledgePoints: JSON.stringify(knowledgePoints || []),
-            originalImageUrl: (originalImageUrl || "").substring(0, 50) + "...", // Truncate for log
-            masteryLevel: 0,
-            gradeSemester: finalGradeSemester,
-            subjectId: subjectId,
-            paperLevel: paperLevel,
-        });
+        // 处理知识点标签：查找或创建 KnowledgeTag
+        const tagNames: string[] = Array.isArray(knowledgePoints) ? knowledgePoints : [];
+        const tagConnections: { id: string }[] = [];
 
-        console.log("[API] ========== SAVING ERROR ITEM ==========");
-        console.log("[API] Received knowledgePoints:", knowledgePoints);
-        console.log("[API] knowledgePoints type:", typeof knowledgePoints);
-        console.log("[API] knowledgePoints isArray:", Array.isArray(knowledgePoints));
-        console.log("[API] knowledgePoints length:", knowledgePoints?.length);
-        console.log("[API] knowledgePoints content:", JSON.stringify(knowledgePoints));
+        // 推断学科
+        const subject = await prisma.subject.findUnique({ where: { id: subjectId || '' } });
+        const subjectKey = subject?.name?.toLowerCase().includes('math') || subject?.name?.includes('数学')
+            ? 'math'
+            : subject?.name?.toLowerCase().includes('english') || subject?.name?.includes('英语')
+                ? 'english'
+                : 'other';
+
+        for (const tagName of tagNames) {
+            // 查找已存在的标签
+            let tag = await prisma.knowledgeTag.findFirst({
+                where: {
+                    name: tagName,
+                    OR: [
+                        { isSystem: true },
+                        { userId: user.id },
+                    ],
+                },
+            });
+
+            // 如果不存在，创建为用户自定义标签
+            if (!tag) {
+                tag = await prisma.knowledgeTag.create({
+                    data: {
+                        name: tagName,
+                        subject: subjectKey,
+                        isSystem: false,
+                        userId: user.id,
+                    },
+                });
+            }
+
+            tagConnections.push({ id: tag.id });
+        }
+
+        console.log("[API] Creating ErrorItem with tags:", tagNames);
 
         const errorItem = await prisma.errorItem.create({
             data: {
@@ -74,10 +87,16 @@ export async function POST(req: Request) {
                 questionText,
                 answerText,
                 analysis,
-                knowledgePoints: typeof knowledgePoints === 'string' ? knowledgePoints : JSON.stringify(knowledgePoints),
+                knowledgePoints: JSON.stringify(tagNames), // 保留旧字段兼容
                 gradeSemester: finalGradeSemester,
                 paperLevel: paperLevel,
-                masteryLevel: 0, // Default mastery level
+                masteryLevel: 0,
+                tags: {
+                    connect: tagConnections,
+                },
+            },
+            include: {
+                tags: true,
             },
         });
 

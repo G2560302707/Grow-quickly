@@ -28,6 +28,40 @@ model User {
   errorItems ErrorItem[]
   subjects   Subject[]
   practiceRecords PracticeRecord[]
+  customTags KnowledgeTag[] // User's custom tags
+}
+
+// 统一知识点标签表 (支持无限层级)
+model KnowledgeTag {
+  id        String   @id @default(cuid())
+  name      String   // 标签名，如 "勾股定理"
+  subject   String   // 学科，如 "math", "english"
+
+  // 层级控制 (邻接表模式)
+  parentId  String?
+  parent    KnowledgeTag?  @relation("TagHierarchy", fields: [parentId], references: [id])
+  children  KnowledgeTag[] @relation("TagHierarchy")
+
+  // 排序与编码
+  order     Int      @default(0) // 用于保持教材顺序
+  code      String?              // 如 "1.2.1"
+
+  // 区分系统预设 vs 用户自定义
+  isSystem  Boolean  @default(false)
+  userId    String?  // 如果是用户自定义标签，绑定 userId
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 与错题的多对多关系
+  errorItems ErrorItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 联合索引：确保同一用户（或系统）下同一学科的标签名不重复
+  @@unique([subject, name, userId])
+  // 索引：加速父子查询
+  @@index([parentId])
+  @@index([subject])
 }
 
 model Subject {
@@ -58,7 +92,10 @@ model ErrorItem {
   questionText     String? // Parsed question
   answerText       String? // AI provided answer
   analysis         String? // AI analysis/explanation
-  knowledgePoints  String? // JSON string or comma-separated tags
+  knowledgePoints  String? // [DEPRECATED] JSON string - kept for migration only
+  
+  // New: many-to-many relation with KnowledgeTag
+  tags             KnowledgeTag[]
   
   // User Metadata
   source           String? // e.g. "Midterm Exam"

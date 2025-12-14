@@ -4,6 +4,7 @@ set -e
 # Define paths
 SOURCE_DB="/app/prisma/dev.db"
 TARGET_DB="/app/data/dev.db"
+SEED_MARKER="/app/data/.seed_completed"
 
 # Fix permissions for data directory and config directory
 chown -R nextjs:nodejs /app/data
@@ -11,18 +12,35 @@ chown -R nextjs:nodejs /app/config
 
 # Check if the persistent database exists
 if [ ! -f "$TARGET_DB" ]; then
-    echo "Initializing database..."
+    echo "[Entrypoint] Initializing database..."
     if [ -f "$SOURCE_DB" ]; then
-        echo "Copying pre-packaged database from $SOURCE_DB to $TARGET_DB"
+        echo "[Entrypoint] Copying pre-packaged database from $SOURCE_DB to $TARGET_DB"
         cp "$SOURCE_DB" "$TARGET_DB"
         # Ensure correct permissions
         chown nextjs:nodejs "$TARGET_DB"
+        # Mark as seeded since pre-packaged DB includes seed data
+        touch "$SEED_MARKER"
     else
-        echo "Warning: Source database not found at $SOURCE_DB. Skipping initialization."
+        echo "[Entrypoint] Warning: Source database not found at $SOURCE_DB. Skipping initialization."
     fi
 else
-    echo "Database already exists at $TARGET_DB. Skipping initialization."
+    echo "[Entrypoint] Database already exists at $TARGET_DB."
+    # Run migrations to ensure DB schema is up to date with new code version
+    echo "[Entrypoint] Running database migrations to sync schema..."
+    cd /app && npx prisma migrate deploy --schema=./prisma/schema.prisma && {
+        echo "[Entrypoint] Migrations completed successfully."
+        
+        # Check if seed has been run (for upgrades from older versions)
+        if [ ! -f "$SEED_MARKER" ]; then
+            echo "[Entrypoint] First-time upgrade detected. Running database seed to populate system tags..."
+            cd /app && npx prisma db seed && {
+                echo "[Entrypoint] Seed completed successfully."
+                touch "$SEED_MARKER"
+            } || echo "[Entrypoint] Seed failed or already populated."
+        fi
+    } || echo "[Entrypoint] Migration failed or no pending migrations."
 fi
 
 # Execute the main container command as nextjs user
 exec su-exec nextjs:nodejs "$@"
+

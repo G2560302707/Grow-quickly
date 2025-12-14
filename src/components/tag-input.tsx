@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { getAllCustomTagsFlat } from "@/lib/custom-tags";
 import { apiClient } from "@/lib/api-client";
 import { TagSuggestionsResponse } from "@/types/api";
 
@@ -14,9 +13,11 @@ interface TagInputProps {
     placeholder?: string;
     className?: string;
     enterHint?: string;
+    subject?: string; // 新增：用于过滤标签建议的学科
+    gradeStage?: string; // 新增：用于过滤标签建议的学段 (primary, junior_high, senior_high)
 }
 
-export function TagInput({ value = [], onChange, placeholder = "Enter tags...", className = "", enterHint }: TagInputProps) {
+export function TagInput({ value = [], onChange, placeholder = "Enter tags...", className = "", enterHint, subject, gradeStage }: TagInputProps) {
     const [input, setInput] = useState("");
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -32,28 +33,27 @@ export function TagInput({ value = [], onChange, placeholder = "Enter tags...", 
             setSuggestions([]);
             setShowSuggestions(false);
         }
-    }, [input]);
+    }, [input, subject, gradeStage]);
 
     const fetchSuggestions = async (query: string) => {
         try {
-            // 获取服务器端的标签建议（标准标签 + 已使用标签）
-            const data = await apiClient.get<TagSuggestionsResponse>(`/api/tags/suggestions?q=${encodeURIComponent(query)}`);
+            // 从服务器获取标签建议（现在从数据库查询）
+            const params = new URLSearchParams({ q: query });
+            if (subject) {
+                params.append('subject', subject);
+            }
+            if (gradeStage) {
+                params.append('stage', gradeStage);
+            }
+            const data = await apiClient.get<TagSuggestionsResponse>(`/api/tags/suggestions?${params.toString()}`);
             const serverSuggestions = data.suggestions || [];
 
-            // 获取客户端的自定义标签
-            const customTags = getAllCustomTagsFlat();
-
-            // 合并所有标签并去重
-            const allTags = Array.from(new Set([...serverSuggestions, ...customTags]));
-
-            // 过滤匹配查询的标签
-            const filtered = allTags.filter(
-                (tag) =>
-                    tag.toLowerCase().includes(query.toLowerCase()) &&
-                    !value.includes(tag) // 排除已选中的标签
+            // 过滤已选中的标签
+            const filtered = serverSuggestions.filter(
+                (tag) => !value.includes(tag)
             );
 
-            setSuggestions(filtered.slice(0, 20)); // 限制20个
+            setSuggestions(filtered.slice(0, 20));
             setShowSuggestions(filtered.length > 0);
             setSelectedIndex(0);
         } catch (error) {

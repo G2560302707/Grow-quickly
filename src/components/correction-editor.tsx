@@ -15,7 +15,8 @@ import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
-import { UserProfile } from "@/types/api";
+import { UserProfile, Notebook } from "@/types/api";
+import { inferSubjectFromName } from "@/lib/knowledge-tags";
 
 interface ParsedQuestionWithSubject extends ParsedQuestion {
     subjectId?: string;
@@ -42,13 +43,24 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
     const { t, language } = useLanguage();
     const [isReanswering, setIsReanswering] = useState(false);
 
+    const [educationStage, setEducationStage] = useState<string | undefined>(undefined);
+    const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+
+
+
     // Fetch user info and calculate grade on mount
     useEffect(() => {
+        // Fetch notebooks for mapping
+        apiClient.get<Notebook[]>("/api/notebooks")
+            .then(setNotebooks)
+            .catch(err => console.error("Failed to fetch notebooks:", err));
+
         apiClient.get<UserProfile>("/api/user")
             .then(user => {
                 if (user && user.educationStage && user.enrollmentYear) {
                     const grade = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), language);
                     setData(prev => ({ ...prev, gradeSemester: grade }));
+                    setEducationStage(user.educationStage);
                 }
             })
             .catch(err => console.error("Failed to fetch user info for grade calculation:", err));
@@ -232,6 +244,8 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             onChange={(tags) => setData({ ...data, knowledgePoints: tags })}
                             placeholder={t.editor.tagsPlaceholder || "Enter knowledge tags..."}
                             enterHint={t.editor.createTagHint}
+                            subject={inferSubjectFromName(notebooks.find(n => n.id === data.subjectId)?.name || null) || inferSubjectFromName(data.subject || null) || undefined}
+                            gradeStage={educationStage}
                         />
                         <p className="text-xs text-muted-foreground">
                             {t.editor.tagsHint || "💡 Tag suggestions will appear as you type"}

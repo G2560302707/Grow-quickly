@@ -17,6 +17,13 @@ const mocks = vi.hoisted(() => ({
         update: vi.fn(),
         delete: vi.fn(),
     },
+    mockPrismaKnowledgeTag: {
+        findFirst: vi.fn(),
+        create: vi.fn(),
+    },
+    mockPrismaSubject: {
+        findUnique: vi.fn(),
+    },
     mockSession: {
         user: {
             email: 'user@example.com',
@@ -31,6 +38,8 @@ vi.mock('@/lib/prisma', () => ({
     prisma: {
         user: mocks.mockPrismaUser,
         errorItem: mocks.mockPrismaErrorItem,
+        knowledgeTag: mocks.mockPrismaKnowledgeTag,
+        subject: mocks.mockPrismaSubject,
     },
 }));
 
@@ -70,6 +79,25 @@ describe('/api/error-items', () => {
         vi.clearAllMocks();
         mocks.mockPrismaUser.findUnique.mockResolvedValue(mockUser);
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
+
+        // Default: subject not found (handle null case)
+        mocks.mockPrismaSubject.findUnique.mockResolvedValue(null);
+
+        // Default: knowledgeTag returns a mock tag (used when finding existing tags)
+        mocks.mockPrismaKnowledgeTag.findFirst.mockImplementation(async (args: any) => {
+            // Return a mock tag based on the search name
+            const name = args?.where?.name;
+            if (name) {
+                return { id: `tag-${name}`, name, subject: 'math', isSystem: false };
+            }
+            return null;
+        });
+
+        // Default: create returns the created tag
+        mocks.mockPrismaKnowledgeTag.create.mockImplementation(async (args: any) => ({
+            id: `tag-new-${Date.now()}`,
+            ...args.data,
+        }));
     });
 
     describe('POST /api/error-items (创建错题)', () => {

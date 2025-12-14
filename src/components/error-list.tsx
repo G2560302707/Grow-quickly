@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { KnowledgeFilter } from "@/components/knowledge-filter";
-import { getMathCurriculum } from "@/lib/knowledge-tags";
 import { ErrorItem } from "@/types/api";
 import { apiClient } from "@/lib/api-client";
 
@@ -78,30 +77,11 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             setSelectedTag(null);
         } else if (!chapter) {
             setChapterFilter("");
-            // Don't clear tag if we just switched grade but kept tag? No, tag depends on chapter usually.
-            // But KnowledgeFilter handles the UI state. We just sync here.
         }
     };
 
-    // Filter items client-side for Chapter (since API doesn't support it yet)
-    const filteredItems = items.filter(item => {
-        if (!chapterFilter || selectedTag) return true; // If specific tag selected, API handles it. If no chapter, all good.
-
-        const curriculum = getMathCurriculum();
-        const chapters = curriculum[gradeFilter] || [];
-        const targetChapter = chapters.find(c => c.chapter === chapterFilter);
-        if (!targetChapter) return true;
-
-        const chapterTags = new Set(targetChapter.sections.flatMap(s => [
-            ...(s.tags || []),
-            ...(s.subsections?.flatMap(sub => sub.tags) || [])
-        ]));
-
-        let itemTags: string[] = [];
-        try { itemTags = JSON.parse(item.knowledgePoints || "[]"); } catch (e) { }
-
-        return itemTags.some(t => chapterTags.has(t));
-    });
+    // 使用服务端 items 直接渲染，章节过滤已在 KnowledgeFilter 中通过 tag 实现
+    const filteredItems = items;
 
     const toggleTagsExpanded = (itemId: string, e: React.MouseEvent) => {
         e.preventDefault();
@@ -256,11 +236,16 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredItems.map((item) => {
+                    // 优先使用 tags 关联，回退到 knowledgePoints
                     let tags: string[] = [];
-                    try {
-                        tags = JSON.parse(item.knowledgePoints || "[]");
-                    } catch (e) {
-                        tags = [];
+                    if ((item as any).tags && (item as any).tags.length > 0) {
+                        tags = (item as any).tags.map((t: any) => t.name);
+                    } else {
+                        try {
+                            tags = JSON.parse(item.knowledgePoints || "[]");
+                        } catch (e) {
+                            tags = [];
+                        }
                     }
                     return (
                         <Link key={item.id} href={`/error-items/${item.id}`}>

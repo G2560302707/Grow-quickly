@@ -2,7 +2,6 @@
  * Shared AI prompt templates
  * This module provides centralized prompt management
  */
-import { getMathTagsByGrade } from '../knowledge-tags';
 
 /**
  * Options for customizing prompts
@@ -14,6 +13,12 @@ export interface PromptOptions {
     tags: string[];
   }[];
   customTemplate?: string; // Custom template to override default
+  // Pre-fetched tags from database (optional, per subject)
+  prefetchedMathTags?: string[];
+  prefetchedPhysicsTags?: string[];
+  prefetchedChemistryTags?: string[];
+  prefetchedBiologyTags?: string[];
+  prefetchedEnglishTags?: string[];
 }
 
 export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE TASK)】
@@ -131,35 +136,25 @@ function replaceVariables(template: string, variables: Record<string, string>): 
  * @param grade - 年级 (7-9:初中, 10-12:高中) 或 null
  * @returns 标签数组
  */
-export function getMathTagsForGrade(grade: 7 | 8 | 9 | 10 | 11 | 12 | null): string[] {
-  if (!grade) {
-    // 如果没有年级信息，返回所有年级的标签
-    return [
-      ...getMathTagsByGrade(7),
-      ...getMathTagsByGrade(8),
-      ...getMathTagsByGrade(9),
-      ...getMathTagsByGrade(10),
-      ...getMathTagsByGrade(11),
-      ...getMathTagsByGrade(12)
-    ];
+/**
+ * 获取指定年级的数学标签
+ * 必须由调用方预先从数据库获取标签并通过 prefetchedTags 传入
+ * @param grade - 年级（已弃用，保留接口兼容）
+ * @param prefetchedTags - 从数据库预获取的标签数组
+ * @returns 标签数组
+ */
+export function getMathTagsForGrade(
+  grade: 7 | 8 | 9 | 10 | 11 | 12 | null,
+  prefetchedTags?: string[]
+): string[] {
+  // 必须使用预获取的数据库标签
+  if (prefetchedTags && prefetchedTags.length > 0) {
+    return prefetchedTags;
   }
 
-  // 判断是初中还是高中
-  if (grade >= 7 && grade <= 9) {
-    // 初中累进式标签：当前年级及之前所有年级
-    const tags: string[] = [];
-    if (grade >= 7) tags.push(...getMathTagsByGrade(7));
-    if (grade >= 8) tags.push(...getMathTagsByGrade(8));
-    if (grade >= 9) tags.push(...getMathTagsByGrade(9));
-    return tags;
-  } else {
-    // 高中累进式标签：从高一开始累进（不含初中内容）
-    const tags: string[] = [];
-    if (grade >= 10) tags.push(...getMathTagsByGrade(10));
-    if (grade >= 11) tags.push(...getMathTagsByGrade(11));
-    if (grade >= 12) tags.push(...getMathTagsByGrade(12));
-    return tags;
-  }
+  // 如果没有预获取标签，返回空数组（AI 将自由标注）
+  console.warn('[prompts] No prefetched tags provided, AI will tag freely');
+  return [];
 }
 
 /**
@@ -178,9 +173,21 @@ export function generateAnalyzePrompt(
     ? "IMPORTANT: For the 'analysis' field, use Simplified Chinese. For 'questionText' and 'answerText', YOU MUST USE THE SAME LANGUAGE AS THE ORIGINAL QUESTION. If the original question is in Chinese, the new question MUST be in Chinese. If the original is in English, keep it in English. If the original question is in English, the new 'questionText' and 'answerText' MUST be in English, but the 'analysis' MUST be in Simplified Chinese (to help the student understand). "
     : "Please ensure all text fields are in English.";
 
-  // 获取数学标签（根据年级累进）
-  const mathTags = getMathTagsForGrade(grade || null);
-  const mathTagsString = mathTags.map(tag => `"${tag}"`).join(", ");
+  // 获取各学科标签（优先使用预获取的数据库标签）
+  const mathTags = getMathTagsForGrade(grade || null, options?.prefetchedMathTags);
+  const mathTagsString = mathTags.length > 0 ? mathTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
+
+  const physicsTags = options?.prefetchedPhysicsTags || [];
+  const physicsTagsString = physicsTags.length > 0 ? physicsTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
+
+  const chemistryTags = options?.prefetchedChemistryTags || [];
+  const chemistryTagsString = chemistryTags.length > 0 ? chemistryTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
+
+  const biologyTags = options?.prefetchedBiologyTags || [];
+  const biologyTagsString = biologyTags.length > 0 ? biologyTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
+
+  const englishTags = options?.prefetchedEnglishTags || [];
+  const englishTagsString = englishTags.length > 0 ? englishTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
 
   // 根据科目决定显示哪些标签（节省 token，提高准确性）
   let tagsSection = "";
@@ -195,26 +202,52 @@ ${mathTagsString}
 - 每题最多 5 个标签`;
   } else if (subject === '物理') {
     tagsSection = `**物理标签 (Physics Tags):**
-"力学", "电学", "光学", "热学", "声学", "磁学", "欧姆定律", "浮力", "压强", "功和能", "杠杆原理", "滑轮", "电功率", "串并联电路", "电磁感应", "凸透镜成像", "光的反射", "光的折射", "机械运动", "牛顿定律"`;
+使用课程大纲中的**精确标签名称**，可选标签如下：
+${physicsTagsString}
+
+**重要提示**：
+- 必须从上述列表中选择精确匹配的标签
+- 每题最多 5 个标签`;
   } else if (subject === '化学') {
     tagsSection = `**化学标签 (Chemistry Tags):**
-"化学方程式", "氧化还原反应", "酸碱盐", "有机化学", "无机化学", "元素周期表", "化学键", "溶液", "溶解度", "酸碱中和", "金属活动性", "燃烧", "化学计算", "气体制备", "物质分类"`;
+使用课程大纲中的**精确标签名称**，可选标签如下：
+${chemistryTagsString}
+
+**重要提示**：
+- 必须从上述列表中选择精确匹配的标签
+- 每题最多 5 个标签`;
+  } else if (subject === '生物') {
+    tagsSection = `**生物标签 (Biology Tags):**
+使用课程大纲中的**精确标签名称**，可选标签如下：
+${biologyTagsString}
+
+**重要提示**：
+- 必须从上述列表中选择精确匹配的标签
+- 每题最多 5 个标签`;
   } else if (subject === '英语') {
     tagsSection = `**英语标签 (English Tags):**
-"语法", "词汇", "阅读理解", "完形填空", "写作", "听力", "翻译", "时态", "从句", "冠词", "介词", "动词短语", "固定搭配"`;
+使用课程大纲中的**精确标签名称**，可选标签如下：
+${englishTagsString}
+
+**重要提示**：
+- 必须从上述列表中选择精确匹配的标签
+- 每题最多 5 个标签`;
   } else {
     // 未知科目：显示所有标签让 AI 判断
     tagsSection = `**数学标签 (Math Tags):**
 ${mathTagsString}
 
 **物理标签 (Physics Tags):**
-"力学", "电学", "光学", "热学", "欧姆定律", "浮力", "压强", "功和能"
+${physicsTagsString}
 
 **化学标签 (Chemistry Tags):**
-"化学方程式", "氧化还原反应", "酸碱盐", "有机化学", "无机化学"
+${chemistryTagsString}
+
+**生物标签 (Biology Tags):**
+${biologyTagsString}
 
 **英语标签 (English Tags):**
-"语法", "词汇", "阅读理解", "完形填空", "写作", "听力", "翻译"`;
+${englishTagsString}`;
   }
 
   const template = options?.customTemplate || DEFAULT_ANALYZE_TEMPLATE;

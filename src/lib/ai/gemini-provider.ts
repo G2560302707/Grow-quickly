@@ -3,6 +3,7 @@ import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
 import { generateAnalyzePrompt, generateSimilarQuestionPrompt } from './prompts';
 import { safeParseParsedQuestion } from './schema';
 import { getAppConfig } from '../config';
+import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
 
 export class GeminiProvider implements AIService {
     private genAI: GoogleGenerativeAI;
@@ -93,8 +94,22 @@ export class GeminiProvider implements AIService {
 
     async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: 7 | 8 | 9 | 10 | 11 | 12 | null, subject?: string | null): Promise<ParsedQuestion> {
         const config = getAppConfig();
+
+        // 从数据库获取各学科标签
+        // 如果指定了学科，只获取该学科；否则获取所有学科标签供 AI 判断
+        const prefetchedMathTags = (subject === '数学' || !subject) ? await getMathTagsFromDB(grade || null) : [];
+        const prefetchedPhysicsTags = (subject === '物理' || !subject) ? await getTagsFromDB('physics') : [];
+        const prefetchedChemistryTags = (subject === '化学' || !subject) ? await getTagsFromDB('chemistry') : [];
+        const prefetchedBiologyTags = (subject === '生物' || !subject) ? await getTagsFromDB('biology') : [];
+        const prefetchedEnglishTags = (subject === '英语' || !subject) ? await getTagsFromDB('english') : [];
+
         const prompt = generateAnalyzePrompt(language, grade, subject, {
-            customTemplate: config.prompts?.analyze
+            customTemplate: config.prompts?.analyze,
+            prefetchedMathTags,
+            prefetchedPhysicsTags,
+            prefetchedChemistryTags,
+            prefetchedBiologyTags,
+            prefetchedEnglishTags,
         });
 
         console.log("\n" + "=".repeat(80));

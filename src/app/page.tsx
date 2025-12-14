@@ -43,9 +43,10 @@ function HomeContent() {
             .catch(err => console.error("Failed to fetch notebooks:", err));
     }, []);
 
-    // Simulate progress for smoother UX
+    // Simulate progress for smoother UX with timeout protection
     useEffect(() => {
         let interval: NodeJS.Timeout;
+        let timeout: NodeJS.Timeout;
         if (analysisStep !== 'idle') {
             setProgress(0);
             interval = setInterval(() => {
@@ -54,8 +55,17 @@ function HomeContent() {
                     return prev + Math.random() * 10;
                 });
             }, 500);
+
+            // Safety timeout: auto-reset after 60s to prevent stuck overlay
+            timeout = setTimeout(() => {
+                console.warn('[Progress] Safety timeout triggered - resetting analysisStep');
+                setAnalysisStep('idle');
+            }, 60000);
         }
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            clearTimeout(timeout);
+        };
     }, [analysisStep]);
 
     const onImageSelect = (file: File) => {

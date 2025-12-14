@@ -35,18 +35,18 @@ describe('auth-utils', () => {
     describe('requireAdmin', () => {
         it('应该对管理员 session 返回 true', () => {
             const session = {
-                user: { role: 'admin', email: 'admin@localhost' },
+                user: { id: 'admin-id', role: 'admin', email: 'admin@localhost' },
                 expires: '2025-12-31',
             };
-            expect(requireAdmin(session)).toBe(true);
+            expect(requireAdmin(session as any)).toBe(true);
         });
 
         it('应该对普通用户 session 返回 false', () => {
             const session = {
-                user: { role: 'user', email: 'user@example.com' },
+                user: { id: 'user-id', role: 'user', email: 'user@example.com' },
                 expires: '2025-12-31',
             };
-            expect(requireAdmin(session)).toBe(false);
+            expect(requireAdmin(session as any)).toBe(false);
         });
 
         it('应该对 null session 返回 false', () => {

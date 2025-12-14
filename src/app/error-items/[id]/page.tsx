@@ -14,17 +14,29 @@ import { TagInput } from "@/components/tag-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
+import { UserProfile } from "@/types/api";
+import { inferSubjectFromName } from "@/lib/knowledge-tags";
+
+interface KnowledgeTag {
+    id: string;
+    name: string;
+}
 
 interface ErrorItemDetail {
     id: string;
     questionText: string;
     answerText: string;
     analysis: string;
-    knowledgePoints: string;
+    knowledgePoints: string; // 保留兼容旧数据
+    tags: KnowledgeTag[]; // 新的标签关联
     masteryLevel: number;
     originalImageUrl: string;
     userNotes: string | null;
     subjectId?: string | null;
+    subject?: {
+        id: string;
+        name: string;
+    } | null;
     gradeSemester?: string | null;
     paperLevel?: string | null;
 }
@@ -44,7 +56,18 @@ export default function ErrorDetailPage() {
     const [gradeSemesterInput, setGradeSemesterInput] = useState("");
     const [paperLevelInput, setPaperLevelInput] = useState("a");
 
+    const [educationStage, setEducationStage] = useState<string | undefined>(undefined);
+
     useEffect(() => {
+        // Fetch user info for education stage
+        apiClient.get<UserProfile>("/api/user")
+            .then(user => {
+                if (user && user.educationStage) {
+                    setEducationStage(user.educationStage);
+                }
+            })
+            .catch(err => console.error("Failed to fetch user info:", err));
+
         if (params.id) {
             fetchItem(params.id as string);
         }
@@ -109,27 +132,31 @@ export default function ErrorDetailPage() {
     };
 
     const startEditingTags = () => {
-        if (item && item.knowledgePoints) {
-            try {
-                const tags = JSON.parse(item.knowledgePoints);
-                setTagsInput(tags);
-            } catch (e) {
+        if (item) {
+            // 优先使用新的 tags 关联
+            if (item.tags && item.tags.length > 0) {
+                setTagsInput(item.tags.map(t => t.name));
+            } else if (item.knowledgePoints) {
+                // 回退到旧的 knowledgePoints 字段
+                try {
+                    const tags = JSON.parse(item.knowledgePoints);
+                    setTagsInput(tags);
+                } catch (e) {
+                    setTagsInput([]);
+                }
+            } else {
                 setTagsInput([]);
             }
-            setIsEditingTags(true);
-        } else if (item) {
-            setTagsInput([]);
             setIsEditingTags(true);
         }
     };
 
     const saveTagsHandler = async () => {
         try {
-            const payload = {
-                knowledgePoints: JSON.stringify(tagsInput),
-            };
-
-            await apiClient.put(`/api/error-items/${item?.id}`, payload);
+            // 直接传递标签名称数组，后端会处理关联
+            await apiClient.put(`/api/error-items/${item?.id}`, {
+                knowledgePoints: tagsInput, // 后端接收数组
+            });
 
             setIsEditingTags(false);
             await fetchItem(params.id as string);
@@ -192,14 +219,17 @@ export default function ErrorDetailPage() {
     if (loading) return <div className="p-8 text-center">{t.common.loading}</div>;
     if (!item) return <div className="p-8 text-center">{t.detail.notFound || "Item not found"}</div>;
 
+    // 优先从 tags 关联获取，回退到 knowledgePoints
     let tags: string[] = [];
-    try {
-        if (item.knowledgePoints) {
+    if (item.tags && item.tags.length > 0) {
+        tags = item.tags.map(t => t.name);
+    } else if (item.knowledgePoints) {
+        try {
             const parsed = JSON.parse(item.knowledgePoints);
             tags = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            tags = [];
         }
-    } catch (e) {
-        tags = [];
     }
 
     return (
@@ -303,6 +333,8 @@ export default function ErrorDetailPage() {
                                                 value={tagsInput}
                                                 onChange={setTagsInput}
                                                 placeholder="输入或选择知识点标签..."
+                                                subject={inferSubjectFromName(item.subject?.name || null) || undefined}
+                                                gradeStage={educationStage}
                                             />
                                             <p className="text-xs text-muted-foreground">
                                                 💡 可以从标准标签库或自定义标签中选择

@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield } from "lucide-react";
+import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -45,6 +45,8 @@ export function SettingsDialog() {
     const [open, setOpen] = useState(false);
     const [clearingPractice, setClearingPractice] = useState(false);
     const [clearingError, setClearingError] = useState(false);
+    const [systemResetting, setSystemResetting] = useState(false);
+    const [migratingTags, setMigratingTags] = useState(false);
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
     const [showApiKey, setShowApiKey] = useState(false);
@@ -192,6 +194,51 @@ export function SettingsDialog() {
             alert(t.settings?.clearError || "Failed");
         } finally {
             setClearingError(false);
+        }
+    };
+
+    const handleSystemReset = async () => {
+        // Double confirm
+        if (!confirm(t.settings?.systemResetConfirm || "WARNING: Deleting ALL data. Undoing is impossible. Are you sure?")) {
+            return;
+        }
+
+        // Optional triple confirm?
+        const userInput = prompt(t.settings?.systemResetPrompt || "Type 'RESET' to confirm system initialization:", "");
+        if (userInput !== 'RESET') {
+            if (userInput !== null) alert(t.common?.error || "Confirmation failed");
+            return;
+        }
+
+        setSystemResetting(true);
+        try {
+            await apiClient.post("/api/admin/system-reset", {});
+            alert(t.settings?.clearSuccess || "Success - System Reset Complete");
+            setOpen(false);
+            window.location.reload();
+        } catch (error) {
+            console.error("System reset failed:", error);
+            alert(t.settings?.clearError || "Failed to reset system");
+        } finally {
+            setSystemResetting(false);
+        }
+    };
+
+    const handleMigrateTags = async () => {
+        if (!confirm(t.settings?.migrateTagsConfirm || "This will reset system tags. Confirm?")) {
+            return;
+        }
+
+        setMigratingTags(true);
+        try {
+            const res = await apiClient.post("/api/admin/migrate-tags", {});
+            alert(`${t.settings?.clearSuccess || "Success"}: ${(res as any).count || 0} tags migrated.`);
+            // No reload needed necessarily, but good to refresh if user is viewing tags.
+        } catch (error) {
+            console.error("Tag migration failed:", error);
+            alert(t.settings?.clearError || "Failed to migrate tags");
+        } finally {
+            setMigratingTags(false);
         }
     };
 
@@ -592,6 +639,67 @@ export function SettingsDialog() {
                                     {t.settings?.clearErrorDataDesc || 'This will permanently delete all error items. Irreversible.'}
                                 </p>
                             </div>
+
+                            {/* System Reset & Migration (Admin Only) */}
+                            {(session?.user as any)?.role === 'admin' && (
+                                <>
+                                    {/* Migrate Tags */}
+                                    <div className="p-4 border border-blue-200 rounded-lg bg-blue-50 mb-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm text-blue-900 font-bold flex items-center gap-2">
+                                                    <RefreshCw className="h-4 w-4" />
+                                                    {t.settings?.migrateTags || "Migrate Tags"}
+                                                </span>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleMigrateTags}
+                                                disabled={migratingTags}
+                                                className="bg-blue-100 hover:bg-blue-200 text-blue-900 border-blue-300"
+                                            >
+                                                {migratingTags ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <RefreshCw className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-blue-800 mt-2 font-medium">
+                                            {t.settings?.migrateTagsDesc || 'Re-populates standard tags from file'}
+                                        </p>
+                                    </div>
+
+                                    {/* System Reset */}
+                                    <div className="p-4 border border-red-600/50 rounded-lg bg-red-100/50">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm text-red-900 font-bold flex items-center gap-2">
+                                                    <AlertTriangle className="h-4 w-4" />
+                                                    {t.settings?.systemReset || "System Initialization"}
+                                                </span>
+                                            </div>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={handleSystemReset}
+                                                disabled={systemResetting}
+                                                className="bg-red-700 hover:bg-red-800"
+                                            >
+                                                {systemResetting ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-red-800 mt-2 font-medium">
+                                            {t.settings?.systemResetDesc || 'Resets the system to factory state. Deletes ALL data.'}
+                                        </p>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </TabsContent>
 

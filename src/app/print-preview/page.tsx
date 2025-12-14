@@ -102,11 +102,16 @@ function PrintPreviewContent() {
             {/* Print Content */}
             <div className="max-w-4xl mx-auto p-8 print:p-0">
                 {items.map((item, index) => {
+                    // 优先使用 tags 关联，回退到 knowledgePoints
                     let tags: string[] = [];
-                    try {
-                        tags = JSON.parse(item.knowledgePoints || "[]");
-                    } catch (e) {
-                        tags = [];
+                    if ((item as any).tags && (item as any).tags.length > 0) {
+                        tags = (item as any).tags.map((t: any) => t.name);
+                    } else {
+                        try {
+                            tags = JSON.parse(item.knowledgePoints || "[]");
+                        } catch (e) {
+                            tags = [];
+                        }
                     }
 
                     return (

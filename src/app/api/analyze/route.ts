@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAIService } from "@/lib/ai";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { normalizeTags, normalizeTagsByGradeAndSubject, calculateGrade, inferSubjectFromName } from "@/lib/knowledge-tags";
+import { calculateGrade, inferSubjectFromName } from "@/lib/knowledge-tags";
 import { prisma } from "@/lib/prisma";
 import { badRequest, internalError, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
         // 先获取用户年级信息，用于动态生成 AI prompt 中的标签列表
         let userGrade: 7 | 8 | 9 | 10 | 11 | 12 | null = null;
-        let subjectName: 'math' | 'physics' | 'chemistry' | 'english' | null = null;
+        let subjectName: 'math' | 'physics' | 'chemistry' | 'biology' | 'english' | null = null;
 
         if (session?.user?.email) {
             try {
@@ -80,6 +80,7 @@ export async function POST(req: Request) {
             'math': '数学',
             'physics': '物理',
             'chemistry': '化学',
+            'biology': '生物',
             'english': '英语',
         };
         const subjectChinese = subjectName ? subjectNameMapping[subjectName] : null;
@@ -93,29 +94,8 @@ export async function POST(req: Request) {
         console.log("[API] knowledgePoints type:", typeof analysisResult.knowledgePoints);
         console.log("[API] knowledgePoints isArray:", Array.isArray(analysisResult.knowledgePoints));
 
-
-        // 标准化知识点标签
-        if (analysisResult.knowledgePoints && analysisResult.knowledgePoints.length > 0) {
-            const originalTags = [...analysisResult.knowledgePoints];
-
-            // 如果有年级或学科信息,使用智能匹配
-            if (userGrade || subjectName) {
-                analysisResult.knowledgePoints = normalizeTagsByGradeAndSubject(
-                    analysisResult.knowledgePoints,
-                    userGrade,
-                    subjectName
-                );
-                console.log("[API] Used grade/subject-based normalization");
-                console.log("[API] Grade:", userGrade, "Subject:", subjectName);
-            } else {
-                // 否则使用默认匹配
-                analysisResult.knowledgePoints = normalizeTags(analysisResult.knowledgePoints);
-                console.log("[API] Used default normalization");
-            }
-
-            console.log("[API] Original tags:", originalTags);
-            console.log("[API] Normalized tags:", analysisResult.knowledgePoints);
-        } else {
+        // AI 现在从数据库获取标签列表，返回的标签已经是标准化的，不需要额外处理
+        if (!analysisResult.knowledgePoints || analysisResult.knowledgePoints.length === 0) {
             console.log("[API] ⚠️ WARNING: knowledgePoints is empty or null!");
         }
 

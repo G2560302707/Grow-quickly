@@ -34,6 +34,7 @@ export async function GET(
             },
             include: {
                 subject: true,
+                tags: true, // 包含标签关联
             },
         });
 
@@ -81,6 +82,7 @@ export async function PUT(
 
         const errorItem = await prisma.errorItem.findUnique({
             where: { id },
+            include: { subject: true },
         });
 
         if (!errorItem) {
@@ -91,22 +93,70 @@ export async function PUT(
             return forbidden("Not authorized to update this item");
         }
 
-        // 构建更新数据对象,只包含提供的字段
+        // 构建更新数据
         const updateData: any = {};
-        if (knowledgePoints !== undefined) updateData.knowledgePoints = knowledgePoints;
         if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
         if (paperLevel !== undefined) updateData.paperLevel = paperLevel;
 
+        // 处理 knowledgePoints (标签)
+        if (knowledgePoints !== undefined) {
+            const tagNames: string[] = Array.isArray(knowledgePoints)
+                ? knowledgePoints
+                : typeof knowledgePoints === 'string'
+                    ? JSON.parse(knowledgePoints)
+                    : [];
+
+            // 推断学科
+            const subjectKey = errorItem.subject?.name?.toLowerCase().includes('math') ||
+                errorItem.subject?.name?.includes('数学')
+                ? 'math'
+                : errorItem.subject?.name?.toLowerCase().includes('english') ||
+                    errorItem.subject?.name?.includes('英语')
+                    ? 'english'
+                    : 'other';
+
+            const tagConnections: { id: string }[] = [];
+            for (const tagName of tagNames) {
+                let tag = await prisma.knowledgeTag.findFirst({
+                    where: {
+                        name: tagName,
+                        OR: [
+                            { isSystem: true },
+                            { userId: user.id },
+                        ],
+                    },
+                });
+
+                if (!tag) {
+                    tag = await prisma.knowledgeTag.create({
+                        data: {
+                            name: tagName,
+                            subject: subjectKey,
+                            isSystem: false,
+                            userId: user.id,
+                        },
+                    });
+                }
+                tagConnections.push({ id: tag.id });
+            }
+
+            // 更新标签关联: 先断开所有，再连接新的
+            updateData.tags = {
+                set: [], // 先清空
+                connect: tagConnections,
+            };
+
+            // 保留旧字段兼容
+            updateData.knowledgePoints = JSON.stringify(tagNames);
+        }
+
         console.log("[API] Updating error item:", id);
-        console.log("[API] Update data:", updateData);
-        console.log("[API] Current knowledgePoints:", errorItem.knowledgePoints);
 
         const updated = await prisma.errorItem.update({
             where: { id },
             data: updateData,
+            include: { tags: true },
         });
-
-        console.log("[API] Updated knowledgePoints:", updated.knowledgePoints);
 
         return NextResponse.json(updated);
     } catch (error) {
