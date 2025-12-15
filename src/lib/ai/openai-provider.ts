@@ -153,7 +153,7 @@ export class OpenAIProvider implements AIService {
                     },
                 ],
                 // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
-                max_tokens: 4096,
+                max_tokens: 8192,
             });
 
             // 调试：打印完整响应对象
@@ -228,7 +228,7 @@ export class OpenAIProvider implements AIService {
                     { role: "user", content: userPrompt },
                 ],
                 // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
-                max_tokens: 4096,
+                max_tokens: 8192,
             });
 
             const text = response.choices[0]?.message?.content || "";
@@ -298,7 +298,7 @@ export class OpenAIProvider implements AIService {
                     { role: "system", content: prompt.substring(0, 200) + "..." },
                     { role: "user", content: typeof userContent === 'string' ? userContent : "[包含图片的多模态消息]" }
                 ],
-                max_tokens: 4096
+                max_tokens: 8192
             };
             console.log("\n[OpenAI] 📤 Request Parameters:");
             console.log(JSON.stringify(requestParams, null, 2));
@@ -309,7 +309,7 @@ export class OpenAIProvider implements AIService {
                     { role: "system", content: prompt },
                     { role: "user", content: userContent }
                 ],
-                max_tokens: 4096,
+                max_tokens: 8192,
             });
 
             // 打印完整响应

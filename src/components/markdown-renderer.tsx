@@ -29,8 +29,8 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         // Fix LaTeX formulas: Ensure proper spacing around $ delimiters
         // This handles cases where $ might be directly adjacent to text
         .replace(/([^\s$])(\$[^$]+\$)([^\s$])/g, '$1 $2 $3')
-        // Restore preserved double line breaks
-        .replace(/\n\n###PRESERVE_BREAK###\n\n/g, '\n\n');
+        // Restore preserved double line breaks (use flexible whitespace matching)
+        .replace(/\s*###PRESERVE_BREAK###\s*/g, '\n\n');
 
     return (
         <div className={`markdown-content ${className}`}>
