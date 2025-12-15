@@ -44,14 +44,9 @@ else
     cd /app && $PRISMA_BIN migrate deploy --schema=./prisma/schema.prisma && {
         echo "[Entrypoint] Migrations completed successfully."
         
-        # Check if seed has been run (for upgrades from older versions)
-        if [ ! -f "$SEED_MARKER" ]; then
-            echo "[Entrypoint] First-time upgrade detected. Running database seed to populate system tags..."
-            cd /app && $PRISMA_BIN db seed && {
-                echo "[Entrypoint] Seed completed successfully."
-                touch "$SEED_MARKER"
-            } || echo "[Entrypoint] Seed failed or already populated."
-        fi
+        # Note: seed is NOT run here because:
+        # - New installs: pre-packaged DB already contains seed data
+        # - Upgrades: admin user already exists, tags are rebuilt by rebuild-system-tags.js
         
         # Check if version changed - rebuild system tags automatically
         if [ "$PREVIOUS_VERSION" != "$CURRENT_VERSION" ]; then
