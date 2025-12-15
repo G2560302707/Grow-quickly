@@ -1,0 +1,12 @@
+# Global Rules for Antigravity Agent
+1. **Language Requirement**: 
+   - You MUST use **Chinese (Simplified)** for ALL outputs.
+   - This includes:
+     - **Internal Thought Process & Reasoning** (MUST BE IN CHINESE).
+     - Conversational responses.
+     - Task summaries and status updates.
+     - Artifact content (task.md, implementation_plan.md, walkthrough.md, etc.).
+     - Code comments and documentation strings.
+     - Commit messages (unless specified otherwise).
+2. **Artifact Localization**:
+   - Ensure specific terms in artifacts are translated appropriately (e.g., "Implementation Plan" -> "实施计划", "Verification" -> "验证").

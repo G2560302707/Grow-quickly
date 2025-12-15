@@ -17,6 +17,7 @@ function PrintPreviewContent() {
     const [showAnalysis, setShowAnalysis] = useState(false);
     const [showTags, setShowTags] = useState(false);
     const [imageScale, setImageScale] = useState(70);
+    const [showQuestionText, setShowQuestionText] = useState(false);
 
     useEffect(() => {
         fetchItems();
@@ -49,51 +50,63 @@ function PrintPreviewContent() {
         <>
             {/* Print Controls - Hidden when printing */}
             <div className="print:hidden sticky top-0 z-10 bg-background border-b p-4 shadow-sm">
-                <div className="max-w-4xl mx-auto flex items-center justify-between">
-                    <h1 className="text-xl font-bold">打印预览 ({items.length} 道题)</h1>
-                    <div className="flex items-center gap-4">
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                    <h1 className="text-xl font-bold whitespace-nowrap">打印预览 ({items.length} 道题)</h1>
+                    <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center md:justify-end">
                         {/* Image Scale Control */}
-                        <div className="flex items-center gap-2 text-sm border-r pr-4 mr-2">
-                            <span>图片比例: {imageScale}%</span>
+                        <div className="flex items-center gap-2 text-sm bg-muted/50 px-3 py-1.5 rounded-md">
+                            <span className="whitespace-nowrap">图片比例: {imageScale}%</span>
                             <input
                                 type="range"
                                 min="30"
                                 max="100"
                                 value={imageScale}
                                 onChange={(e) => setImageScale(Number(e.target.value))}
-                                className="w-24"
+                                className="w-20 md:w-24 accent-primary"
                             />
                         </div>
 
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={showAnswers}
-                                onChange={(e) => setShowAnswers(e.target.checked)}
-                                className="rounded"
-                            />
-                            显示答案
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={showAnalysis}
-                                onChange={(e) => setShowAnalysis(e.target.checked)}
-                                className="rounded"
-                            />
-                            显示解析
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={showTags}
-                                onChange={(e) => setShowTags(e.target.checked)}
-                                className="rounded"
-                            />
-                            显示知识点
-                        </label>
-                        <Button onClick={handlePrint}>
-                            打印 / 保存为 PDF
+                        <div className="flex items-center gap-4 bg-muted/50 px-3 py-1.5 rounded-md">
+                            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={showQuestionText}
+                                    onChange={(e) => setShowQuestionText(e.target.checked)}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                原题文字
+                            </label>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={showAnswers}
+                                    onChange={(e) => setShowAnswers(e.target.checked)}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                显示答案
+                            </label>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={showAnalysis}
+                                    onChange={(e) => setShowAnalysis(e.target.checked)}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                显示解析
+                            </label>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
+                                <input
+                                    type="checkbox"
+                                    checked={showTags}
+                                    onChange={(e) => setShowTags(e.target.checked)}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                显示知识点
+                            </label>
+                        </div>
+
+                        <Button onClick={handlePrint} className="whitespace-nowrap ml-2">
+                            打印 / 保存 PDF
                         </Button>
                     </div>
                 </div>
@@ -141,16 +154,22 @@ function PrintPreviewContent() {
                                 </div>
                             </div>
 
-                            {/* Original Image */}
-                            {item.originalImageUrl && (
+                            {/* Original Image or Text */}
+                            {showQuestionText && item.questionText ? (
                                 <div className="mb-4">
-                                    <img
-                                        src={item.originalImageUrl}
-                                        alt="题目图片"
-                                        className="h-auto border rounded"
-                                        style={{ maxWidth: `${imageScale}%` }}
-                                    />
+                                    <MarkdownRenderer content={item.questionText} />
                                 </div>
+                            ) : (
+                                item.originalImageUrl && (
+                                    <div className="mb-4">
+                                        <img
+                                            src={item.originalImageUrl}
+                                            alt="题目图片"
+                                            className="h-auto border rounded"
+                                            style={{ maxWidth: `${imageScale}%` }}
+                                        />
+                                    </div>
+                                )
                             )}
 
 
