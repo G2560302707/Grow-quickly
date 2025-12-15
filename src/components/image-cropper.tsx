@@ -128,7 +128,7 @@ export function ImageCropper({ imageSrc, open, onClose, onCropComplete }: ImageC
     };
 
     return (
-        <Dialog open={open} onOpenChange={onClose}>
+        <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
             <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 gap-0">
                 <DialogHeader className="p-4 border-b shrink-0">
                     <DialogTitle>{t.common.cropper?.title || "Crop Image"}</DialogTitle>

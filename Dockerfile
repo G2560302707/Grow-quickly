@@ -22,9 +22,15 @@ RUN apk add --no-cache openssl
 # Generate Prisma Client and Seed Database
 # We temporarily set DATABASE_URL to a local file for the build process to generate the file
 ENV DATABASE_URL="file:/app/prisma/dev.db"
+
+# Pre-compile runtime scripts FIRST (needed for tag seeding)
+RUN npx tsc scripts/rebuild-system-tags.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2020
+
+# Initialize database: generate client, run migrations, seed admin user, seed system tags
 RUN npx prisma generate \
     && npx prisma migrate deploy \
-    && npx prisma db seed
+    && npx prisma db seed \
+    && node ./dist-scripts/scripts/rebuild-system-tags.js
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -32,9 +38,6 @@ RUN npx prisma generate \
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
-
-# Pre-compile runtime scripts to JS (so we don't need tsx in runner)
-RUN npx tsc scripts/rebuild-system-tags.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2020
 
 # Production image, copy all the files and run next
 FROM base AS runner

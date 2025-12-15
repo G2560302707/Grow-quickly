@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 export function ProgressFeedback({ status, progress, message, className }: ProgressFeedbackProps) {
     const { t } = useLanguage();
-    if (status === 'idle') return null;
+    // 确保只在客户端挂载完成后才渲染遮罩层，防止 SSR/Hydration 问题
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    // 只有在客户端挂载完成且 status 不为 idle 时才渲染
+    if (!isMounted || status === 'idle') return null;
 
     return (
         <div className={cn(
@@ -50,3 +59,4 @@ export function ProgressFeedback({ status, progress, message, className }: Progr
         </div>
     );
 }
+
