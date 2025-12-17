@@ -24,7 +24,7 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     await page.getByLabel('邮箱').fill('admin@localhost');
     await page.getByLabel('密码', { exact: true }).fill('123456');
     await page.getByRole('button', { name: '登录' }).click();
-    await expect(page).toHaveURL('/');
+    await page.waitForURL('**/');
 
     // 2. Ensure a Notebook exists
     // Go to Notebooks page
@@ -115,7 +115,6 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     // Verify Mastery Status (To Review / 待复习)
     // Badge check
     // Verify Mastery Status (To Review / 待复习)
-    // Badge check - use first() to handle cases where multiple badges might match or appear (e.g. if list has duplicates or structure issues)
     await expect(page.locator('.badge, .inline-flex').filter({ hasText: /待复习|Review/ }).first()).toBeVisible();
 
     // 11. Delete ALL Error Items (Cleanup) to ensure notebook can be deleted
@@ -123,8 +122,6 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     // We loop until no items are left
     while (true) {
         // Wait for list to load (if any)
-        // We can check for a known element or wait a bit.
-        // Better: check count.
         const items = page.locator('a[href^="/error-items/"]');
         const count = await items.count();
         console.log(`Found ${count} error items to delete.`);
@@ -150,7 +147,7 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
         await page.waitForURL(/\/notebooks\/.+/);
         // Ensure list is visible or we are on the page
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        // Short pause to allow list refresh if needed (though next count check should handle it if robust)
+        // Short pause to allow list refresh
         await page.waitForTimeout(500);
     }
 
@@ -167,15 +164,13 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     });
 
     // Locate the delete button specifically for the "数学" notebook
-    const notebookCard = page.locator('.group').filter({ hasText: '数学' });
+    // Use first() to avoid strict mode violation if multiple cards match text "数学" (e.g. substrings)
+    const notebookCard = page.locator('.group').filter({ hasText: '数学' }).first();
 
     // Hover to reveal button
     await notebookCard.hover();
 
     // Click the delete button (Trash icon)
-    // Structure analysis: The card header has 2 children: title area and delete button.
-    // Use last button in the card header or search for Trash icon.
-    // Using .last() on buttons inside the card should get the delete button (as title is not a button).
     await notebookCard.getByRole('button').last().click();
 
     // 14. Verify Notebook Deleted

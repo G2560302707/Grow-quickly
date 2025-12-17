@@ -87,7 +87,7 @@ test.describe('Authentication Flow', () => {
         await page.locator('button[type="submit"]').click();
 
         // Verify Admin Login and Home Page
-        await page.waitForURL('/');
+        await page.waitForURL('**/');
 
         // --- Go to Settings > User Management ---
         // Open Settings (Button with gear icon, sr-only text "Settings" or "设置")

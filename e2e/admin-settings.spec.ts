@@ -8,7 +8,7 @@ test('Admin can configure OpenAI settings', async ({ page }) => {
     await page.locator('button[type="submit"]').click();
 
     // Wait for login to complete
-    await page.waitForURL('http://127.0.0.1:3000/', { timeout: 15000 });
+    await page.waitForURL('**/', { timeout: 15000 });
 
     // 2. Open Settings
     await page.getByRole('button', { name: '设置' }).click();
