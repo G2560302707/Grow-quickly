@@ -47,14 +47,14 @@ test.describe('Authentication Flow', () => {
 
             if (await errorLocator.isVisible()) {
                 console.log('Registration error visible, going to login.');
-                await page.goto('http://localhost:3000/login');
+                await page.goto('/login');
             }
         } catch (e) {
             if (page.url().includes('/login')) {
                 console.log('Redirected to login page automatically.');
             } else {
                 console.log('State unclear, forcing login.');
-                await page.goto('http://localhost:3000/login');
+                await page.goto('/login');
             }
         }
 
@@ -69,7 +69,7 @@ test.describe('Authentication Flow', () => {
 
         // --- Verify Success ---
         // Wait for redirect to home
-        await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
+        await page.waitForURL('/', { timeout: 10000 });
 
         // Verify Content
         // The dashboard shows "Welcome back, wttwins". 
@@ -87,7 +87,7 @@ test.describe('Authentication Flow', () => {
         await page.locator('button[type="submit"]').click();
 
         // Verify Admin Login and Home Page
-        await page.waitForURL('http://localhost:3000/');
+        await page.waitForURL('/');
 
         // --- Go to Settings > User Management ---
         // Open Settings (Button with gear icon, sr-only text "Settings" or "设置")
