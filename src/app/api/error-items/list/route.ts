@@ -125,22 +125,30 @@ function buildGradeFilter(gradeSemester: string) {
     if (gradeSemester.includes("上")) targetSemester = "上";
     else if (gradeSemester.includes("下")) targetSemester = "下";
 
-    if (targetGrade && targetSemester) {
-        const aliases = gradeMap[targetGrade];
-        return {
-            AND: [
-                {
-                    OR: aliases.map(alias => ({
-                        gradeSemester: { contains: alias }
-                    }))
-                },
-                {
-                    gradeSemester: { contains: targetSemester }
-                }
-            ]
-        };
+    // Get aliases for the target grade
+    const aliases = targetGrade ? gradeMap[targetGrade] : null;
+
+    if (aliases) {
+        // Build OR conditions for all aliases
+        const gradeConditions = aliases.map(alias => ({
+            gradeSemester: { contains: alias }
+        }));
+
+        if (targetSemester) {
+            // Filter by grade AND semester
+            return {
+                AND: [
+                    { OR: gradeConditions },
+                    { gradeSemester: { contains: targetSemester } }
+                ]
+            };
+        } else {
+            // Filter by grade only (matches any semester)
+            return { OR: gradeConditions };
+        }
     }
 
+    // Fallback: direct contains match
     return {
         gradeSemester: { contains: gradeSemester }
     };

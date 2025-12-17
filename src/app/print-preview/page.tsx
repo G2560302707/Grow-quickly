@@ -8,9 +8,11 @@ import { format } from "date-fns";
 import Image from "next/image";
 import { apiClient } from "@/lib/api-client";
 import { ErrorItem } from "@/types/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function PrintPreviewContent() {
     const searchParams = useSearchParams();
+    const { t } = useLanguage();
     const [items, setItems] = useState<ErrorItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAnswers, setShowAnswers] = useState(false);
@@ -41,7 +43,7 @@ function PrintPreviewContent() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <p className="text-muted-foreground">加载中...</p>
+                <p className="text-muted-foreground">{t.common.loading}</p>
             </div>
         );
     }
@@ -51,11 +53,11 @@ function PrintPreviewContent() {
             {/* Print Controls - Hidden when printing */}
             <div className="print:hidden sticky top-0 z-10 bg-background border-b p-4 shadow-sm">
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-                    <h1 className="text-xl font-bold whitespace-nowrap">打印预览 ({items.length} 道题)</h1>
+                    <h1 className="text-xl font-bold whitespace-nowrap">{t.printPreview?.title || 'Print Preview'} ({items.length} {t.notebooks?.items || 'items'})</h1>
                     <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center md:justify-end">
                         {/* Image Scale Control */}
                         <div className="flex items-center gap-2 text-sm bg-muted/50 px-3 py-1.5 rounded-md">
-                            <span className="whitespace-nowrap">图片比例: {imageScale}%</span>
+                            <span className="whitespace-nowrap">{t.printPreview?.imageScale || 'Image Scale'}: {imageScale}%</span>
                             <input
                                 type="range"
                                 min="30"
@@ -74,7 +76,7 @@ function PrintPreviewContent() {
                                     onChange={(e) => setShowQuestionText(e.target.checked)}
                                     className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
-                                原题文字
+                                {t.printPreview?.showQuestionText || 'Question Text'}
                             </label>
                             <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
                                 <input
@@ -83,7 +85,7 @@ function PrintPreviewContent() {
                                     onChange={(e) => setShowAnswers(e.target.checked)}
                                     className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
-                                显示答案
+                                {t.printPreview?.showAnswers || 'Show Answers'}
                             </label>
                             <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
                                 <input
@@ -92,7 +94,7 @@ function PrintPreviewContent() {
                                     onChange={(e) => setShowAnalysis(e.target.checked)}
                                     className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
-                                显示解析
+                                {t.printPreview?.showAnalysis || 'Show Analysis'}
                             </label>
                             <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
                                 <input
@@ -101,12 +103,12 @@ function PrintPreviewContent() {
                                     onChange={(e) => setShowTags(e.target.checked)}
                                     className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
-                                显示知识点
+                                {t.printPreview?.showTags || 'Show Tags'}
                             </label>
                         </div>
 
                         <Button onClick={handlePrint} className="whitespace-nowrap ml-2">
-                            打印 / 保存 PDF
+                            {t.printPreview?.printButton || 'Print / Save PDF'}
                         </Button>
                     </div>
                 </div>
@@ -135,7 +137,7 @@ function PrintPreviewContent() {
                             {/* Question Header */}
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <span className="text-lg font-bold">题目 {index + 1}</span>
+                                    <span className="text-lg font-bold">{t.printPreview?.questionNumber?.replace('{num}', String(index + 1)) || `Question ${index + 1}`}</span>
                                     {item.subject && (
                                         <span className="text-sm text-muted-foreground">
                                             {item.subject.name}
@@ -148,7 +150,7 @@ function PrintPreviewContent() {
                                     )}
                                     {item.paperLevel && (
                                         <span className="text-sm text-muted-foreground">
-                                            试卷等级: {item.paperLevel.toUpperCase()}
+                                            {t.printPreview?.paperLevel || 'Paper Level'}: {item.paperLevel.toUpperCase()}
                                         </span>
                                     )}
                                 </div>
@@ -164,7 +166,7 @@ function PrintPreviewContent() {
                                     <div className="mb-4">
                                         <img
                                             src={item.originalImageUrl}
-                                            alt="题目图片"
+                                            alt={t.detail?.originalProblem || 'Question Image'}
                                             className="h-auto border rounded"
                                             style={{ maxWidth: `${imageScale}%` }}
                                         />
@@ -177,7 +179,7 @@ function PrintPreviewContent() {
                             {/* Knowledge Points */}
                             {showTags && tags.length > 0 && (
                                 <div className="mb-4">
-                                    <h3 className="font-semibold mb-2">知识点：</h3>
+                                    <h3 className="font-semibold mb-2">{t.printPreview?.knowledgePoints || 'Knowledge Points'}:</h3>
                                     <div className="flex flex-wrap gap-2">
                                         {tags.map((tag) => (
                                             <span
@@ -194,7 +196,7 @@ function PrintPreviewContent() {
                             {/* Answer */}
                             {showAnswers && item.answerText && (
                                 <div className="mb-4">
-                                    <h3 className="font-semibold mb-2">参考答案：</h3>
+                                    <h3 className="font-semibold mb-2">{t.printPreview?.referenceAnswer || 'Reference Answer'}:</h3>
                                     <MarkdownRenderer content={item.answerText} />
                                 </div>
                             )}
@@ -202,7 +204,7 @@ function PrintPreviewContent() {
                             {/* Analysis */}
                             {showAnalysis && item.analysis && (
                                 <div className="mb-4">
-                                    <h3 className="font-semibold mb-2">解析：</h3>
+                                    <h3 className="font-semibold mb-2">{t.printPreview?.analysis || 'Analysis'}:</h3>
                                     <MarkdownRenderer content={item.analysis} />
                                 </div>
                             )}
@@ -212,7 +214,7 @@ function PrintPreviewContent() {
 
                 {items.length === 0 && (
                     <div className="text-center py-12 text-muted-foreground">
-                        没有符合条件的错题
+                        {t.printPreview?.noItems || 'No matching error items'}
                     </div>
                 )}
             </div>
@@ -222,7 +224,7 @@ function PrintPreviewContent() {
 
 export default function PrintPreviewPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">加载中...</div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
             <PrintPreviewContent />
         </Suspense>
     );

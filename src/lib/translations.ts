@@ -443,6 +443,32 @@ export const translations = {
                 hasAccount: "Already have an account? ",
                 loginHere: "Login here",
             }
+        },
+        printPreview: {
+            title: "Print Preview",
+            questionCount: "{count} questions",
+            imageScale: "Image Scale",
+            showQuestionText: "Question Text",
+            showAnswers: "Show Answers",
+            showAnalysis: "Show Analysis",
+            showTags: "Show Tags",
+            printButton: "Print / Save PDF",
+            questionNumber: "Question {num}",
+            paperLevel: "Paper Level",
+            knowledgePoints: "Knowledge Points",
+            referenceAnswer: "Reference Answer",
+            analysis: "Analysis",
+            noItems: "No matching error items",
+        },
+        modelSelector: {
+            modelName: "Model Name",
+            selectFromList: "Select from List",
+            selectModel: "Select Model",
+            customInput: "Custom Input...",
+            enterApiKeyFirst: "Please enter API Key first",
+            noVisionModel: "No vision model found, please enter manually",
+            fetchFailed: "Failed to fetch models",
+            enterManually: ", please enter manually",
         }
     },
     zh: {
@@ -887,6 +913,32 @@ export const translations = {
                 hasAccount: "已有账号？",
                 loginHere: "去登录",
             }
+        },
+        printPreview: {
+            title: "打印预览",
+            questionCount: "{count} 道题",
+            imageScale: "图片比例",
+            showQuestionText: "原题文字",
+            showAnswers: "显示答案",
+            showAnalysis: "显示解析",
+            showTags: "显示知识点",
+            printButton: "打印 / 保存 PDF",
+            questionNumber: "题目 {num}",
+            paperLevel: "试卷等级",
+            knowledgePoints: "知识点",
+            referenceAnswer: "参考答案",
+            analysis: "解析",
+            noItems: "没有符合条件的错题",
+        },
+        modelSelector: {
+            modelName: "模型名称",
+            selectFromList: "从列表中选择",
+            selectModel: "选择模型",
+            customInput: "自定义输入...",
+            enterApiKeyFirst: "请先填写API Key",
+            noVisionModel: "未找到支持vision的模型，请手动输入",
+            fetchFailed: "获取模型列表失败",
+            enterManually: "，请手动输入",
         }
     }
 };

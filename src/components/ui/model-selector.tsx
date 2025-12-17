@@ -14,6 +14,7 @@ import {
 import { RefreshCw, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { AIModel, ModelsResponse } from "@/types/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ModelSelectorProps {
     provider: 'openai' | 'gemini';
@@ -24,6 +25,7 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModelChange }: ModelSelectorProps) {
+    const { t } = useLanguage();
     const [models, setModels] = useState<AIModel[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModel
 
     const fetchModels = async () => {
         if (!apiKey) {
-            setError("请先填写API Key");
+            setError(t.modelSelector?.enterApiKeyFirst || "Please enter API Key first");
             return;
         }
 
@@ -59,13 +61,13 @@ export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModel
             setModels(data.models);
 
             if (data.models.length === 0) {
-                setError("未找到支持vision的模型，请手动输入");
+                setError(t.modelSelector?.noVisionModel || "No vision model found, please enter manually");
                 setUseCustom(true);
             }
         } catch (err: any) {
             console.error("Failed to fetch models:", err);
-            const errorMsg = err?.message || "获取模型列表失败";
-            setError(errorMsg + "，请手动输入");
+            const errorMsg = err?.message || (t.modelSelector?.fetchFailed || "Failed to fetch models");
+            setError(errorMsg + (t.modelSelector?.enterManually || ", please enter manually"));
             setUseCustom(true);
         } finally {
             setLoading(false);
@@ -90,7 +92,7 @@ export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModel
     return (
         <div className="space-y-2">
             <div className="flex items-center gap-2">
-                <Label className="flex-1">模型名称</Label>
+                <Label className="flex-1">{t.modelSelector?.modelName || 'Model Name'}</Label>
                 <Button
                     type="button"
                     variant="outline"
@@ -125,7 +127,7 @@ export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModel
                             className="h-auto p-0 text-xs"
                             onClick={() => setUseCustom(false)}
                         >
-                            从列表中选择
+                            {t.modelSelector?.selectFromList || 'Select from List'}
                         </Button>
                     )}
                 </div>
@@ -136,7 +138,7 @@ export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModel
                         onValueChange={handleModelSelect}
                     >
                         <SelectTrigger>
-                            <SelectValue placeholder="选择模型" />
+                            <SelectValue placeholder={t.modelSelector?.selectModel || 'Select Model'} />
                         </SelectTrigger>
                         <SelectContent>
                             {models.map((model) => (
@@ -145,7 +147,7 @@ export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModel
                                     {model.owned_by && ` (${model.owned_by})`}
                                 </SelectItem>
                             ))}
-                            <SelectItem value="_custom">自定义输入...</SelectItem>
+                            <SelectItem value="_custom">{t.modelSelector?.customInput || 'Custom Input...'}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

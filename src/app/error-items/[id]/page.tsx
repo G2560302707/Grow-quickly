@@ -433,7 +433,7 @@ export default function ErrorDetailPage() {
                                 {/* 知识点标签 */}
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center">
-                                        <h4 className="text-sm font-semibold">知识点标签</h4>
+                                        <h4 className="text-sm font-semibold">{t.editor?.tags || 'Knowledge Tags'}</h4>
                                         {!isEditingTags && (
                                             <Button
                                                 variant="ghost"
@@ -451,12 +451,12 @@ export default function ErrorDetailPage() {
                                             <TagInput
                                                 value={tagsInput}
                                                 onChange={setTagsInput}
-                                                placeholder="输入或选择知识点标签..."
+                                                placeholder={t.editor?.tagsPlaceholder || 'Enter or select knowledge tags...'}
                                                 subject={inferSubjectFromName(item.subject?.name || null) || undefined}
                                                 gradeStage={educationStage}
                                             />
                                             <p className="text-xs text-muted-foreground">
-                                                💡 可以从标准标签库或自定义标签中选择
+                                                {t.editor?.tagsHint || '💡 Select from standard or custom tags'}
                                             </p>
                                             <div className="flex gap-2">
                                                 <Button size="sm" onClick={saveTagsHandler}>

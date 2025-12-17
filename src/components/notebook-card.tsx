@@ -14,7 +14,7 @@ interface NotebookCardProps {
     itemLabel?: string;
 }
 
-export function NotebookCard({ id, name, errorCount, onClick, onDelete, itemLabel = "道题目" }: NotebookCardProps) {
+export function NotebookCard({ id, name, errorCount, onClick, onDelete, itemLabel = "items" }: NotebookCardProps) {
     return (
         <Card
             className="cursor-pointer hover:border-primary/50 transition-colors relative group"
