@@ -2,11 +2,13 @@
 Dockerfile
 .dockerignore
 docker-compose*.yml
+docker-entrypoint.sh
 
 # 依赖和构建产物
 node_modules
 npm-debug.log
 .next
+dist
 
 # 版本控制
 .git
@@ -16,16 +18,34 @@ npm-debug.log
 .env
 .env.*
 
-# 测试文件（不需要进入生产镜像）
+# 单元/集成测试文件
 src/__tests__
 vitest.config.ts
 coverage
+
+# E2E 测试文件 (Playwright)
+e2e
+playwright.config.ts
+playwright-report
+test-results
+blob-report
+test_output*.txt
 
 # 开发工具
 .vscode
 .idea
 *.log
+.github
+*.tsbuildinfo
+
+# 本地数据库
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+/prisma/*.db
 
 # 文档
 README.md
 docs
+doc

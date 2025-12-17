@@ -53,10 +53,12 @@ export default function LoginPage() {
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <label htmlFor="email" className="text-sm font-medium">
                                 {t.auth?.email || 'Email'}
                             </label>
                             <Input
+                                id="email"
+                                name="email"
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -64,10 +66,12 @@ export default function LoginPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <label htmlFor="password" className="text-sm font-medium">
                                 {t.auth?.password || 'Password'}
                             </label>
                             <Input
+                                id="password"
+                                name="password"
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}

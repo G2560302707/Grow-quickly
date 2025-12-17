@@ -125,10 +125,12 @@ export default function RegisterPage() {
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <label htmlFor="name" className="text-sm font-medium">
                                 {t.auth?.name || 'Name'}
                             </label>
                             <Input
+                                id="name"
+                                name="name"
                                 type="text"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
@@ -136,10 +138,12 @@ export default function RegisterPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <label htmlFor="email" className="text-sm font-medium">
                                 {t.auth?.email || 'Email'}
                             </label>
                             <Input
+                                id="email"
+                                name="email"
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -147,11 +151,13 @@ export default function RegisterPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <label htmlFor="password" className="text-sm font-medium">
                                 {t.auth?.password || 'Password'}
                             </label>
                             <div className="relative">
                                 <Input
+                                    id="password"
+                                    name="password"
                                     type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -176,11 +182,13 @@ export default function RegisterPage() {
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <label htmlFor="confirmPassword" className="text-sm font-medium">
                                 {t.auth?.confirmPassword || 'Confirm Password'}
                             </label>
                             <div className="relative">
                                 <Input
+                                    id="confirmPassword"
+                                    name="confirmPassword"
                                     type={showConfirmPassword ? "text" : "password"}
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -205,10 +213,12 @@ export default function RegisterPage() {
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <label htmlFor="educationStage" className="text-sm font-medium">
                                 {t.auth?.educationStage || 'Education Stage'}
                             </label>
                             <select
+                                id="educationStage"
+                                name="educationStage"
                                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 value={educationStage}
                                 onChange={(e) => setEducationStage(e.target.value)}
@@ -222,10 +232,12 @@ export default function RegisterPage() {
                             </select>
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <label htmlFor="enrollmentYear" className="text-sm font-medium">
                                 {t.auth?.enrollmentYear || 'Enrollment Year'}
                             </label>
                             <Input
+                                id="enrollmentYear"
+                                name="enrollmentYear"
                                 type="number"
                                 value={enrollmentYear}
                                 onChange={(e) => setEnrollmentYear(e.target.value)}

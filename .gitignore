@@ -38,11 +38,29 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfoconfig
+*.tsbuildinfo
 next-env.d.ts
 
 /src/generated/prisma
-/prisma/dev.db
+
 
 # App config (contains secrets)
 /config/app-config.json
 dist-scripts
+
+# Playwright
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
+
+# Local Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# Logs & Output
+*.log
+test_output*.txt
+upload_test_output*.txt
