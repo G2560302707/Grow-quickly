@@ -163,7 +163,7 @@ export default function ErrorDetailPage() {
             alert(t.common?.messages?.tagUpdateSuccess || 'Tags updated successfully!');
         } catch (error) {
             console.error("[Frontend] Error updating:", error);
-            alert(language === 'zh' ? '更新失败' : 'Update failed');
+            alert(t.common?.messages?.updateFailed || 'Update failed');
         }
     };
 
@@ -192,7 +192,7 @@ export default function ErrorDetailPage() {
             alert(t.common?.messages?.metaUpdateSuccess || 'Metadata updated successfully!');
         } catch (error) {
             console.error(error);
-            alert(language === 'zh' ? '更新失败' : 'Update failed');
+            alert(t.common?.messages?.updateFailed || 'Update failed');
         }
     };
 
@@ -200,6 +200,90 @@ export default function ErrorDetailPage() {
         setIsEditingMetadata(false);
         setGradeSemesterInput("");
         setPaperLevelInput("a");
+    };
+
+    const [isEditingQuestion, setIsEditingQuestion] = useState(false);
+    const [questionInput, setQuestionInput] = useState("");
+
+    const [isEditingAnswer, setIsEditingAnswer] = useState(false);
+    const [answerInput, setAnswerInput] = useState("");
+
+    const [isEditingAnalysis, setIsEditingAnalysis] = useState(false);
+    const [analysisInput, setAnalysisInput] = useState("");
+
+    // --- Question Handlers ---
+    const startEditingQuestion = () => {
+        if (item) {
+            setQuestionInput(item.questionText);
+            setIsEditingQuestion(true);
+        }
+    };
+
+    const saveQuestionHandler = async () => {
+        try {
+            await apiClient.put(`/api/error-items/${item?.id}`, { questionText: questionInput });
+            setIsEditingQuestion(false);
+            if (item) setItem({ ...item, questionText: questionInput });
+            alert(t.common?.messages?.saveSuccess || 'Saved successfully');
+        } catch (error) {
+            console.error(error);
+            alert(t.common?.messages?.saveFailed || 'Save failed');
+        }
+    };
+
+    const cancelEditingQuestion = () => {
+        setIsEditingQuestion(false);
+        setQuestionInput("");
+    };
+
+    // --- Answer Handlers ---
+    const startEditingAnswer = () => {
+        if (item) {
+            setAnswerInput(item.answerText);
+            setIsEditingAnswer(true);
+        }
+    };
+
+    const saveAnswerHandler = async () => {
+        try {
+            await apiClient.put(`/api/error-items/${item?.id}`, { answerText: answerInput });
+            setIsEditingAnswer(false);
+            if (item) setItem({ ...item, answerText: answerInput });
+            alert(t.common?.messages?.saveSuccess || 'Saved successfully');
+        } catch (error) {
+            console.error(error);
+            alert(t.common?.messages?.saveFailed || 'Save failed');
+        }
+    };
+
+    const cancelEditingAnswer = () => {
+        setIsEditingAnswer(false);
+        setAnswerInput("");
+    };
+
+    // --- Analysis Handlers ---
+    const startEditingAnalysis = () => {
+        if (item) {
+            setAnalysisInput(item.analysis);
+            setIsEditingAnalysis(true);
+        }
+    };
+
+    const saveAnalysisHandler = async () => {
+        try {
+            await apiClient.put(`/api/error-items/${item?.id}`, { analysis: analysisInput });
+            setIsEditingAnalysis(false);
+            if (item) setItem({ ...item, analysis: analysisInput });
+            alert(t.common?.messages?.saveSuccess || 'Saved successfully');
+        } catch (error) {
+            console.error(error);
+            alert(t.common?.messages?.saveFailed || 'Save failed');
+        }
+    };
+
+    const cancelEditingAnalysis = () => {
+        setIsEditingAnalysis(false);
+        setAnalysisInput("");
     };
 
     const saveNotes = async () => {
@@ -287,7 +371,19 @@ export default function ErrorDetailPage() {
                     <div className="space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle>{t.detail.question}</CardTitle>
+                                <div className="flex justify-between items-center">
+                                    <CardTitle>{t.detail.question}</CardTitle>
+                                    {!isEditingQuestion && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={startEditingQuestion}
+                                        >
+                                            <Edit className="h-4 w-4 mr-1" />
+                                            {t.common?.edit || 'Edit'}
+                                        </Button>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {item.originalImageUrl && (
@@ -297,7 +393,7 @@ export default function ErrorDetailPage() {
                                         title={t.detail?.clickToView || 'Click to view full image'}
                                     >
                                         <p className="text-sm font-medium mb-2 text-muted-foreground">
-                                            {t.detail.originalProblem || "原始问题"}
+                                            {t.detail.originalProblem || "Original Problem"}
                                         </p>
                                         <img
                                             src={item.originalImageUrl}
@@ -309,7 +405,30 @@ export default function ErrorDetailPage() {
                                         </p>
                                     </div>
                                 )}
-                                <MarkdownRenderer content={item.questionText} />
+
+                                {isEditingQuestion ? (
+                                    <div className="space-y-3">
+                                        <Textarea
+                                            value={questionInput}
+                                            onChange={(e) => setQuestionInput(e.target.value)}
+                                            placeholder="Enter question text..." // Consider localizing later
+                                            rows={8}
+                                            className="w-full font-mono text-sm"
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button size="sm" onClick={saveQuestionHandler}>
+                                                <Save className="h-4 w-4 mr-1" />
+                                                {t.common?.save || 'Save'}
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={cancelEditingQuestion}>
+                                                <X className="h-4 w-4 mr-1" />
+                                                {t.common?.cancel || 'Cancel'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <MarkdownRenderer content={item.questionText} />
+                                )}
 
                                 {/* 知识点标签 */}
                                 <div className="space-y-2">
@@ -322,7 +441,7 @@ export default function ErrorDetailPage() {
                                                 onClick={startEditingTags}
                                             >
                                                 <Edit className="h-4 w-4 mr-1" />
-                                                编辑
+                                                {t.common?.edit || 'Edit'}
                                             </Button>
                                         )}
                                     </div>
@@ -342,11 +461,11 @@ export default function ErrorDetailPage() {
                                             <div className="flex gap-2">
                                                 <Button size="sm" onClick={saveTagsHandler}>
                                                     <Save className="h-4 w-4 mr-1" />
-                                                    保存
+                                                    {t.common?.save || 'Save'}
                                                 </Button>
                                                 <Button size="sm" variant="outline" onClick={cancelEditingTags}>
                                                     <X className="h-4 w-4 mr-1" />
-                                                    取消
+                                                    {t.common?.cancel || 'Cancel'}
                                                 </Button>
                                             </div>
                                         </div>
@@ -451,7 +570,7 @@ export default function ErrorDetailPage() {
                                             onClick={startEditingNotes}
                                         >
                                             <Edit className="h-4 w-4 mr-1" />
-                                            {t.detail.editNotes || "编辑"}
+                                            {t.detail.editNotes || "Edit"}
                                         </Button>
                                     )}
                                 </div>
@@ -462,7 +581,7 @@ export default function ErrorDetailPage() {
                                         <Textarea
                                             value={notesInput}
                                             onChange={(e) => setNotesInput(e.target.value)}
-                                            placeholder={t.detail.notesPlaceholder || "输入你的笔记..."}
+                                            placeholder={t.detail.notesPlaceholder || "Enter your notes..."}
                                             rows={5}
                                             className="w-full"
                                         />
@@ -472,7 +591,7 @@ export default function ErrorDetailPage() {
                                                 onClick={saveNotes}
                                             >
                                                 <Save className="h-4 w-4 mr-1" />
-                                                {t.common.save || "保存"}
+                                                {t.common.save || "Save"}
                                             </Button>
                                             <Button
                                                 size="sm"
@@ -480,7 +599,7 @@ export default function ErrorDetailPage() {
                                                 onClick={cancelEditingNotes}
                                             >
                                                 <X className="h-4 w-4 mr-1" />
-                                                {t.common.cancel || "取消"}
+                                                {t.common.cancel || "Cancel"}
                                             </Button>
                                         </div>
                                     </div>
@@ -503,20 +622,87 @@ export default function ErrorDetailPage() {
                     <div className="space-y-6">
                         <Card className="border-primary/20">
                             <CardHeader>
-                                <CardTitle className="text-primary">{t.detail.correctAnswer}</CardTitle>
+                                <div className="flex justify-between items-center">
+                                    <CardTitle className="text-primary">{t.detail.correctAnswer}</CardTitle>
+                                    {!isEditingAnswer && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={startEditingAnswer}
+                                        >
+                                            <Edit className="h-4 w-4 mr-1" />
+                                            {t.common?.edit || 'Edit'}
+                                        </Button>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent>
-                                <MarkdownRenderer content={item.answerText} className="font-semibold" />
+                                {isEditingAnswer ? (
+                                    <div className="space-y-3">
+                                        <Textarea
+                                            value={answerInput}
+                                            onChange={(e) => setAnswerInput(e.target.value)}
+                                            placeholder="Enter answer..."
+                                            rows={5}
+                                            className="w-full font-mono text-sm"
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button size="sm" onClick={saveAnswerHandler}>
+                                                <Save className="h-4 w-4 mr-1" />
+                                                {t.common?.save || 'Save'}
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={cancelEditingAnswer}>
+                                                <X className="h-4 w-4 mr-1" />
+                                                {t.common?.cancel || 'Cancel'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <MarkdownRenderer content={item.answerText} className="font-semibold" />
+                                )}
                             </CardContent>
                         </Card>
 
                         <Card>
                             <CardHeader>
-                                <CardTitle>{t.detail.analysis}</CardTitle>
+                                <div className="flex justify-between items-center">
+                                    <CardTitle>{t.detail.analysis}</CardTitle>
+                                    {!isEditingAnalysis && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={startEditingAnalysis}
+                                        >
+                                            <Edit className="h-4 w-4 mr-1" />
+                                            {t.common?.edit || 'Edit'}
+                                        </Button>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4">
-
-                                <MarkdownRenderer content={item.analysis} />
+                                {isEditingAnalysis ? (
+                                    <div className="space-y-3">
+                                        <Textarea
+                                            value={analysisInput}
+                                            onChange={(e) => setAnalysisInput(e.target.value)}
+                                            placeholder="Enter analysis..."
+                                            rows={12}
+                                            className="w-full font-mono text-sm"
+                                        />
+                                        <div className="flex gap-2">
+                                            <Button size="sm" onClick={saveAnalysisHandler}>
+                                                <Save className="h-4 w-4 mr-1" />
+                                                {t.common?.save || 'Save'}
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={cancelEditingAnalysis}>
+                                                <X className="h-4 w-4 mr-1" />
+                                                {t.common?.cancel || 'Cancel'}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <MarkdownRenderer content={item.analysis} />
+                                )}
                             </CardContent>
                         </Card>
                         {/* 操作按钮 */}

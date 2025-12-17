@@ -104,6 +104,9 @@ export const translations = {
             tagsPlaceholder: "Enter knowledge tags, select from suggestions...",
             tagsHint: "💡 Tag suggestions will appear as you type",
             createTagHint: "Press Enter to create new tag",
+            messages: {
+                selectNotebook: "Please select a notebook",
+            },
             paperLevel: "Paper Level",
             paperLevels: {
                 a: "Paper A",
@@ -545,6 +548,9 @@ export const translations = {
             tagsPlaceholder: "输入知识点标签，可从建议中选择...",
             tagsHint: "💡 输入时会显示标签建议，支持从标准标签库选择",
             createTagHint: "按回车键创建新标签",
+            messages: {
+                selectNotebook: "请选择一个错题本",
+            },
             paperLevel: "所属卷等级",
             paperLevels: {
                 a: "A卷",

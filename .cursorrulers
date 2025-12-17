@@ -10,3 +10,14 @@
      - Commit messages (unless specified otherwise).
 2. **Artifact Localization**:
    - Ensure specific terms in artifacts are translated appropriately (e.g., "Implementation Plan" -> "实施计划", "Verification" -> "验证").
+
+# Front-end Internationalization (i18n) Rules
+1. **🚫 严禁硬编码 (No Hardcoded Strings)**
+   - All UI text (buttons, placeholders, titles, alerts, errors) MUST be extracted via translation objects (e.g., `t.section.key`).
+   - Do NOT write hardcoded Chinese or English strings in JSX or business logic.
+   - If a key is missing, add it to `translations.ts` first.
+
+2. **🌍 Fallback 语言统一为英文 (Consistent English Fallback)**
+   - When providing fallback text (e.g., `t.key || 'Fallback'`), **ALWAYS use English**.
+   - Example: `<Button>{t.common.save || 'Save'}</Button>` is correct.
+   - Example: `<Button>{t.common.save || '保存'}</Button>` is **PROHIBITED**.

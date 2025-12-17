@@ -78,7 +78,7 @@ export async function PUT(
         }
 
         const body = await req.json();
-        const { knowledgePoints, gradeSemester, paperLevel } = body;
+        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis } = body;
 
         const errorItem = await prisma.errorItem.findUnique({
             where: { id },
@@ -97,6 +97,9 @@ export async function PUT(
         const updateData: any = {};
         if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
         if (paperLevel !== undefined) updateData.paperLevel = paperLevel;
+        if (questionText !== undefined) updateData.questionText = questionText;
+        if (answerText !== undefined) updateData.answerText = answerText;
+        if (analysis !== undefined) updateData.analysis = analysis;
 
         // 处理 knowledgePoints (标签)
         if (knowledgePoints !== undefined) {

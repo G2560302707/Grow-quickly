@@ -85,9 +85,9 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
             // 如果题目需要图片（如几何题），且有原始图片，则一起传递
             if (data.requiresImage && imagePreview) {
                 requestBody.imageBase64 = imagePreview;
-                console.log("[Reanswer] 发送图片 + 文字（几何题等需要看图的题目）");
+                console.log("[Reanswer] Sending image + text (Image context required)");
             } else {
-                console.log("[Reanswer] 仅发送文字（不需要图片的题目）");
+                console.log("[Reanswer] Sending text only (No image required)");
             }
 
             const result = await apiClient.post<{ answerText: string; analysis: string; knowledgePoints: string[] }>("/api/reanswer", requestBody);
@@ -132,7 +132,13 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                     <Button variant="outline" onClick={onCancel}>
                         {t.editor.cancel}
                     </Button>
-                    <Button onClick={() => onSave(data)}>
+                    <Button onClick={() => {
+                        if (!data.subjectId) {
+                            alert(t.editor.messages?.selectNotebook || "Please select a notebook");
+                            return;
+                        }
+                        onSave(data);
+                    }}>
                         <Save className="mr-2 h-4 w-4" />
                         {t.editor.save}
                     </Button>
