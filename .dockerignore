@@ -2,7 +2,6 @@
 Dockerfile
 .dockerignore
 docker-compose*.yml
-docker-entrypoint.sh
 
 # 依赖和构建产物
 node_modules
