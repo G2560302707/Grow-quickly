@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowLeft, House } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
+import { Plus, House } from "lucide-react";
 import Link from "next/link";
 import { NotebookCard } from "@/components/notebook-card";
 import { CreateNotebookDialog } from "@/components/create-notebook-dialog";
@@ -78,32 +79,29 @@ export default function NotebooksPage() {
     }
 
     return (
-        <main className="min-h-screen p-8 bg-background">
+        <main className="min-h-screen p-4 md:p-8 bg-background">
             <div className="max-w-6xl mx-auto space-y-8">
-                <div className="flex items-center gap-4">
-                    <Link href="/">
-                        <Button variant="ghost" size="icon">
-                            <ArrowLeft className="h-5 w-5" />
+                <div className="flex items-start gap-4">
+                    <BackButton fallbackUrl="/" />
+                    <div className="flex-1 space-y-1">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{t.notebooks?.title || "My Notebooks"}</h1>
+                        <p className="text-muted-foreground text-sm sm:text-base">
+                            {t.notebooks?.subtitle || "Manage your mistakes by subject"}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Button onClick={() => setDialogOpen(true)} size="sm" className="hidden sm:flex">
+                            <Plus className="mr-2 h-4 w-4" />
+                            {t.notebooks?.create || "New Notebook"}
                         </Button>
-                    </Link>
-                    <div className="flex-1 flex justify-between items-center">
-                        <div className="space-y-1">
-                            <h1 className="text-3xl font-bold tracking-tight">{t.notebooks?.title || "My Notebooks"}</h1>
-                            <p className="text-muted-foreground">
-                                {t.notebooks?.subtitle || "Manage your mistakes by subject"}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button onClick={() => setDialogOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                {t.notebooks?.create || "New Notebook"}
+                        <Button onClick={() => setDialogOpen(true)} size="icon" className="sm:hidden">
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                        <Link href="/">
+                            <Button variant="ghost" size="icon">
+                                <House className="h-5 w-5" />
                             </Button>
-                            <Link href="/">
-                                <Button variant="ghost" size="icon">
-                                    <House className="h-5 w-5" />
-                                </Button>
-                            </Link>
-                        </div>
+                        </Link>
                     </div>
                 </div>
 

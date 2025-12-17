@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, Plus, Trash2, ChevronDown, ChevronRight, House, Loader2 } from "lucide-react";
+import { TrendingUp, Plus, Trash2, ChevronDown, ChevronRight, House, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/ui/back-button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
@@ -48,10 +49,12 @@ export default function TagsPage() {
     });
 
     // 自定义标签 (扁平列表，仅用于显示)
-    const [customTags, setCustomTags] = useState<Array<{ id: string; name: string; subject: string }>>([]);
+    const [customTags, setCustomTags] = useState<Array<{ id: string; name: string; subject: string; parentName?: string }>>([]);
 
     // 新建标签表单
     const [newTagSubject, setNewTagSubject] = useState<SubjectKey>("math");
+    const [newTagGrade, setNewTagGrade] = useState<string>(""); // 年级ID
+    const [gradeOptions, setGradeOptions] = useState<Array<{ id: string; name: string }>>([]);
     const [newTagName, setNewTagName] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
@@ -106,6 +109,25 @@ export default function TagsPage() {
         fetchTags('math');
     }, [fetchTags, fetchCustomTags]);
 
+    // 当学科变化时，获取对应的年级列表
+    useEffect(() => {
+        const fetchGrades = async () => {
+            try {
+                const data = await apiClient.get<{ tags: TagTreeNode[] }>(`/api/tags?subject=${newTagSubject}`);
+                // 顶级节点就是年级，只取系统标签
+                const grades = data.tags
+                    .filter(t => t.isSystem)
+                    .map(t => ({ id: t.id, name: t.name }));
+                setGradeOptions(grades);
+                setNewTagGrade(""); // 重置选择
+            } catch (error) {
+                console.error("Failed to fetch grades:", error);
+                setGradeOptions([]);
+            }
+        };
+        fetchGrades();
+    }, [newTagSubject]);
+
     // 添加自定义标签
     const handleAddCustomTag = async () => {
         if (!newTagName.trim()) {
@@ -118,6 +140,7 @@ export default function TagsPage() {
             await apiClient.post('/api/tags', {
                 name: newTagName.trim(),
                 subject: newTagSubject,
+                parentId: (newTagGrade && newTagGrade !== 'none') ? newTagGrade : undefined,
             });
             setNewTagName("");
             // 刷新
@@ -266,10 +289,22 @@ export default function TagsPage() {
                     <CardContent>
                         <div className="flex gap-3 flex-wrap">
                             <Select value={newTagSubject} onValueChange={(v) => setNewTagSubject(v as SubjectKey)}>
-                                <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {SUBJECTS.map(({ key, name }) => (
                                         <SelectItem key={key} value={key}>{(t.tags?.subjects as any)?.[key] || name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            <Select value={newTagGrade} onValueChange={setNewTagGrade}>
+                                <SelectTrigger className="w-[140px]">
+                                    <SelectValue placeholder={t.tags?.custom?.selectGrade || "选择年级"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">{t.tags?.custom?.noGrade || "不选择年级"}</SelectItem>
+                                    {gradeOptions.map((grade) => (
+                                        <SelectItem key={grade.id} value={grade.id}>{grade.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -358,11 +393,7 @@ export default function TagsPage() {
     return (
         <div className="container mx-auto px-4 py-8 max-w-6xl">
             <div className="flex items-center gap-4 mb-6">
-                <Link href="/">
-                    <Button variant="ghost" size="icon">
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                </Link>
+                <BackButton fallbackUrl="/" />
                 <div>
                     <h1 className="text-3xl font-bold">{t.tags?.title || "Tag Management"}</h1>
                     <p className="text-muted-foreground mt-1">

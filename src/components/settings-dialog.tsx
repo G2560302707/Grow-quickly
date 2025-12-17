@@ -270,7 +270,7 @@ export function SettingsDialog() {
                     <span className="sr-only">{t.settings?.title || "Settings"}</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
+            <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-[900px] max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{t.settings?.title || "Settings"}</DialogTitle>
                     <DialogDescription>
@@ -279,32 +279,32 @@ export function SettingsDialog() {
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className={`grid w-full ${(session?.user as any)?.role === 'admin' ? 'grid-cols-6' : 'grid-cols-5'}`}>
-                        <TabsTrigger value="general">
-                            <Languages className="h-4 w-4 mr-2" />
-                            {t.settings?.tabs?.general || "General"}
+                    <TabsList className={`grid w-full grid-cols-3 sm:grid-cols-5 ${(session?.user as any)?.role === 'admin' ? 'sm:grid-cols-6' : ''} gap-1`}>
+                        <TabsTrigger value="general" className="px-2 sm:px-3">
+                            <Languages className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">{t.settings?.tabs?.general || "General"}</span>
                         </TabsTrigger>
-                        <TabsTrigger value="account">
-                            <User className="h-4 w-4 mr-2" />
-                            {t.settings?.tabs?.account || "Account"}
+                        <TabsTrigger value="account" className="px-2 sm:px-3">
+                            <User className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">{t.settings?.tabs?.account || "Account"}</span>
                         </TabsTrigger>
-                        <TabsTrigger value="ai">
-                            <Bot className="h-4 w-4 mr-2" />
-                            {t.settings?.tabs?.ai || "AI Provider"}
+                        <TabsTrigger value="ai" className="px-2 sm:px-3">
+                            <Bot className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">{t.settings?.tabs?.ai || "AI Provider"}</span>
                         </TabsTrigger>
-                        <TabsTrigger value="prompts">
-                            <MessageSquareText className="h-4 w-4 mr-2" />
-                            {t.settings?.tabs?.prompts || "Prompts"}
+                        <TabsTrigger value="prompts" className="px-2 sm:px-3">
+                            <MessageSquareText className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">{t.settings?.tabs?.prompts || "Prompts"}</span>
                         </TabsTrigger>
                         {(session?.user as any)?.role === 'admin' && (
-                            <TabsTrigger value="admin">
-                                <Shield className="h-4 w-4 mr-2" />
-                                {t.settings?.tabs?.admin || "User Management"}
+                            <TabsTrigger value="admin" className="px-2 sm:px-3">
+                                <Shield className="h-4 w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">{t.settings?.tabs?.admin || "User Management"}</span>
                             </TabsTrigger>
                         )}
-                        <TabsTrigger value="danger">
-                            <AlertTriangle className="h-4 w-4 mr-2" />
-                            {t.settings?.tabs?.danger || "Danger"}
+                        <TabsTrigger value="danger" className="px-2 sm:px-3">
+                            <AlertTriangle className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">{t.settings?.tabs?.danger || "Danger"}</span>
                         </TabsTrigger>
                     </TabsList>
 
@@ -337,7 +337,7 @@ export function SettingsDialog() {
                             </div>
                         ) : (
                             <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>{t.auth?.name || "Name"}</Label>
                                         <Input
@@ -355,7 +355,7 @@ export function SettingsDialog() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>{t.auth?.educationStage || "Education Stage"}</Label>
                                         <Select

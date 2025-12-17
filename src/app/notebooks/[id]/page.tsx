@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, House } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
+import { Plus, House } from "lucide-react";
 import Link from "next/link";
 import { ErrorList } from "@/components/error-list";
 
@@ -51,34 +52,31 @@ export default function NotebookDetailPage() {
     if (!notebook) return null;
 
     return (
-        <main className="min-h-screen p-8 bg-background">
-            <div className="max-w-6xl mx-auto space-y-8">
-                <div className="flex items-center gap-4">
-                    <Link href="/notebooks">
-                        <Button variant="ghost" size="icon">
-                            <ArrowLeft className="h-5 w-5" />
-                        </Button>
-                    </Link>
-                    <div className="flex-1 flex justify-between items-center">
-                        <div className="space-y-1">
-                            <h1 className="text-3xl font-bold tracking-tight">{notebook.name}</h1>
-                            <p className="text-muted-foreground">
-                                {(t.notebooks?.totalErrors || "Total {count} errors").replace("{count}", (notebook._count?.errorItems || 0).toString())}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Link href={`/notebooks/${notebook.id}/add`}>
-                                <Button>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    {t.notebooks?.addError || "Add Error"}
-                                </Button>
-                            </Link>
-                            <Link href="/">
-                                <Button variant="ghost" size="icon">
-                                    <House className="h-5 w-5" />
-                                </Button>
-                            </Link>
-                        </div>
+        <main className="min-h-screen p-4 md:p-8 bg-background">
+            <div className="max-w-6xl mx-auto space-y-6 md:space-y-8">
+                <div className="flex items-start gap-4">
+                    <BackButton fallbackUrl="/notebooks" className="shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-1">
+                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">{notebook.name}</h1>
+                        <p className="text-muted-foreground text-sm sm:text-base">
+                            {(t.notebooks?.totalErrors || "Total {count} errors").replace("{count}", (notebook._count?.errorItems || 0).toString())}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Link href={`/notebooks/${notebook.id}/add`}>
+                            <Button size="sm" className="hidden sm:flex">
+                                <Plus className="mr-2 h-4 w-4" />
+                                {t.notebooks?.addError || "Add Error"}
+                            </Button>
+                            <Button size="icon" className="sm:hidden">
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </Link>
+                        <Link href="/">
+                            <Button variant="ghost" size="icon">
+                                <House className="h-5 w-5" />
+                            </Button>
+                        </Link>
                     </div>
                 </div>
 

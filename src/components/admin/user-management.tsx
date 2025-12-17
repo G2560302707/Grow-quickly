@@ -121,7 +121,60 @@ export function UserManagement() {
                 </div>
             </div>
 
-            <div className="border rounded-lg overflow-hidden">
+            {/* 移动端卡片视图 */}
+            <div className="sm:hidden space-y-3">
+                {users.map((user) => (
+                    <div key={user.id} className="border rounded-lg p-4 bg-card space-y-3">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <div className="font-medium">{user.name || "N/A"}</div>
+                                <div className="text-sm text-muted-foreground">{user.email}</div>
+                            </div>
+                            <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                                {user.role === "admin" ? t.admin.admin : t.admin.user}
+                            </Badge>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <div className="text-muted-foreground">
+                                {t.admin.errors}: {user._count.errorItems} | {t.admin.practiceCount}: {user._count.practiceRecords}
+                            </div>
+                            <Badge variant={user.isActive ? "default" : "destructive"} className="text-xs">
+                                {user.isActive ? t.admin.active : t.admin.disabled}
+                            </Badge>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t">
+                            <div className="text-xs text-muted-foreground">
+                                {new Date(user.createdAt).toLocaleDateString()}
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleToggleStatus(user)}
+                                    disabled={user.id === (session?.user as any).id}
+                                >
+                                    {user.isActive ? (
+                                        <Ban className="h-4 w-4 text-orange-500" />
+                                    ) : (
+                                        <CheckCircle className="h-4 w-4 text-green-500" />
+                                    )}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDelete(user)}
+                                    disabled={user.id === (session?.user as any).id}
+                                >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* 桌面端表格视图 */}
+            <div className="hidden sm:block border rounded-lg overflow-hidden">
                 <Table>
                     <TableHeader>
                         <TableRow>

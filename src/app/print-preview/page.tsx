@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { BackButton } from "@/components/ui/back-button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { format } from "date-fns";
 import Image from "next/image";
@@ -51,65 +52,73 @@ function PrintPreviewContent() {
     return (
         <>
             {/* Print Controls - Hidden when printing */}
-            <div className="print:hidden sticky top-0 z-10 bg-background border-b p-4 shadow-sm">
-                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-                    <h1 className="text-xl font-bold whitespace-nowrap">{t.printPreview?.title || 'Print Preview'} ({items.length} {t.notebooks?.items || 'items'})</h1>
-                    <div className="flex items-center gap-2 md:gap-4 flex-wrap justify-center md:justify-end">
+            <div className="print:hidden sticky top-0 z-10 bg-background border-b p-3 sm:p-4 shadow-sm">
+                <div className="max-w-6xl mx-auto space-y-3">
+                    {/* Header Row */}
+                    <div className="flex items-center gap-3">
+                        <BackButton fallbackUrl="/notebooks" />
+                        <h1 className="text-lg sm:text-xl font-bold flex-1">
+                            {t.printPreview?.title || 'Print Preview'} ({items.length} {t.notebooks?.items || 'items'})
+                        </h1>
+                        <Button onClick={handlePrint} size="sm" className="whitespace-nowrap">
+                            {t.printPreview?.printButton || 'Print / Save PDF'}
+                        </Button>
+                    </div>
+
+                    {/* Controls Row */}
+                    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
                         {/* Image Scale Control */}
-                        <div className="flex items-center gap-2 text-sm bg-muted/50 px-3 py-1.5 rounded-md">
-                            <span className="whitespace-nowrap">{t.printPreview?.imageScale || 'Image Scale'}: {imageScale}%</span>
+                        <div className="flex items-center gap-2 text-sm bg-muted/50 px-2 sm:px-3 py-1 rounded-md">
+                            <span className="whitespace-nowrap text-xs sm:text-sm">{t.printPreview?.imageScale || 'Image Scale'}: {imageScale}%</span>
                             <input
                                 type="range"
                                 min="30"
                                 max="100"
                                 value={imageScale}
                                 onChange={(e) => setImageScale(Number(e.target.value))}
-                                className="w-20 md:w-24 accent-primary"
+                                className="w-16 sm:w-20 accent-primary"
                             />
                         </div>
 
-                        <div className="flex items-center gap-4 bg-muted/50 px-3 py-1.5 rounded-md">
-                            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
+                        {/* Toggle Options - Grid on Mobile */}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 sm:gap-4">
+                            <label className="flex items-center gap-1.5 text-xs sm:text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
                                 <input
                                     type="checkbox"
                                     checked={showQuestionText}
                                     onChange={(e) => setShowQuestionText(e.target.checked)}
-                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                    className="rounded border-gray-300 text-primary focus:ring-primary w-3.5 h-3.5 sm:w-4 sm:h-4"
                                 />
                                 {t.printPreview?.showQuestionText || 'Question Text'}
                             </label>
-                            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
+                            <label className="flex items-center gap-1.5 text-xs sm:text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
                                 <input
                                     type="checkbox"
                                     checked={showAnswers}
                                     onChange={(e) => setShowAnswers(e.target.checked)}
-                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                    className="rounded border-gray-300 text-primary focus:ring-primary w-3.5 h-3.5 sm:w-4 sm:h-4"
                                 />
                                 {t.printPreview?.showAnswers || 'Show Answers'}
                             </label>
-                            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
+                            <label className="flex items-center gap-1.5 text-xs sm:text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
                                 <input
                                     type="checkbox"
                                     checked={showAnalysis}
                                     onChange={(e) => setShowAnalysis(e.target.checked)}
-                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                    className="rounded border-gray-300 text-primary focus:ring-primary w-3.5 h-3.5 sm:w-4 sm:h-4"
                                 />
                                 {t.printPreview?.showAnalysis || 'Show Analysis'}
                             </label>
-                            <label className="flex items-center gap-2 text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
+                            <label className="flex items-center gap-1.5 text-xs sm:text-sm cursor-pointer whitespace-nowrap hover:text-primary transition-colors">
                                 <input
                                     type="checkbox"
                                     checked={showTags}
                                     onChange={(e) => setShowTags(e.target.checked)}
-                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                    className="rounded border-gray-300 text-primary focus:ring-primary w-3.5 h-3.5 sm:w-4 sm:h-4"
                                 />
                                 {t.printPreview?.showTags || 'Show Tags'}
                             </label>
                         </div>
-
-                        <Button onClick={handlePrint} className="whitespace-nowrap ml-2">
-                            {t.printPreview?.printButton || 'Print / Save PDF'}
-                        </Button>
                     </div>
                 </div>
             </div>

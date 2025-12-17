@@ -22,8 +22,8 @@ interface VariableInfoProps {
 
 function VariableInfo({ name, description }: VariableInfoProps) {
     return (
-        <div className="flex items-start space-x-2 text-xs">
-            <code className="bg-muted px-1 py-0.5 rounded font-mono text-primary flex-shrink-0">{`{{${name}}}`}</code>
+        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2 text-xs py-1">
+            <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-primary shrink-0 w-fit">{`{{${name}}}`}</code>
             <span className="text-muted-foreground">{description}</span>
         </div>
     );

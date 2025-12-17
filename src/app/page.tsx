@@ -179,10 +179,10 @@ function HomeContent() {
 
             <div className="container mx-auto p-4 space-y-8 pb-20">
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex justify-between items-start gap-4">
                     <UserWelcome />
 
-                    <div className="flex items-center gap-2 bg-card p-2 rounded-lg border shadow-sm">
+                    <div className="flex items-center gap-2 bg-card p-2 rounded-lg border shadow-sm shrink-0">
                         <SettingsDialog />
                         <Button
                             variant="ghost"
@@ -197,7 +197,7 @@ function HomeContent() {
                 </div>
 
                 {/* Action Center */}
-                <div className={initialNotebookId ? "flex justify-center mb-6" : "grid grid-cols-1 md:grid-cols-4 gap-4"}>
+                <div className={initialNotebookId ? "flex justify-center mb-6" : "grid grid-cols-2 md:grid-cols-4 gap-4"}>
                     <Button
                         size="lg"
                         className={`h-auto py-4 text-base shadow-sm hover:shadow-md transition-all ${initialNotebookId ? "w-full max-w-md" : ""}`}

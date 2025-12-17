@@ -5,7 +5,8 @@ import { WrongAnswerStats } from "@/components/wrong-answer-stats";
 import { PracticeStats } from "@/components/practice-stats";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, BarChart3, TrendingUp, Activity, House } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
+import { BarChart3, TrendingUp, Activity, House } from "lucide-react";
 import Link from "next/link";
 
 export default function StatsPage() {
@@ -14,11 +15,7 @@ export default function StatsPage() {
     return (
         <div className="container mx-auto px-4 py-8 max-w-6xl">
             <div className="flex items-center gap-4 mb-6">
-                <Link href="/">
-                    <Button variant="ghost" size="icon">
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                </Link>
+                <BackButton fallbackUrl="/" />
                 <div>
                     <h1 className="text-3xl font-bold flex items-center gap-2">
                         <BarChart3 className="h-8 w-8" />

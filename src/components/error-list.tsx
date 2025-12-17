@@ -130,8 +130,8 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
 
     return (
         <div className="space-y-6">
-            <div className="flex gap-4">
-                <div className="relative flex-1">
+            <div className="flex flex-col sm:flex-row gap-4">
+                <div className="relative w-full sm:flex-1">
                     <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder={t.notebook.search}
@@ -181,8 +181,8 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             </div>
 
             {/* Advanced Filters Row */}
-            <div className="flex gap-4 items-center">
-                <div className="w-auto">
+            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+                <div className="w-full sm:w-auto">
                     <KnowledgeFilter
                         gradeSemester={gradeFilter}
                         tag={selectedTag}
@@ -190,7 +190,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
                         subjectName={subjectName}
                     />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <Button
                         variant={paperLevelFilter === "all" ? "secondary" : "outline"}
                         size="sm"
