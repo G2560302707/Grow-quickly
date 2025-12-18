@@ -5,27 +5,34 @@ import { getServerSession } from "next-auth";
 import { calculateGrade, inferSubjectFromName } from "@/lib/knowledge-tags";
 import { prisma } from "@/lib/prisma";
 import { badRequest, internalError, createErrorResponse, ErrorCode } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:analyze');
 
 export async function POST(req: Request) {
-    console.log("[API] /api/analyze called");
-    console.log("[API] Env Vars:", Object.keys(process.env).filter(k => k.includes("GOOGLE") || k.includes("NEXT")));
+    logger.info('Analyze API called');
 
     const session = await getServerSession(authOptions);
 
-    // 注释掉认证检查以便测试,生产环境应启用
-    // if (!session) {
-    //     console.log("[API] Unauthorized access attempt");
-    //     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    // }
+    // 认证检查
+    if (!session) {
+        logger.warn('Unauthorized access attempt');
+        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
 
     try {
         const body = await req.json();
         let { imageBase64, mimeType, language, subjectId } = body;
 
-        console.log(`[API] Request received. Image length: ${imageBase64?.length}, MimeType: ${mimeType}, Language: ${language}, SubjectId: ${subjectId}`);
+        logger.debug({
+            imageLength: imageBase64?.length,
+            mimeType,
+            language,
+            subjectId
+        }, 'Request received');
 
         if (!imageBase64) {
-            console.log("[API] Missing image data");
+            logger.warn('Missing image data');
             return badRequest("Missing image data");
         }
 
@@ -35,7 +42,7 @@ export async function POST(req: Request) {
             if (matches) {
                 mimeType = matches[1];
                 imageBase64 = matches[2];
-                console.log(`[API] Parsed Data URL. New MimeType: ${mimeType}, Base64 length: ${imageBase64.length}`);
+                logger.debug({ mimeType, base64Length: imageBase64.length }, 'Parsed Data URL');
             }
         }
 
@@ -53,7 +60,7 @@ export async function POST(req: Request) {
 
                 if (user) {
                     userGrade = calculateGrade(user.educationStage, user.enrollmentYear);
-                    console.log("[API] Calculated user grade:", userGrade);
+                    logger.debug({ userGrade }, 'Calculated user grade');
                 }
 
                 // 获取错题本信息以推断学科
@@ -65,11 +72,11 @@ export async function POST(req: Request) {
 
                     if (subject) {
                         subjectName = inferSubjectFromName(subject.name);
-                        console.log("[API] Inferred subject:", subjectName, "from:", subject.name);
+                        logger.debug({ subjectName, subjectDisplayName: subject.name }, 'Inferred subject');
                     }
                 }
             } catch (error) {
-                console.error("[API] Error fetching user/subject info:", error);
+                logger.error({ error }, 'Error fetching user/subject info');
                 // 继续执行，不传递年级参数（会返回所有年级的标签）
             }
         }
@@ -85,27 +92,29 @@ export async function POST(req: Request) {
         };
         const subjectChinese = subjectName ? subjectNameMapping[subjectName] : null;
 
-        console.log("[API] Calling AI service analyzeImage with grade:", userGrade, "subject:", subjectChinese);
+        logger.info({ userGrade, subject: subjectChinese }, 'Calling AI service for image analysis');
         const aiService = getAIService();
         const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language, userGrade, subjectChinese);
 
-
-        console.log("[API] AI returned knowledgePoints:", analysisResult.knowledgePoints);
-        console.log("[API] knowledgePoints type:", typeof analysisResult.knowledgePoints);
-        console.log("[API] knowledgePoints isArray:", Array.isArray(analysisResult.knowledgePoints));
+        logger.debug({
+            knowledgePointsCount: analysisResult.knowledgePoints?.length,
+            knowledgePointsType: typeof analysisResult.knowledgePoints,
+            isArray: Array.isArray(analysisResult.knowledgePoints)
+        }, 'AI returned knowledge points');
 
         // AI 现在从数据库获取标签列表，返回的标签已经是标准化的，不需要额外处理
         if (!analysisResult.knowledgePoints || analysisResult.knowledgePoints.length === 0) {
-            console.log("[API] ⚠️ WARNING: knowledgePoints is empty or null!");
+            logger.warn('Knowledge points is empty or null');
         }
 
-        console.log("[API] AI analysis successful");
+        logger.info('AI analysis successful');
 
         return NextResponse.json(analysisResult);
     } catch (error: any) {
-        console.error("[API] Analysis error details:", error);
-        console.error("[API] Error message:", error.message);
-        console.error("[API] Error stack:", error.stack);
+        logger.error({
+            error: error.message,
+            stack: error.stack
+        }, 'Analysis error occurred');
 
         // 返回具体的错误类型，便于前端显示详细提示
         let errorMessage = error.message || "Failed to analyze image";

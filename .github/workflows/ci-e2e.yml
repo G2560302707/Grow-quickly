@@ -66,12 +66,39 @@ jobs:
         run: npm run test:integration
 
   # ============================================
-  # 阶段 3: E2E 测试 (新增)
+  # 阶段 3: 构建验证 (确保可以构建)
+  # ============================================
+  build-check:
+    runs-on: ubuntu-latest
+    name: Build Check
+    needs: integration-test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build application
+        run: npm run build
+
+  # ============================================
+  # 阶段 4: E2E 测试 (真实场景验证)
   # ============================================
   e2e-test:
     runs-on: ubuntu-latest
     name: E2E Tests
-    needs: integration-test
+    needs: build-check
     timeout-minutes: 60
     env:
       DATABASE_URL: "file:./e2e.db"
@@ -113,4 +140,4 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
-          retention-days: 30
+          retention-days: 7
