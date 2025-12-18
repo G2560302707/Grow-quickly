@@ -1,4 +1,4 @@
-name: E2E Pipeline (No Docker)
+name: CI Test Pipeline
 
 on:
   push:
