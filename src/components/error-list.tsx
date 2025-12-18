@@ -22,6 +22,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { KnowledgeFilter } from "@/components/knowledge-filter";
 import { ErrorItem } from "@/types/api";
 import { apiClient } from "@/lib/api-client";
+import { cleanMarkdown } from "@/lib/markdown-utils";
 
 interface ErrorListProps {
     subjectId?: string;
@@ -276,36 +277,10 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
                                         {(() => {
                                             // 提取文本并清理 LaTeX/Markdown 格式
                                             const rawText = (item.questionText || "").split('\n\n')[0]; // 取第一段
+                                            const cleanText = cleanMarkdown(rawText);
 
-                                            const cleanText = rawText
-                                                // 1. 移除 LaTeX 布局命令 (Layout)
-                                                .replace(/\\left/g, '')
-                                                .replace(/\\right/g, '')
-                                                .replace(/\\begin\{.*?\}/g, '')
-                                                .replace(/\\end\{.*?\}/g, '')
-                                                .replace(/\\text\{.*?\}/g, '')
-                                                .replace(/\\mbox\{.*?\}/g, '')
-                                                // 2. 替换常用数学符号 (Symbols)
-                                                .replace(/\\times/g, '×')
-                                                .replace(/\\div/g, '÷')
-                                                .replace(/\\cdot/g, '·')
-                                                .replace(/\\le/g, '≤')
-                                                .replace(/\\ge/g, '≥')
-                                                .replace(/\\neq/g, '≠')
-                                                .replace(/\\approx/g, '≈')
-                                                .replace(/\\pm/g, '±')
-                                                .replace(/\\infty/g, '∞')
-                                                .replace(/\\circ/g, '°')
-                                                .replace(/\\triangle/g, '△')
-                                                .replace(/\\angle/g, '∠')
-                                                .replace(/\\because/g, '∵')
-                                                .replace(/\\therefore/g, '∴')
-                                                // 3. 移除 Markdown 符号与剩余的反斜杠
-                                                .replace(/[#*`$]/g, '')
-                                                .trim();
-
-                                            return cleanText.length > 150
-                                                ? cleanText.substring(0, 150) + "..."
+                                            return cleanText.length > 80
+                                                ? cleanText.substring(0, 80) + "..."
                                                 : cleanText;
                                         })()}
                                     </div>

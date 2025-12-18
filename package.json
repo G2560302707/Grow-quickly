@@ -47,8 +47,10 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.5.0",
     "rehype-katex": "^7.0.1",
+    "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
+    "strip-markdown": "^6.0.0",
     "undici": "^7.16.0",
     "zod": "^4.1.13"
   },
