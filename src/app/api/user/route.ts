@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { hash } from "bcryptjs";
 import { unauthorized, notFound, badRequest, validationError, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:user');
 
 const userUpdateSchema = z.object({
     name: z.string().optional(),
@@ -37,11 +40,11 @@ export async function GET() {
             return notFound("User not found");
         }
 
-        console.log("[API] /api/user returning:", JSON.stringify(user, null, 2));
+        logger.debug({ user }, 'Returning user profile');
 
         return NextResponse.json(user);
     } catch (error) {
-        console.error("Failed to fetch user profile:", error);
+        logger.error({ error }, 'Failed to fetch user profile');
         return internalError("Failed to fetch user profile");
     }
 }
@@ -97,7 +100,7 @@ export async function PATCH(req: Request) {
 
         return NextResponse.json(updatedUser);
     } catch (error) {
-        console.error("Failed to update user profile:", error);
+        logger.error({ error }, 'Failed to update user profile');
         if (error instanceof z.ZodError) {
             return validationError("Invalid input", error.issues);
         }

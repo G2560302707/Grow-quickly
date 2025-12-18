@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:tags:stats');
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +35,7 @@ export async function GET(req: Request) {
                         });
                     }
                 } catch (e) {
-                    console.warn("Failed to parse knowledgePoints for item:", item.knowledgePoints);
+                    logger.warn({ knowledgePoints: item.knowledgePoints }, 'Failed to parse knowledgePoints for item');
                 }
             }
         });
@@ -48,7 +51,7 @@ export async function GET(req: Request) {
             uniqueTags: sortedStats.length,
         });
     } catch (error) {
-        console.error("Error getting tag stats:", error);
+        logger.error({ error }, 'Error getting tag stats');
         return NextResponse.json(
             { message: "Failed to get tag statistics" },
             { status: 500 }

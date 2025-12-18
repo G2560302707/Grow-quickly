@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, badRequest, conflict, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:notebooks');
 
 /**
  * GET /api/notebooks
@@ -87,7 +90,7 @@ export async function GET() {
 
         return NextResponse.json(notebooks);
     } catch (error) {
-        console.error("Error fetching notebooks:", error);
+        logger.error({ error }, 'Error fetching notebooks');
         return internalError("Failed to fetch notebooks");
     }
 }
@@ -163,7 +166,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json(notebook, { status: 201 });
     } catch (error) {
-        console.error("Error creating notebook:", error);
+        logger.error({ error }, 'Error creating notebook');
         return internalError("Failed to create notebook");
     }
 }

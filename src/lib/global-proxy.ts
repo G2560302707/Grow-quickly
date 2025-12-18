@@ -1,4 +1,7 @@
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
+import { createLogger } from './logger';
+
+const logger = createLogger('proxy');
 
 export function setupGlobalProxy() {
     const httpProxy = process.env.http_proxy || process.env.HTTP_PROXY;
@@ -11,9 +14,7 @@ export function setupGlobalProxy() {
 
     if (targetHttpProxy || targetHttpsProxy) {
         if (process.env.NODE_ENV === 'development') {
-            console.log(`[Proxy Setup] Configuring proxy...`);
-            if (targetHttpProxy) console.log(`  HTTP:  ${targetHttpProxy}`);
-            if (targetHttpsProxy) console.log(`  HTTPS: ${targetHttpsProxy}`);
+            logger.info({ http: targetHttpProxy, https: targetHttpsProxy }, 'Configuring proxy');
         }
 
         // 1. Configure Undici (global fetch)
@@ -26,10 +27,10 @@ export function setupGlobalProxy() {
                 const proxyAgent = new ProxyAgent(undiciProxy);
                 setGlobalDispatcher(proxyAgent);
                 if (process.env.NODE_ENV === 'development') {
-                    console.log(`[Proxy Setup] Global Undici dispatcher set to: ${undiciProxy}`);
+                    logger.info({ proxy: undiciProxy }, 'Global Undici dispatcher set');
                 }
             } catch (error) {
-                console.error('[Proxy Setup] Failed to set global Undici dispatcher:', error);
+                logger.error({ error }, 'Failed to set global Undici dispatcher');
             }
         }
 
@@ -51,10 +52,10 @@ export function setupGlobalProxy() {
             require('global-agent/bootstrap');
 
             if (process.env.NODE_ENV === 'development') {
-                console.log('[Proxy Setup] global-agent/bootstrap initialized.');
+                logger.info('global-agent/bootstrap initialized');
             }
         } catch (error) {
-            console.error('[Proxy Setup] Failed to initialize global-agent:', error);
+            logger.error({ error }, 'Failed to initialize global-agent');
         }
     }
 }

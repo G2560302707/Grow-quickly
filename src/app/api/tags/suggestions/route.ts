@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:tags:suggestions');
 
 /**
  * GET /api/tags/suggestions
@@ -89,7 +92,6 @@ export async function GET(req: Request) {
                     }
                     // Current is now the root (or top-most loaded ancestor)
                     const isMatch = filters.some(f => current.name.includes(f));
-                    // console.log(`[TagFilter] Tag: ${tag.name}, Root: ${current.name}, Match: ${isMatch}`);
                     return isMatch;
                 });
             }
@@ -112,7 +114,7 @@ export async function GET(req: Request) {
             total: suggestions.length,
         });
     } catch (error) {
-        console.error("Error getting tag suggestions:", error);
+        logger.error({ error }, 'Error getting tag suggestions');
         return NextResponse.json(
             { message: "Failed to get tag suggestions" },
             { status: 500 }

@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:error-items:list');
 
 export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
@@ -23,7 +26,7 @@ export async function GET(req: Request) {
         }
 
         if (!user) {
-            console.log("[API] No session or user found, attempting fallback to first user.");
+            logger.debug('No session or user found, attempting fallback to first user');
             user = await prisma.user.findFirst();
         }
 
@@ -102,7 +105,7 @@ export async function GET(req: Request) {
 
         return NextResponse.json(errorItems);
     } catch (error) {
-        console.error("Error fetching items:", error);
+        logger.error({ error }, 'Error fetching items');
         return internalError("Failed to fetch error items");
     }
 }

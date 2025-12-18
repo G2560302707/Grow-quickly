@@ -5,6 +5,9 @@ import { generateAnalyzePrompt, generateSimilarQuestionPrompt } from './prompts'
 import { getAppConfig } from '../config';
 import { validateParsedQuestion, safeParseParsedQuestion } from './schema';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
+import { createLogger } from '../logger';
+
+const logger = createLogger('ai:openai');
 
 export class OpenAIProvider implements AIService {
     private openai: OpenAI;
@@ -43,7 +46,7 @@ export class OpenAIProvider implements AIService {
     }
 
     private parseResponse(text: string): ParsedQuestion {
-        console.log("[OpenAI] Parsing AI response, length:", text.length);
+        logger.debug({ textLength: text.length }, 'Parsing AI response');
 
         const questionText = this.extractTag(text, "question_text");
         const answerText = this.extractTag(text, "answer_text");
@@ -54,8 +57,7 @@ export class OpenAIProvider implements AIService {
 
         // Basic Validation
         if (!questionText || !answerText || !analysis) {
-            console.error("[OpenAI] ✗ Missing critical XML tags");
-            console.log("Raw text sample:", text.substring(0, 500));
+            logger.error({ rawTextSample: text.substring(0, 500) }, 'Missing critical XML tags');
             throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
         }
 
@@ -89,10 +91,10 @@ export class OpenAIProvider implements AIService {
         // Final Schema Validation (just to be safe, though likely compliant by now)
         const validation = safeParseParsedQuestion(result);
         if (validation.success) {
-            console.log("[OpenAI] ✓ Validated successfully via XML tags");
+            logger.debug('Validated successfully via XML tags');
             return validation.data;
         } else {
-            console.warn("[OpenAI] ⚠ Schema validation warning:", validation.error.format());
+            logger.warn({ validationError: validation.error.format() }, 'Schema validation warning');
             // We still return it as we trust our extraction more than the schema at this point (or we can throw)
             // Let's return the extracted data to be permissive
             return result;
@@ -119,20 +121,41 @@ export class OpenAIProvider implements AIService {
             prefetchedEnglishTags,
         });
 
-        console.log("\n" + "=".repeat(80));
-        console.log("[OpenAI] 🔍 AI Image Analysis Request");
-        console.log("=".repeat(80));
-        console.log("[OpenAI] Image size:", imageBase64.length, "bytes");
-        console.log("[OpenAI] MimeType:", mimeType);
-        console.log("[OpenAI] Model:", this.model);
-        console.log("[OpenAI] Language:", language);
-        console.log("[OpenAI] Grade:", grade || "all");
-        console.log("-".repeat(80));
-        console.log("[OpenAI] 📝 Full System Prompt:");
-        console.log(systemPrompt);
-        console.log("=".repeat(80) + "\n");
+        logger.box('🔍 AI Image Analysis Request', {
+            imageSize: `${imageBase64.length} bytes`,
+            mimeType,
+            model: this.model,
+            language,
+            grade: grade || 'all'
+        });
+        logger.box('📝 Full System Prompt', systemPrompt);
 
         try {
+            // 构建请求参数（用于日志显示，图片数据截断）
+            const requestParamsForLog = {
+                model: this.model,
+                messages: [
+                    {
+                        role: "system",
+                        content: systemPrompt
+                    },
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "image_url",
+                                image_url: {
+                                    url: `data:${mimeType};base64,[...${imageBase64.length} bytes base64 data...]`,
+                                },
+                            },
+                        ],
+                    },
+                ],
+                max_tokens: 8192,
+            };
+
+            logger.box('📤 API Request (发送给 AI 的原始请求)', JSON.stringify(requestParamsForLog, null, 2));
+
             const response = await this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
@@ -156,43 +179,30 @@ export class OpenAIProvider implements AIService {
                 max_tokens: 8192,
             });
 
-            // 调试：打印完整响应对象
-            console.log("\n[OpenAI] 📦 Full API Response:");
-            console.log("Response object:", response);
-            console.log("Response stringified:", JSON.stringify(response, null, 2));
+            logger.box('📦 Full API Response', JSON.stringify(response, null, 2));
 
             // 检查响应是否有效
             if (!response || !response.choices || response.choices.length === 0) {
-                console.error("[OpenAI] ❌ Invalid API response - no choices array");
-                console.error("[OpenAI] Response was:", JSON.stringify(response));
+                logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
                 throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
             }
 
             const text = response.choices[0]?.message?.content || "";
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[OpenAI] 🤖 AI Raw Response");
-            console.log("=".repeat(80));
-            console.log(text);
-            console.log("=".repeat(80) + "\n");
+            logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
             const parsedResult = this.parseResponse(text);
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[OpenAI] ✅ Parsed & Validated Result");
-            console.log("=".repeat(80));
-            console.log(JSON.stringify(parsedResult, null, 2));
-            console.log("=".repeat(80) + "\n");
+            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
             return parsedResult;
 
         } catch (error) {
-            console.error("\n" + "=".repeat(80));
-            console.error("[OpenAI] ❌ Error during AI analysis");
-            console.error("=".repeat(80));
-            console.error(error);
-            console.error("=".repeat(80) + "\n");
+            logger.box('❌ Error during AI analysis', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
             this.handleError(error);
             throw error;
         }
@@ -205,20 +215,14 @@ export class OpenAIProvider implements AIService {
         });
         const userPrompt = `\nOriginal Question: "${originalQuestion}"\nKnowledge Points: ${knowledgePoints.join(", ")}\n    `;
 
-        console.log("\n" + "=".repeat(80));
-        console.log("[OpenAI] 🎯 Generate Similar Question Request");
-        console.log("=".repeat(80));
-        console.log("[OpenAI] Original Question:", originalQuestion.substring(0, 100) + "...");
-        console.log("[OpenAI] Knowledge Points:", knowledgePoints);
-        console.log("[OpenAI] Difficulty:", difficulty);
-        console.log("[OpenAI] Language:", language);
-        console.log("-".repeat(80));
-        console.log("[OpenAI] 📝 Full System Prompt:");
-        console.log(systemPrompt);
-        console.log("-".repeat(80));
-        console.log("[OpenAI] 📝 User Prompt:");
-        console.log(userPrompt);
-        console.log("=".repeat(80) + "\n");
+        logger.box('🎯 Generate Similar Question Request', {
+            originalQuestion: originalQuestion.substring(0, 100) + '...',
+            knowledgePoints: knowledgePoints.join(', '),
+            difficulty,
+            language
+        });
+        logger.box('📝 System Prompt', systemPrompt);
+        logger.box('📝 User Prompt', userPrompt);
 
         try {
             const response = await this.openai.chat.completions.create({
@@ -233,29 +237,20 @@ export class OpenAIProvider implements AIService {
 
             const text = response.choices[0]?.message?.content || "";
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[OpenAI] 🤖 AI Raw Response");
-            console.log("=".repeat(80));
-            console.log(text);
-            console.log("=".repeat(80) + "\n");
+            logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
             const parsedResult = this.parseResponse(text);
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[OpenAI] ✅ Parsed & Validated Result");
-            console.log("=".repeat(80));
-            console.log(JSON.stringify(parsedResult, null, 2));
-            console.log("=".repeat(80) + "\n");
+            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
             return parsedResult;
 
         } catch (error) {
-            console.error("\n" + "=".repeat(80));
-            console.error("[OpenAI] ❌ Error during question generation");
-            console.error("=".repeat(80));
-            console.error(error);
-            console.error("=".repeat(80) + "\n");
+            logger.box('❌ Error during question generation', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
             this.handleError(error);
             throw error;
         }
@@ -265,16 +260,12 @@ export class OpenAIProvider implements AIService {
         const { generateReanswerPrompt } = await import('./prompts');
         const prompt = generateReanswerPrompt(language, questionText, subject);
 
-        console.log("\n" + "=".repeat(80));
-        console.log("[OpenAI] 🔄 Reanswer Question Request");
-        console.log("=".repeat(80));
-        console.log("[OpenAI] Question length:", questionText.length);
-        console.log("[OpenAI] Subject:", subject || "auto");
-        console.log("[OpenAI] Has image:", !!imageBase64);
-        console.log("-".repeat(80));
-        console.log("[OpenAI] 📝 Full Prompt:");
-        console.log(prompt);
-        console.log("=".repeat(80) + "\n");
+        logger.info({
+            questionLength: questionText.length,
+            subject: subject || 'auto',
+            hasImage: !!imageBase64
+        }, 'Reanswer Question Request');
+        logger.debug({ prompt }, 'Full prompt');
 
         try {
             // 根据是否有图片构建不同的消息内容
@@ -282,13 +273,13 @@ export class OpenAIProvider implements AIService {
             if (imageBase64) {
                 // 如果有图片，构建多模态消息
                 const imageUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
-                console.log("[OpenAI] 🖼️ 图片已添加到请求中，图片数据长度:", imageUrl.length);
+                logger.debug({ imageLength: imageUrl.length }, 'Image added to request');
                 userContent = [
                     { type: "text", text: "请结合图片和题目描述提供答案和解析。" },
                     { type: "image_url", image_url: { url: imageUrl } }
                 ];
             } else {
-                console.log("[OpenAI] ⚠️ 没有图片数据，imageBase64 为:", typeof imageBase64, imageBase64 ? "有值" : "空");
+                logger.debug({ imageBase64Type: typeof imageBase64, hasValue: !!imageBase64 }, 'No image data');
             }
 
             // 打印请求参数
@@ -300,8 +291,7 @@ export class OpenAIProvider implements AIService {
                 ],
                 max_tokens: 8192
             };
-            console.log("\n[OpenAI] 📤 Request Parameters:");
-            console.log(JSON.stringify(requestParams, null, 2));
+            logger.debug({ requestParams }, 'Request parameters');
 
             const response = await this.openai.chat.completions.create({
                 model: this.model,
@@ -312,25 +302,17 @@ export class OpenAIProvider implements AIService {
                 max_tokens: 8192,
             });
 
-            // 打印完整响应
-            console.log("\n[OpenAI] 📥 Full API Response:");
-            console.log("Response type:", typeof response);
-            console.log("Response:", JSON.stringify(response, null, 2));
+            logger.debug({ response: JSON.stringify(response) }, 'Full API response');
 
             // 检查响应是否有效
             if (!response || !response.choices || response.choices.length === 0) {
-                console.error("[OpenAI] ❌ Invalid API response - no choices array");
-                console.error("[OpenAI] Response was:", JSON.stringify(response));
+                logger.error({ response: JSON.stringify(response) }, 'Invalid API response - no choices array');
                 throw new Error("AI_RESPONSE_ERROR: API returned empty or invalid response");
             }
 
             const text = response.choices[0]?.message?.content || "";
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[OpenAI] 🤖 AI Raw Response");
-            console.log("=".repeat(80));
-            console.log(text);
-            console.log("=".repeat(80) + "\n");
+            logger.debug({ rawResponse: text }, 'AI raw response');
 
             if (!text) throw new Error("Empty response from AI");
 
@@ -340,20 +322,19 @@ export class OpenAIProvider implements AIService {
             const knowledgePointsRaw = this.extractTag(text, "knowledge_points") || "";
             const knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
 
-            console.log("[OpenAI] ✅ Reanswer parsed successfully");
+            logger.info('Reanswer parsed successfully');
 
             return { answerText, analysis, knowledgePoints };
 
         } catch (error) {
-            console.error("[OpenAI] ❌ Error during reanswer");
-            console.error(error);
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
             this.handleError(error);
             throw error;
         }
     }
 
     private handleError(error: unknown) {
-        console.error("OpenAI Error:", error);
+        logger.error({ error }, 'OpenAI error');
         if (error instanceof Error) {
             const msg = error.message.toLowerCase();
             if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect')) {

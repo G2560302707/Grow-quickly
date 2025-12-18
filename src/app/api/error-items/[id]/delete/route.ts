@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:error-items:delete');
 
 export async function DELETE(
     req: Request,
@@ -20,7 +23,7 @@ export async function DELETE(
         }
 
         if (!user) {
-            console.log("[API] No session or user found, attempting fallback to first user.");
+            logger.debug('No session or user found, attempting fallback to first user');
             user = await prisma.user.findFirst();
         }
 
@@ -48,7 +51,7 @@ export async function DELETE(
 
         return NextResponse.json({ message: "Deleted successfully" });
     } catch (error) {
-        console.error("Error deleting item:", error);
+        logger.error({ error }, 'Error deleting item');
         return internalError("Failed to delete error item");
     }
 }

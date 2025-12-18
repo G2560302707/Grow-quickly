@@ -5,6 +5,9 @@ import { OpenAIProvider } from "./openai-provider";
 export * from "./types";
 
 import { getAppConfig } from "../config";
+import { createLogger } from "../logger";
+
+const logger = createLogger('ai');
 
 export function getAIService(): AIService {
     // Always get fresh config
@@ -12,10 +15,10 @@ export function getAIService(): AIService {
     const provider = config.aiProvider;
 
     if (provider === "openai") {
-        console.log("Using OpenAI Provider");
+        logger.info('Using OpenAI Provider');
         return new OpenAIProvider(config.openai);
     } else {
-        console.log("Using Gemini Provider");
+        logger.info('Using Gemini Provider');
         return new GeminiProvider(config.gemini);
     }
 }

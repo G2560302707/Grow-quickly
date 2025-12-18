@@ -3,6 +3,9 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
 import { compare } from "bcryptjs"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('auth');
 
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
@@ -37,9 +40,9 @@ export const authOptions: NextAuthOptions = {
                 password: { label: "Password", type: "password" }
             },
             async authorize(credentials) {
-                console.log("Authorize called with:", credentials?.email);
+                logger.debug({ email: credentials?.email }, 'Authorize called');
                 if (!credentials?.email || !credentials?.password) {
-                    console.log("Missing credentials");
+                    logger.debug('Missing credentials');
                     return null
                 }
 
@@ -50,24 +53,24 @@ export const authOptions: NextAuthOptions = {
                 })
 
                 if (!user) {
-                    console.log("User not found");
+                    logger.debug('User not found');
                     return null
                 }
 
                 // Check if user is active
                 if (!user.isActive) {
-                    console.log("User is disabled");
+                    logger.warn('User is disabled');
                     throw new Error("Account is disabled")
                 }
 
                 const isPasswordValid = await compare(credentials.password, user.password)
 
                 if (!isPasswordValid) {
-                    console.log("Invalid password");
+                    logger.debug('Invalid password');
                     return null
                 }
 
-                console.log("Login successful for:", user.email);
+                logger.info({ email: user.email }, 'Login successful');
 
                 return {
                     id: user.id,
@@ -82,18 +85,18 @@ export const authOptions: NextAuthOptions = {
     debug: true,
     logger: {
         error(code, metadata) {
-            console.error(`[NextAuth][Error] ${code}`, metadata)
+            logger.error({ code, metadata }, 'NextAuth error');
         },
         warn(code) {
-            console.warn(`[NextAuth][Warn] ${code}`)
+            logger.warn({ code }, 'NextAuth warning');
         },
         debug(code, metadata) {
-            console.log(`[NextAuth][Debug] ${code}`, metadata)
+            logger.debug({ code, metadata }, 'NextAuth debug');
         }
     },
     callbacks: {
         async session({ session, token }) {
-            console.log("[NextAuth] Session callback", { userId: token.id });
+            logger.debug({ userId: token.id }, 'Session callback');
             return {
                 ...session,
                 user: {
@@ -105,23 +108,23 @@ export const authOptions: NextAuthOptions = {
         },
         async jwt({ token, user, account, profile }) {
             if (user) {
-                console.log("[NextAuth] JWT callback - Initial signin", { userId: user.id });
+                logger.debug({ userId: user.id }, 'JWT callback - Initial signin');
                 return {
                     ...token,
                     id: user.id,
                     role: (user as any).role,
                 }
             }
-            console.log("[NextAuth] JWT callback - Subsequent call");
+            logger.debug('JWT callback - Subsequent call');
             return token
         }
     }
 }
 
 // Log startup check
-console.log("[AuthConfig] Loading...", {
+logger.info({
     NODE_ENV: process.env.NODE_ENV,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     HAS_SECRET: !!process.env.NEXTAUTH_SECRET,
     AUTH_TRUST_HOST: process.env.AUTH_TRUST_HOST
-});
+}, 'AuthConfig loading');

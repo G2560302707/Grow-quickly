@@ -1,13 +1,16 @@
-import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
 import { generateAnalyzePrompt, generateSimilarQuestionPrompt } from './prompts';
 import { safeParseParsedQuestion } from './schema';
 import { getAppConfig } from '../config';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
+import { createLogger } from '../logger';
+
+const logger = createLogger('ai:gemini');
 
 export class GeminiProvider implements AIService {
-    private genAI: GoogleGenerativeAI;
-    private model: GenerativeModel;
+    private ai: GoogleGenAI;
+    private modelName: string;
 
     constructor(config?: AIConfig) {
         const apiKey = config?.apiKey;
@@ -16,12 +19,8 @@ export class GeminiProvider implements AIService {
             throw new Error("AI_AUTH_ERROR: GOOGLE_API_KEY is required for Gemini provider");
         }
 
-        this.genAI = new GoogleGenerativeAI(apiKey);
-        this.model = this.genAI.getGenerativeModel({
-            model: config?.model || 'gemini-1.5-flash' // Fallback for safety
-        }, {
-            baseUrl: config?.baseUrl
-        });
+        this.ai = new GoogleGenAI({ apiKey });
+        this.modelName = config?.model || 'gemini-2.0-flash';
     }
 
     private extractTag(text: string, tagName: string): string | null {
@@ -38,7 +37,7 @@ export class GeminiProvider implements AIService {
     }
 
     private parseResponse(text: string): ParsedQuestion {
-        console.log("[Gemini] Parsing AI response, length:", text.length);
+        logger.debug({ textLength: text.length }, 'Parsing AI response');
 
         const questionText = this.extractTag(text, "question_text");
         const answerText = this.extractTag(text, "answer_text");
@@ -49,8 +48,7 @@ export class GeminiProvider implements AIService {
 
         // Basic Validation
         if (!questionText || !answerText || !analysis) {
-            console.error("[Gemini] ✗ Missing critical XML tags");
-            console.log("Raw text sample:", text.substring(0, 500));
+            logger.error({ rawTextSample: text.substring(0, 500) }, 'Missing critical XML tags');
             throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
         }
 
@@ -58,17 +56,16 @@ export class GeminiProvider implements AIService {
         let subject: ParsedQuestion['subject'] = '其他';
         const validSubjects = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
         if (subjectRaw && validSubjects.includes(subjectRaw)) {
-            subject = subjectRaw as any;
+            subject = subjectRaw as ParsedQuestion['subject'];
         }
 
         // Process Knowledge Points
         let knowledgePoints: string[] = [];
         if (knowledgePointsRaw) {
-            // Split by comma or newline, trim whitespaces
             knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
         }
 
-        // Process requiresImage (default to false if not present or unrecognized)
+        // Process requiresImage
         const requiresImage = requiresImageRaw?.toLowerCase().trim() === 'true';
 
         // Construct Result
@@ -84,10 +81,10 @@ export class GeminiProvider implements AIService {
         // Final Schema Validation
         const validation = safeParseParsedQuestion(result);
         if (validation.success) {
-            console.log("[Gemini] ✓ Validated successfully via XML tags");
+            logger.debug('Validated successfully via XML tags');
             return validation.data;
         } else {
-            console.warn("[Gemini] ⚠ Schema validation warning:", validation.error.format());
+            logger.warn({ validationError: validation.error.format() }, 'Schema validation warning');
             return result;
         }
     }
@@ -96,7 +93,6 @@ export class GeminiProvider implements AIService {
         const config = getAppConfig();
 
         // 从数据库获取各学科标签
-        // 如果指定了学科，只获取该学科；否则获取所有学科标签供 AI 判断
         const prefetchedMathTags = (subject === '数学' || !subject) ? await getMathTagsFromDB(grade || null) : [];
         const prefetchedPhysicsTags = (subject === '物理' || !subject) ? await getTagsFromDB('physics') : [];
         const prefetchedChemistryTags = (subject === '化学' || !subject) ? await getTagsFromDB('chemistry') : [];
@@ -112,64 +108,69 @@ export class GeminiProvider implements AIService {
             prefetchedEnglishTags,
         });
 
-        console.log("\n" + "=".repeat(80));
-        console.log("[Gemini] 🔍 AI Image Analysis Request");
-        console.log("=".repeat(80));
-        console.log("[Gemini] Image size:", imageBase64.length, "bytes");
-        console.log("[Gemini] MimeType:", mimeType);
-        console.log("[Gemini] Language:", language);
-        console.log("[Gemini] Grade:", grade || "all");
-        console.log("-".repeat(80));
-        console.log("[Gemini] 📝 Full Prompt:");
-        console.log(prompt);
-        console.log("=".repeat(80) + "\n");
+        logger.box('🔍 AI Image Analysis Request', {
+            imageSize: `${imageBase64.length} bytes`,
+            mimeType,
+            model: this.modelName,
+            language,
+            grade: grade || 'all'
+        });
+        logger.box('📝 Full Prompt', prompt);
 
         try {
-            const result = await this.model.generateContent({
+            // 构建请求参数（用于日志显示）
+            const requestParamsForLog = {
+                model: this.modelName,
                 contents: [
                     {
-                        role: 'user',
-                        parts: [
-                            { text: prompt },
-                            {
-                                inlineData: {
-                                    data: imageBase64,
-                                    mimeType: mimeType
-                                }
-                            }
-                        ]
+                        text: prompt
+                    },
+                    {
+                        inlineData: {
+                            data: `[...${imageBase64.length} bytes base64 data...]`,
+                            mimeType: mimeType
+                        }
                     }
-                ],
-                generationConfig: {
-                    // responseMimeType: "application/json",  // Disable JSON mode for XML output
-                }
-            });
-            const response = await result.response;
-            const text = response.text();
+                ]
+            };
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[Gemini] 🤖 AI Raw Response");
-            console.log("=".repeat(80));
-            console.log(text);
-            console.log("=".repeat(80) + "\n");
+            logger.box('📤 API Request (发送给 AI 的原始请求)', JSON.stringify(requestParamsForLog, null, 2));
+
+            const response = await this.ai.models.generateContent({
+                model: this.modelName,
+                contents: [
+                    {
+                        text: prompt
+                    },
+                    {
+                        inlineData: {
+                            data: imageBase64,
+                            mimeType: mimeType
+                        }
+                    }
+                ]
+            });
+
+            logger.box('📦 Full API Response Metadata', {
+                usageMetadata: response.usageMetadata
+            });
+
+            const text = response.text || '';
+
+            logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
             const parsedResult = this.parseResponse(text);
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[Gemini] ✅ Parsed & Validated Result");
-            console.log("=".repeat(80));
-            console.log(JSON.stringify(parsedResult, null, 2));
-            console.log("=".repeat(80) + "\n");
+            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
             return parsedResult;
 
         } catch (error) {
-            console.error("\n" + "=".repeat(80));
-            console.error("[Gemini] ❌ Error during AI analysis");
-            console.error("=".repeat(80));
-            console.error(error);
-            console.error("=".repeat(80) + "\n");
+            logger.box('❌ Error during AI analysis', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
             this.handleError(error);
             throw error;
         }
@@ -181,51 +182,36 @@ export class GeminiProvider implements AIService {
             customTemplate: config.prompts?.similar
         });
 
-        console.log("\n" + "=".repeat(80));
-        console.log("[Gemini] 🎯 Generate Similar Question Request");
-        console.log("=".repeat(80));
-        console.log("[Gemini] Original Question:", originalQuestion.substring(0, 100) + "...");
-        console.log("[Gemini] Knowledge Points:", knowledgePoints);
-        console.log("[Gemini] Difficulty:", difficulty);
-        console.log("[Gemini] Language:", language);
-        console.log("-".repeat(80));
-        console.log("[Gemini] 📝 Full Prompt:");
-        console.log(prompt);
-        console.log("=".repeat(80) + "\n");
+        logger.box('🎯 Generate Similar Question Request', {
+            originalQuestion: originalQuestion.substring(0, 100) + '...',
+            knowledgePoints: knowledgePoints.join(', '),
+            difficulty,
+            language
+        });
+        logger.box('📝 Full Prompt', prompt);
 
         try {
-            const result = await this.model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: {
-                    // responseMimeType: "application/json",  // Disable JSON mode for XML output
-                }
+            const response = await this.ai.models.generateContent({
+                model: this.modelName,
+                contents: prompt
             });
-            const response = await result.response;
-            const text = response.text();
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[Gemini] 🤖 AI Raw Response");
-            console.log("=".repeat(80));
-            console.log(text);
-            console.log("=".repeat(80) + "\n");
+            const text = response.text || '';
+
+            logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
             const parsedResult = this.parseResponse(text);
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[Gemini] ✅ Parsed & Validated Result");
-            console.log("=".repeat(80));
-            console.log(JSON.stringify(parsedResult, null, 2));
-            console.log("=".repeat(80) + "\n");
+            logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
             return parsedResult;
 
         } catch (error) {
-            console.error("\n" + "=".repeat(80));
-            console.error("[Gemini] ❌ Error during question generation");
-            console.error("=".repeat(80));
-            console.error(error);
-            console.error("=".repeat(80) + "\n");
+            logger.box('❌ Error during question generation', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
             this.handleError(error);
             throw error;
         }
@@ -235,40 +221,35 @@ export class GeminiProvider implements AIService {
         const { generateReanswerPrompt } = await import('./prompts');
         const prompt = generateReanswerPrompt(language, questionText, subject);
 
-        console.log("\n" + "=".repeat(80));
-        console.log("[Gemini] 🔄 Reanswer Question Request");
-        console.log("=".repeat(80));
-        console.log("[Gemini] Question length:", questionText.length);
-        console.log("[Gemini] Subject:", subject || "auto");
-        console.log("[Gemini] Has image:", !!imageBase64);
-        console.log("-".repeat(80));
-        console.log("[Gemini] 📝 Full Prompt:");
-        console.log(prompt);
-        console.log("=".repeat(80) + "\n");
+        logger.info({
+            questionLength: questionText.length,
+            subject: subject || 'auto',
+            hasImage: !!imageBase64
+        }, 'Reanswer Question Request');
+        logger.debug({ prompt }, 'Full prompt');
 
         try {
             // 根据是否有图片构建不同的请求内容
-            let parts: any[] = [{ text: prompt }];
+            let contents: any;
             if (imageBase64) {
                 // 移除 data:image/xxx;base64, 前缀（如果存在）
                 const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-                parts = [
+                contents = [
                     { text: prompt },
                     { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
                 ];
+            } else {
+                contents = prompt;
             }
 
-            const result = await this.model.generateContent({
-                contents: [{ role: 'user', parts }],
+            const response = await this.ai.models.generateContent({
+                model: this.modelName,
+                contents
             });
-            const response = await result.response;
-            const text = response.text();
 
-            console.log("\n" + "=".repeat(80));
-            console.log("[Gemini] 🤖 AI Raw Response");
-            console.log("=".repeat(80));
-            console.log(text);
-            console.log("=".repeat(80) + "\n");
+            const text = response.text || '';
+
+            logger.debug({ rawResponse: text }, 'AI raw response');
 
             if (!text) throw new Error("Empty response from AI");
 
@@ -276,22 +257,21 @@ export class GeminiProvider implements AIService {
             const answerText = this.extractTag(text, "answer_text") || "";
             const analysis = this.extractTag(text, "analysis") || "";
             const knowledgePointsRaw = this.extractTag(text, "knowledge_points") || "";
-            const knowledgePoints = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
+            const knowledgePointsParsed = knowledgePointsRaw.split(/[,，\n]/).map(k => k.trim()).filter(k => k.length > 0);
 
-            console.log("[Gemini] ✅ Reanswer parsed successfully");
+            logger.info('Reanswer parsed successfully');
 
-            return { answerText, analysis, knowledgePoints };
+            return { answerText, analysis, knowledgePoints: knowledgePointsParsed };
 
         } catch (error) {
-            console.error("[Gemini] ❌ Error during reanswer");
-            console.error(error);
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
             this.handleError(error);
             throw error;
         }
     }
 
     private handleError(error: unknown) {
-        console.error("Gemini Error:", error);
+        logger.error({ error }, 'Gemini error');
         if (error instanceof Error) {
             const msg = error.message.toLowerCase();
             if (msg.includes('fetch failed') || msg.includes('network') || msg.includes('connect') || msg.includes('503') || msg.includes('overloaded') || msg.includes('unavailable')) {

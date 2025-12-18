@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { internalError, unauthorized, forbidden } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:admin:system-reset');
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -31,7 +34,7 @@ export async function POST(req: Request) {
     // Let's assume for a single-user or small-team app, 'user data' means 'data belonging to users'.
 
     try {
-        console.log(`[SystemReset] Initiated by ${session.user.email}`);
+        logger.info({ email: session.user.email }, 'System reset initiated');
 
         await prisma.$transaction(async (tx) => {
             // 1. Delete Practice Records (dependent on nothing usually, or User/ErrorItem)
@@ -69,10 +72,10 @@ export async function POST(req: Request) {
             }
         });
 
-        console.log(`[SystemReset] Completed successfully.`);
+        logger.info('System reset completed successfully');
         return NextResponse.json({ success: true, message: "System reset complete" });
     } catch (error) {
-        console.error("[SystemReset] Error:", error);
+        logger.error({ error }, 'System reset error');
         return internalError("Failed to reset system");
     }
 }

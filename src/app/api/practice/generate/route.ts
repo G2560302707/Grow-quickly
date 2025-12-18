@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { getAIService } from "@/lib/ai";
 import { notFound, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:practice:generate');
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -42,7 +45,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json(similarQuestion);
     } catch (error) {
-        console.error("Error generating practice:", error);
+        logger.error({ error }, 'Error generating practice');
         const errorMessage = error instanceof Error ? error.message : "Failed to generate practice question";
         return internalError(errorMessage);
     }

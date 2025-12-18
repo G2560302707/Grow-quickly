@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/auth-utils"
 import { forbidden, internalError } from "@/lib/api-errors"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('api:admin:users');
 
 export async function GET() {
     const session = await getServerSession(authOptions)
@@ -35,7 +38,7 @@ export async function GET() {
 
         return NextResponse.json(users)
     } catch (error) {
-        console.error("[ADMIN_USERS_GET]", error)
+        logger.error({ error }, 'Error fetching users');
         return internalError("Failed to fetch users")
     }
 }

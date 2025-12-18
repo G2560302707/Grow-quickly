@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api:tags');
 
 interface TagTreeNode {
     id: string;
@@ -103,7 +106,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ tags: tree });
 
     } catch (error) {
-        console.error('Error fetching tags:', error);
+        logger.error({ error }, 'Error fetching tags');
         return NextResponse.json({ error: 'Failed to fetch tags' }, { status: 500 });
     }
 }
@@ -153,7 +156,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ tag }, { status: 201 });
 
     } catch (error) {
-        console.error('Error creating tag:', error);
+        logger.error({ error }, 'Error creating tag');
         return NextResponse.json({ error: 'Failed to create tag' }, { status: 500 });
     }
 }
@@ -197,7 +200,7 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ success: true });
 
     } catch (error) {
-        console.error('Error deleting tag:', error);
+        logger.error({ error }, 'Error deleting tag');
         return NextResponse.json({ error: 'Failed to delete tag' }, { status: 500 });
     }
 }

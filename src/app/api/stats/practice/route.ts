@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { startOfMonth, subMonths, format } from "date-fns";
 import { unauthorized, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:stats:practice');
 
 export async function GET(req: Request) {
     const session = await getServerSession(authOptions);
@@ -96,7 +99,7 @@ export async function GET(req: Request) {
         });
 
     } catch (error) {
-        console.error("Error fetching practice stats:", error);
+        logger.error({ error }, 'Error fetching practice stats');
         return internalError("Failed to fetch stats");
     }
 }

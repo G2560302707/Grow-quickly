@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('middleware');
 
 export async function middleware(req: NextRequest) {
     // Debug logging for middleware
-    console.log(`[Middleware] Processing: ${req.method} ${req.nextUrl.pathname}`);
+    logger.debug({ method: req.method, path: req.nextUrl.pathname }, 'Processing request');
 
     try {
         const token = await getToken({
@@ -16,16 +19,17 @@ export async function middleware(req: NextRequest) {
         const isAuth = !!token;
         const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
 
-        console.log(`[Middleware] Auth Status: ${isAuth ? 'Authenticated' : 'Unauthenticated'}`, {
+        logger.debug({
             path: req.nextUrl.pathname,
+            isAuth,
             isAuthPage,
             hasToken: !!token,
-            cookies: req.cookies.getAll().map(c => c.name) // Log cookie names only for safety
-        });
+            cookies: req.cookies.getAll().map(c => c.name)
+        }, 'Auth status');
 
         if (isAuthPage) {
             if (isAuth) {
-                console.log("[Middleware] Redirecting authenticated user to /");
+                logger.debug('Redirecting authenticated user to /');
                 return NextResponse.redirect(new URL("/", req.url));
             }
             return null;
@@ -37,13 +41,13 @@ export async function middleware(req: NextRequest) {
                 from += req.nextUrl.search;
             }
 
-            console.log(`[Middleware] Redirecting unauthenticated user to /login?callbackUrl=${from}`);
+            logger.debug({ callbackUrl: from }, 'Redirecting unauthenticated user to login');
             return NextResponse.redirect(
                 new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
             );
         }
     } catch (e) {
-        console.error("[Middleware] Error processing token:", e);
+        logger.error({ error: e }, 'Error processing token');
         return NextResponse.next();
     }
 }

@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/auth-utils"
 import { forbidden, badRequest, internalError } from "@/lib/api-errors"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger('api:admin:users:id');
 
 export async function PATCH(
     req: Request,
@@ -45,7 +48,7 @@ export async function PATCH(
 
         return NextResponse.json(user)
     } catch (error) {
-        console.error("[ADMIN_USERS_PATCH]", error)
+        logger.error({ error }, 'Error updating user');
         return internalError("Failed to update user")
     }
 }
@@ -86,7 +89,7 @@ export async function DELETE(
 
         return NextResponse.json(user)
     } catch (error) {
-        console.error("[ADMIN_USERS_DELETE]", error)
+        logger.error({ error }, 'Error deleting user');
         return internalError("Failed to delete user")
     }
 }

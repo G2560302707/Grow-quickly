@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { unauthorized, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:error-items');
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -77,7 +80,7 @@ export async function POST(req: Request) {
             tagConnections.push({ id: tag.id });
         }
 
-        console.log("[API] Creating ErrorItem with tags:", tagNames);
+        logger.info({ tagNames }, 'Creating ErrorItem with tags');
 
         const errorItem = await prisma.errorItem.create({
             data: {
@@ -102,7 +105,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json(errorItem, { status: 201 });
     } catch (error) {
-        console.error("Error saving item:", error);
+        logger.error({ error }, 'Error saving item');
         return internalError("Failed to save error item");
     }
 }

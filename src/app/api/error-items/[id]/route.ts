@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:error-items:id');
 
 export async function GET(
     req: Request,
@@ -20,7 +23,7 @@ export async function GET(
         }
 
         if (!user) {
-            console.log("[API] No session or user found, attempting fallback to first user.");
+            logger.debug('No session or user found, attempting fallback to first user');
             user = await prisma.user.findFirst();
         }
 
@@ -49,7 +52,7 @@ export async function GET(
 
         return NextResponse.json(errorItem);
     } catch (error) {
-        console.error("Error fetching item:", error);
+        logger.error({ error }, 'Error fetching item');
         return internalError("Failed to fetch error item");
     }
 }
@@ -153,7 +156,7 @@ export async function PUT(
             updateData.knowledgePoints = JSON.stringify(tagNames);
         }
 
-        console.log("[API] Updating error item:", id);
+        logger.info({ id }, 'Updating error item');
 
         const updated = await prisma.errorItem.update({
             where: { id },
@@ -163,7 +166,7 @@ export async function PUT(
 
         return NextResponse.json(updated);
     } catch (error) {
-        console.error("Error updating item:", error);
+        logger.error({ error }, 'Error updating item');
         return internalError("Failed to update error item");
     }
 }

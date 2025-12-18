@@ -1,5 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { createLogger } from './logger';
+
+const logger = createLogger('config');
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'config', 'app-config.json');
 
@@ -55,7 +58,7 @@ export function getAppConfig(): AppConfig {
                 prompts: { ...DEFAULT_CONFIG.prompts, ...userConfig.prompts },
             };
         } catch (error) {
-            console.error("Failed to read config file:", error);
+            logger.error({ error }, 'Failed to read config file');
             return DEFAULT_CONFIG;
         }
     }
@@ -76,7 +79,7 @@ export function updateAppConfig(newConfig: Partial<AppConfig>) {
         fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(updatedConfig, null, 2));
         return updatedConfig;
     } catch (error) {
-        console.error("Failed to write config file:", error);
+        logger.error({ error }, 'Failed to write config file');
         throw error;
     }
 }

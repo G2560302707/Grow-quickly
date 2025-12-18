@@ -10,6 +10,9 @@ import {
     CHEMISTRY_CURRICULUM, CHEMISTRY_GRADE_ORDER,
     BIOLOGY_CURRICULUM, BIOLOGY_GRADE_ORDER
 } from "@/lib/tag-data";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:admin:migrate-tags');
 
 // 定义关联备份类型
 interface TagAssociation {
@@ -30,14 +33,14 @@ export async function POST(req: Request) {
     }
 
     try {
-        console.log(`[TagMigration] Initiated by ${session.user.email}`);
+        logger.info({ email: session.user.email }, 'Tag migration initiated');
         let totalCreated = 0;
         let associationsRestored = 0;
         let customTagsCreated = 0;
 
         await prisma.$transaction(async (tx) => {
             // ========== STEP 1: 备份现有关联关系 ==========
-            console.log('[TagMigration] Step 1: Backing up tag associations...');
+            logger.info('Step 1: Backing up tag associations...');
             const associations: TagAssociation[] = [];
 
             // 查询所有带有系统标签的错题
@@ -61,10 +64,10 @@ export async function POST(req: Request) {
                     });
                 }
             }
-            console.log(`[TagMigration] Backed up ${associations.length} associations from ${errorItemsWithSystemTags.length} items`);
+            logger.info({ associationCount: associations.length, itemCount: errorItemsWithSystemTags.length }, 'Backup complete');
 
             // ========== STEP 2: 删除旧标签并重建 ==========
-            console.log('[TagMigration] Step 2: Rebuilding system tags...');
+            logger.info('Step 2: Rebuilding system tags...');
 
             // Math
             await tx.knowledgeTag.deleteMany({ where: { isSystem: true, subject: 'math' } });
@@ -86,10 +89,10 @@ export async function POST(req: Request) {
             await tx.knowledgeTag.deleteMany({ where: { isSystem: true, subject: 'biology' } });
             totalCreated += await seedStandardSubject(tx, 'biology', BIOLOGY_CURRICULUM, BIOLOGY_GRADE_ORDER);
 
-            console.log(`[TagMigration] Created ${totalCreated} tags`);
+            logger.info({ totalCreated }, 'Tags created');
 
             // ========== STEP 3: 恢复关联关系 ==========
-            console.log('[TagMigration] Step 3: Restoring associations...');
+            logger.info('Step 3: Restoring associations...');
 
             // 按 errorItemId 分组
             const associationsByItem = new Map<string, TagAssociation[]>();
@@ -119,7 +122,7 @@ export async function POST(req: Request) {
                         associationsRestored++;
                     } else {
                         // 系统标签未找到，创建为自定义标签（绑定到执行迁移的管理员）
-                        console.warn(`[TagMigration] Tag not found: "${assoc.tagName}" (${assoc.subject}), creating as custom tag`);
+                        logger.warn({ tagName: assoc.tagName, subject: assoc.subject }, 'Tag not found, creating as custom tag');
 
                         // 查找执行操作的用户
                         const adminUser = await tx.user.findUnique({
@@ -170,12 +173,12 @@ export async function POST(req: Request) {
                 }
             }
 
-            console.log(`[TagMigration] Restored ${associationsRestored} associations, created ${customTagsCreated} custom tags`);
+            logger.info({ associationsRestored, customTagsCreated }, 'Associations restored');
         }, {
             timeout: 120000 // 增加超时时间以处理关联恢复
         });
 
-        console.log(`[TagMigration] Completed. System tags: ${totalCreated}, Associations: ${associationsRestored}, Custom tags: ${customTagsCreated}`);
+        logger.info({ totalCreated, associationsRestored, customTagsCreated }, 'Tag migration completed');
         return NextResponse.json({
             success: true,
             count: totalCreated,
@@ -185,7 +188,7 @@ export async function POST(req: Request) {
         });
 
     } catch (error) {
-        console.error("[TagMigration] Error:", error);
+        logger.error({ error }, 'Tag migration error');
         return internalError("Failed to migrate tags");
     }
 }

@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:error-items:notes');
 
 export async function PATCH(
     req: Request,
@@ -20,7 +23,7 @@ export async function PATCH(
         }
 
         if (!user) {
-            console.log("[API] No session or user found, attempting fallback to first user.");
+            logger.debug('No session or user found, attempting fallback to first user');
             user = await prisma.user.findFirst();
         }
 
@@ -41,7 +44,7 @@ export async function PATCH(
 
         return NextResponse.json(errorItem);
     } catch (error) {
-        console.error("Error updating notes:", error);
+        logger.error({ error }, 'Error updating notes');
         return internalError("Failed to update notes");
     }
 }

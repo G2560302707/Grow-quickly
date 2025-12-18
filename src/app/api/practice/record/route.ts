@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:practice:record');
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -28,7 +31,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json(record);
     } catch (error) {
-        console.error("Error saving practice record:", error);
+        logger.error({ error }, 'Error saving practice record');
         return internalError("Failed to save record");
     }
 }

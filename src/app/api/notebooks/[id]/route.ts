@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, badRequest, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:notebooks:id');
 
 /**
  * GET /api/notebooks/[id]
@@ -63,7 +66,7 @@ export async function GET(
 
         return NextResponse.json(notebook);
     } catch (error) {
-        console.error("Error fetching notebook:", error);
+        logger.error({ error }, 'Error fetching notebook');
         return internalError("Failed to fetch notebook");
     }
 }
@@ -141,7 +144,7 @@ export async function PUT(
 
         return NextResponse.json(updated);
     } catch (error) {
-        console.error("Error updating notebook:", error);
+        logger.error({ error }, 'Error updating notebook');
         return internalError("Failed to update notebook");
     }
 }
@@ -214,7 +217,7 @@ export async function DELETE(
 
         return NextResponse.json({ message: "Notebook deleted successfully" });
     } catch (error) {
-        console.error("Error deleting notebook:", error);
+        logger.error({ error }, 'Error deleting notebook');
         return internalError("Failed to delete notebook");
     }
 }

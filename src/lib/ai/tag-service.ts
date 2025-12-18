@@ -4,6 +4,9 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('ai:tag-service');
 
 interface TagTreeNode {
     id: string;
@@ -102,7 +105,7 @@ export async function getMathTagsFromDB(grade: 7 | 8 | 9 | 10 | 11 | 12 | null):
 
         return result;
     } catch (error) {
-        console.error('[getMathTagsFromDB] Error:', error);
+        logger.error({ error }, 'getMathTagsFromDB error');
         return [];
     }
 }
@@ -127,7 +130,7 @@ export async function getTagsFromDB(subject: string): Promise<string[]> {
 
         return tags.map(t => t.name);
     } catch (error) {
-        console.error('[getTagsFromDB] Error:', error);
+        logger.error({ error }, 'getTagsFromDB error');
         return [];
     }
 }

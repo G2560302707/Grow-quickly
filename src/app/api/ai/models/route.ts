@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('api:ai:models');
 
 interface ModelInfo {
     id: string;
@@ -41,7 +44,7 @@ export async function GET(req: NextRequest) {
         });
 
         if (!response.ok) {
-            console.error('Failed to fetch models:', response.statusText);
+            logger.error({ statusText: response.statusText }, 'Failed to fetch models');
             return NextResponse.json(
                 { error: 'Failed to fetch models from API' },
                 { status: response.status }
@@ -73,7 +76,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ models: visionModels });
 
     } catch (error) {
-        console.error('Error fetching models:', error);
+        logger.error({ error }, 'Error fetching models');
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }

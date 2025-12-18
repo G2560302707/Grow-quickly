@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, internalError } from "@/lib/api-errors";
+import { createLogger } from "@/lib/logger";
+
+const logger = createLogger('api:stats:practice:clear');
 
 export async function DELETE(req: Request) {
     const session = await getServerSession(authOptions);
@@ -24,7 +27,7 @@ export async function DELETE(req: Request) {
             count: result.count
         });
     } catch (error) {
-        console.error("Error clearing practice stats:", error);
+        logger.error({ error }, 'Error clearing practice stats');
         return internalError("Failed to clear stats");
     }
 }
