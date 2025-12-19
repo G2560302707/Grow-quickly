@@ -15,6 +15,6 @@ export const MIN_PAGE_SIZE = 1;
 export const MAX_VISIBLE_PAGES = 5;
 
 /** 打印预览获取所有数据的 pageSize */
-export const PRINT_PREVIEW_PAGE_SIZE = 1000;
+export const PRINT_PREVIEW_PAGE_SIZE = 200;
 
 
