@@ -3,7 +3,7 @@
  */
 
 /** 默认每页显示条数 */
-export const DEFAULT_PAGE_SIZE = 20;
+export const DEFAULT_PAGE_SIZE = 18;
 
 /** 每页最大显示条数 */
 export const MAX_PAGE_SIZE = 1000;
