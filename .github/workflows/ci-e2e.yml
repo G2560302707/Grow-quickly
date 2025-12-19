@@ -11,9 +11,6 @@ on:
       - 'e2e/**'
       - 'playwright.config.ts'
       - '.github/workflows/**'
-    paths-ignore:
-      - '**.md'
-      - 'doc/**'
   pull_request:
     branches: [ main ]
     paths:
@@ -24,9 +21,6 @@ on:
       - 'e2e/**'
       - 'playwright.config.ts'
       - '.github/workflows/**'
-    paths-ignore:
-      - '**.md'
-      - 'doc/**'
   workflow_dispatch:
 
 jobs:
