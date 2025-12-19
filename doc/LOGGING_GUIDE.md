@@ -10,6 +10,7 @@
 - [日志级别](#日志级别)
 - [最佳实践](#最佳实践)
 - [故障排查](#故障排查)
+- [前端日志](#前端日志-frontend-logger)
 
 ---
 
@@ -303,6 +304,65 @@ DataDog Agent 自动识别 JSON 日志，可按 `module` 字段分组，按 `lev
 ### CloudWatch Logs
 
 AWS CloudWatch Agent 自动解析 JSON 格式，可创建 Metric Filter 和告警。
+
+---
+
+## 前端日志 (Frontend Logger)
+
+用于浏览器端日志，自动批量发送到后端。
+
+### 导入
+
+```typescript
+import { frontendLogger } from '@/lib/frontend-logger';
+```
+
+### 使用方法
+
+```typescript
+// 普通日志
+frontendLogger.info('[PageName]', 'Operation completed', { userId: 123 });
+
+// 警告
+frontendLogger.warn('[PageName]', 'Slow response detected', { duration: 5000 });
+
+// 错误
+frontendLogger.error('[PageName]', 'Failed to load data', { error: err.message });
+
+// 仅 console 输出，不发送到后端
+frontendLogger.info('[Debug]', 'Local debug info', {}, { sendToBackend: false });
+```
+
+### 批量发送机制
+
+前端日志采用**批量发送**策略，减少网络请求：
+
+| 触发条件 | 说明 |
+|---------|------|
+| **时间窗口** | 1 秒内的日志合并为一次请求 |
+| **缓冲区满** | 累计 20 条日志立即发送 |
+
+### 强制刷新
+
+页面卸载等场景需立即发送日志：
+
+```typescript
+// 在 beforeunload 事件中调用
+frontendLogger.forceFlush();
+```
+
+### 后端接收
+
+日志发送到 `POST /api/logs/frontend`，格式：
+
+```json
+{
+  "logs": [
+    { "level": "info", "prefix": "[Home]", "message": "Page loaded", "timestamp": "..." },
+    { "level": "info", "prefix": "[Home]", "message": "Data fetched", "timestamp": "..." }
+  ]
+}
+```
 
 ---
 
