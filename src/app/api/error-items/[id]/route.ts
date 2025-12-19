@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 
 const logger = createLogger('api:error-items:id');
 
@@ -134,12 +135,19 @@ export async function PUT(
                 });
 
                 if (!tag) {
+                    // Determine grade context for the new tag
+                    // Use the incoming gradeSemester (priority) or the existing one on the item
+                    const contextGrade = gradeSemester !== undefined ? gradeSemester : errorItem.gradeSemester;
+
+                    const parentId = await findParentTagIdForGrade(contextGrade, subjectKey);
+
                     tag = await prisma.knowledgeTag.create({
                         data: {
                             name: tagName,
                             subject: subjectKey,
                             isSystem: false,
                             userId: user.id,
+                            parentId: parentId, // Link to Grade node
                         },
                     });
                 }

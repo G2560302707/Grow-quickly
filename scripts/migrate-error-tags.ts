@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { findParentTagIdForGrade } from '../src/lib/tag-recognition';
 
 const prisma = new PrismaClient();
 
@@ -22,7 +23,8 @@ async function main() {
             knowledgePoints: true,
             subject: {
                 select: { name: true }
-            }
+            },
+            gradeSemester: true,
         }
     });
 
@@ -69,11 +71,16 @@ async function main() {
 
             // 不存在则创建为自定义标签 (系统级)
             if (!tag) {
+                // 尝试根据错题的年级学期查找 parentId
+                const gradeStr = item.gradeSemester;
+                const parentId = await findParentTagIdForGrade(gradeStr, subjectKey);
+
                 tag = await prisma.knowledgeTag.create({
                     data: {
                         name: tagName,
                         subject: subjectKey,
                         isSystem: false, // 标记为非系统标签，但无用户归属
+                        parentId: parentId || null
                     }
                 });
                 createdTagsCount++;

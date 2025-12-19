@@ -1,6 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { inferSubjectFromName } from '../src/lib/knowledge-tags';
+import { findParentTagIdForGrade } from '../src/lib/tag-recognition';
 
 const prisma = new PrismaClient();
 
@@ -15,9 +16,17 @@ async function main() {
                 not: null,
             },
         },
-        include: {
-            subject: true,
-            tags: true,
+        select: {
+            id: true,
+            userId: true,
+            knowledgePoints: true, // Note: This field is on the model
+            gradeSemester: true,
+            subject: {
+                select: { name: true }
+            },
+            tags: {
+                select: { id: true }
+            }
         },
     });
 
@@ -67,12 +76,17 @@ async function main() {
 
             if (!tag) {
                 console.log(`   ✨ 创建新标签: ${tagName} for user ${item.userId}`);
+                // 尝试根据错题的年级学期查找 parentId
+                const gradeStr = item.gradeSemester; // item need to include gradeSemester
+                const parentId = await findParentTagIdForGrade(gradeStr, subjectKey);
+
                 tag = await prisma.knowledgeTag.create({
                     data: {
                         name: tagName,
                         subject: subjectKey,
                         isSystem: false,
                         userId: item.userId,
+                        parentId: parentId || null
                     },
                 });
             }

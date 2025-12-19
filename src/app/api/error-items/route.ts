@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { unauthorized, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 
 const logger = createLogger('api:error-items');
 
@@ -67,12 +68,16 @@ export async function POST(req: Request) {
 
             // 如果不存在，创建为用户自定义标签
             if (!tag) {
+                // 尝试根据年级学期查找对应的系统父标签 (例如 "七年级上")
+                const parentId = await findParentTagIdForGrade(finalGradeSemester, subjectKey);
+
                 tag = await prisma.knowledgeTag.create({
                     data: {
                         name: tagName,
                         subject: subjectKey,
                         isSystem: false,
                         userId: user.id,
+                        parentId: parentId, // 关联到年级节点
                     },
                 });
             }

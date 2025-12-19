@@ -18,6 +18,7 @@ import { SettingsDialog } from "@/components/settings-dialog";
 import { signOut, useSession } from "next-auth/react";
 
 import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedback";
+import { frontendLogger } from "@/lib/frontend-logger";
 
 function HomeContent() {
     const [step, setStep] = useState<"upload" | "review">("upload");
@@ -56,11 +57,11 @@ function HomeContent() {
                 });
             }, 500);
 
-            // Safety timeout: auto-reset after 60s to prevent stuck overlay
+            // Safety timeout: auto-reset after 120s to prevent stuck overlay
             timeout = setTimeout(() => {
                 console.warn('[Progress] Safety timeout triggered - resetting analysisStep');
                 setAnalysisStep('idle');
-            }, 60000);
+            }, 120000); // 120 seconds
         }
         return () => {
             clearInterval(interval);
@@ -82,26 +83,47 @@ function HomeContent() {
     };
 
     const handleAnalyze = async (file: File) => {
+        const startTime = Date.now();
+        frontendLogger.info('[HomeAnalyze]', 'Starting analysis flow');
+
         try {
-            // 1. Compressing
+            frontendLogger.info('[HomeAnalyze]', 'Step 1/5: Compressing image');
             setAnalysisStep('compressing');
-            console.log('开始处理图片...');
             const base64Image = await processImageFile(file);
             setCurrentImage(base64Image);
+            frontendLogger.info('[HomeAnalyze]', 'Image compressed successfully', {
+                size: base64Image.length
+            });
 
-            // 2. Uploading / Analyzing (API call)
-            setAnalysisStep('analyzing'); // Combined step for simplicity, or split if we had real upload progress
-
+            frontendLogger.info('[HomeAnalyze]', 'Step 2/5: Calling API endpoint /api/analyze');
+            setAnalysisStep('analyzing');
+            const apiStartTime = Date.now();
             const data = await apiClient.post<AnalyzeResponse>("/api/analyze", {
                 imageBase64: base64Image,
                 language: language,
                 subjectId: initialNotebookId || autoSelectedNotebookId || undefined
             });
+            const apiDuration = Date.now() - apiStartTime;
+            frontendLogger.info('[HomeAnalyze]', 'API response received, validating data', {
+                apiDuration
+            });
 
-            // 3. Processing result
+            // Validate response data
+            if (!data || typeof data !== 'object') {
+                frontendLogger.error('[HomeAnalyze]', 'Validation failed - invalid response data', {
+                    data
+                });
+                throw new Error('Invalid API response: data is null or not an object');
+            }
+            frontendLogger.info('[HomeAnalyze]', 'Response data validated successfully');
+
+            frontendLogger.info('[HomeAnalyze]', 'Step 3/5: Setting processing state and progress to 100%');
             setAnalysisStep('processing');
             setProgress(100);
+            frontendLogger.info('[HomeAnalyze]', 'Progress updated to 100%');
 
+            frontendLogger.info('[HomeAnalyze]', 'Step 4/5: Setting parsed data and auto-selecting notebook');
+            const dataSize = JSON.stringify(data).length;
             // Auto-select notebook based on subject
             if (data.subject) {
                 const matchedNotebook = notebooks.find(n =>
@@ -109,31 +131,86 @@ function HomeContent() {
                 );
                 if (matchedNotebook) {
                     setAutoSelectedNotebookId(matchedNotebook.id);
-                    console.log(`Auto-selected notebook: ${matchedNotebook.name} for subject: ${data.subject}`);
+                    frontendLogger.info('[HomeAnalyze]', 'Auto-selected notebook', {
+                        notebook: matchedNotebook.name,
+                        subject: data.subject
+                    });
                 }
             }
-
+            const setDataStart = Date.now();
             setParsedData(data);
+            const setDataDuration = Date.now() - setDataStart;
+            frontendLogger.info('[HomeAnalyze]', 'Parsed data set successfully', {
+                dataSize,
+                setDataDuration
+            });
+
+            frontendLogger.info('[HomeAnalyze]', 'Step 5/5: Switching to review page');
+            const setStepStart = Date.now();
             setStep("review");
+            const setStepDuration = Date.now() - setStepStart;
+            frontendLogger.info('[HomeAnalyze]', 'Step switched to review', {
+                setStepDuration
+            });
+            const totalDuration = Date.now() - startTime;
+            frontendLogger.info('[HomeAnalyze]', 'Analysis completed successfully', {
+                totalDuration
+            });
         } catch (error: any) {
-            console.error('分析错误:', error);
+            const errorDuration = Date.now() - startTime;
+            frontendLogger.error('[HomeError]', 'Analysis failed', {
+                errorDuration,
+                error: error.message || String(error)
+            });
 
-            let userMessage = t.common?.messages?.analysisFailed || 'Analysis failed, please try again';
+            // 安全的错误处理逻辑，防止在报错时二次报错
+            try {
+                let errorMessage = t.common?.messages?.analysisFailed || 'Analysis failed, please try again';
 
-            // Check if it's our ApiError
-            const errorText = error.data ? JSON.stringify(error.data) : error.message || "";
+                // ApiError 的结构：error.data.message 包含后端返回的错误类型
+                const backendErrorType = error?.data?.message;
 
-            if (errorText.includes('AI_CONNECTION_FAILED')) {
-                userMessage = t.errors?.aiConnectionFailed || '⚠️ Cannot connect to AI service\n\nPlease check:\n• Internet connection\n• Proxy settings\n• Firewall configuration';
-            } else if (errorText.includes('AI_RESPONSE_ERROR')) {
-                userMessage = t.errors?.aiResponseError || '⚠️ AI returned invalid response\n\nPlease try again, contact support if issue persists';
-            } else if (errorText.includes('AI_AUTH_ERROR')) {
-                userMessage = t.errors?.aiAuth || '⚠️ Invalid API key\n\nPlease check GOOGLE_API_KEY environment variable';
+                if (backendErrorType && typeof backendErrorType === 'string') {
+                    // 检查是否是已知的 AI 错误类型
+                    if (t.errors && typeof t.errors === 'object' && backendErrorType in t.errors) {
+                        const mappedError = (t.errors as any)[backendErrorType];
+                        if (typeof mappedError === 'string') {
+                            errorMessage = mappedError;
+                            frontendLogger.info('[HomeError]', `Matched error type: ${backendErrorType}`, {
+                                errorMessage
+                            });
+                        }
+                    } else {
+                        // 使用后端返回的具体错误消息
+                        errorMessage = backendErrorType;
+                        frontendLogger.info('[HomeError]', 'Using backend error message', {
+                            errorMessage
+                        });
+                    }
+                } else if (error?.message) {
+                    // Fallback：检查 error.message（用于非 API 错误）
+                    if (error.message.includes('fetch') || error.message.includes('network')) {
+                        errorMessage = t.errors?.AI_CONNECTION_FAILED || '网络连接失败';
+                    } else if (typeof error.data === 'string') {
+                        frontendLogger.info('[HomeError]', 'Raw error data', {
+                            errorDataPreview: error.data.substring(0, 100)
+                        });
+                        errorMessage += ` (${error.status || 'Error'})`;
+                    }
+                }
+
+                alert(errorMessage);
+            } catch (innerError) {
+                frontendLogger.error('[HomeError]', 'Failed to process error message', {
+                    innerError: String(innerError)
+                });
+                alert('Analysis failed. Please try again.');
             }
-
-            alert(userMessage);
         } finally {
+            // Always reset analysis state, even if setState throws
+            frontendLogger.info('[HomeAnalyze]', 'Finally: Resetting analysis state to idle');
             setAnalysisStep('idle');
+            frontendLogger.info('[HomeAnalyze]', 'Analysis state reset complete');
         }
     };
 

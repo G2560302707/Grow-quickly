@@ -66,7 +66,10 @@ export function calculateGrade(
     }
 
     if (isZh) {
-        return `${gradeStr}，${semesterName}`;
+        // Match UI tag format: "高一上", "初一下" instead of "高一，上期"
+        // Semester suffix: "上" or "下"
+        const suffix = semesterKey === "1st" ? "上" : "下";
+        return `${gradeStr}${suffix}`;
     } else {
         return `${gradeStr}, ${semesterName}`;
     }

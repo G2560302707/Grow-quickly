@@ -14,6 +14,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
 import { ArrowLeft } from "lucide-react";
 import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedback";
+import { frontendLogger } from "@/lib/frontend-logger";
 
 export default function AddErrorPage() {
     const params = useParams();
@@ -41,9 +42,10 @@ export default function AddErrorPage() {
             });
     }, [notebookId, router]);
 
-    // Simulate progress for smoother UX
+    // Simulate progress for smoother UX with timeout protection
     useEffect(() => {
         let interval: NodeJS.Timeout;
+        let timeout: NodeJS.Timeout;
         if (analysisStep !== 'idle') {
             setProgress(0);
             interval = setInterval(() => {
@@ -52,8 +54,17 @@ export default function AddErrorPage() {
                     return prev + Math.random() * 10;
                 });
             }, 500);
+
+            // Safety timeout: auto-reset after 120s to prevent stuck overlay
+            timeout = setTimeout(() => {
+                console.warn('[Progress] Safety timeout triggered - resetting analysisStep');
+                setAnalysisStep('idle');
+            }, 120000); // 120 seconds
         }
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            clearTimeout(timeout);
+        };
     }, [analysisStep]);
 
     const onImageSelect = (file: File) => {
@@ -69,55 +80,125 @@ export default function AddErrorPage() {
     };
 
     const handleAnalyze = async (file: File) => {
+        const startTime = Date.now();
+        frontendLogger.info('[AddAnalyze]', 'Starting analysis flow');
+
         try {
+            frontendLogger.info('[AddAnalyze]', 'Step 1/5: Compressing image');
             setAnalysisStep('compressing');
             const base64Image = await processImageFile(file);
             setCurrentImage(base64Image);
+            frontendLogger.info('[AddAnalyze]', 'Image compressed successfully', {
+                size: base64Image.length
+            });
 
+            frontendLogger.info('[AddAnalyze]', 'Step 2/5: Calling API endpoint /api/analyze');
             setAnalysisStep('analyzing');
+            const apiStartTime = Date.now();
             const data = await apiClient.post<AnalyzeResponse>("/api/analyze", {
                 imageBase64: base64Image,
                 language: language,
                 subjectId: notebookId
             });
+            const apiDuration = Date.now() - apiStartTime;
+            frontendLogger.info('[AddAnalyze]', 'API response received, validating data', {
+                apiDuration
+            });
 
+            // Validate response data
+            if (!data || typeof data !== 'object') {
+                frontendLogger.error('[AddAnalyze]', 'Validation failed - invalid response data', {
+                    data
+                });
+                throw new Error('Invalid API response: data is null or not an object');
+            }
+            frontendLogger.info('[AddAnalyze]', 'Response data validated successfully');
+
+            frontendLogger.info('[AddAnalyze]', 'Step 3/5: Setting processing state and progress to 100%');
             setAnalysisStep('processing');
             setProgress(100);
+            frontendLogger.info('[AddAnalyze]', 'Progress updated to 100%');
 
+            frontendLogger.info('[AddAnalyze]', 'Step 4/5: Setting parsed data into state');
+            const dataSize = JSON.stringify(data).length;
+            const setDataStart = Date.now();
             setParsedData(data);
+            const setDataDuration = Date.now() - setDataStart;
+            frontendLogger.info('[AddAnalyze]', 'Parsed data set successfully', {
+                dataSize,
+                setDataDuration
+            });
+
+            frontendLogger.info('[AddAnalyze]', 'Step 5/5: Switching to review page');
+            const setStepStart = Date.now();
             setStep("review");
-            setAnalysisStep('idle');
+            const setStepDuration = Date.now() - setStepStart;
+            frontendLogger.info('[AddAnalyze]', 'Step switched to review', {
+                setStepDuration
+            });
+            const totalDuration = Date.now() - startTime;
+            frontendLogger.info('[AddAnalyze]', 'Analysis completed successfully', {
+                totalDuration
+            });
         } catch (error: any) {
-            console.error('[AddError] Analysis error:', error);
-            setAnalysisStep('idle');
+            const errorDuration = Date.now() - startTime;
+            frontendLogger.error('[AddError]', 'Analysis failed', {
+                errorDuration,
+                error: error.message || String(error)
+            });
 
-            // 解析详细错误信息
-            let errorMessage = t.common.messages?.analysisFailed || 'Analysis failed';
+            // 安全的错误处理逻辑，防止在报错时二次报错
+            try {
+                // 解析详细错误信息
+                let errorMessage = t.common.messages?.analysisFailed || 'Analysis failed';
 
-            // ApiError 的结构：error.data.message 包含后端返回的错误类型
-            const backendErrorType = error?.data?.message;
+                // ApiError 的结构：error.data.message 包含后端返回的错误类型
+                const backendErrorType = error?.data?.message;
 
-            if (backendErrorType) {
-                // 检查是否是已知的 AI 错误类型
-                if (t.errors && backendErrorType in t.errors) {
-                    const mappedError = t.errors[backendErrorType as keyof typeof t.errors];
-                    if (typeof mappedError === 'string') {
-                        errorMessage = mappedError;
-                        console.log(`[AddError] Matched error type: ${backendErrorType} -> ${errorMessage}`);
+                if (backendErrorType && typeof backendErrorType === 'string') {
+                    // 检查是否是已知的 AI 错误类型
+                    // 使用安全访问
+                    if (t.errors && typeof t.errors === 'object' && backendErrorType in t.errors) {
+                        const mappedError = (t.errors as any)[backendErrorType];
+                        if (typeof mappedError === 'string') {
+                            errorMessage = mappedError;
+                            frontendLogger.info('[AddError]', `Matched error type: ${backendErrorType}`, {
+                                errorMessage
+                            });
+                        }
+                    } else {
+                        // 使用后端返回的具体错误消息
+                        errorMessage = backendErrorType;
+                        frontendLogger.info('[AddError]', 'Using backend error message', {
+                            errorMessage
+                        });
                     }
-                } else {
-                    // 使用后端返回的具体错误消息
-                    errorMessage = backendErrorType;
-                    console.log(`[AddError] Using backend error message: ${errorMessage}`);
+                } else if (error?.message) {
+                    // Fallback：检查 error.message（用于非 API 错误）
+                    if (error.message.includes('fetch') || error.message.includes('network')) {
+                        errorMessage = t.errors?.AI_CONNECTION_FAILED || '网络连接失败';
+                    } else if (typeof error.data === 'string') {
+                        // 如果 data 是字符串（例如 HTML 错误页），可能包含提示
+                        frontendLogger.info('[AddError]', 'Raw error data', {
+                            errorDataPreview: error.data.substring(0, 100)
+                        });
+                        errorMessage += ` (${error.status || 'Error'})`;
+                    }
                 }
-            } else if (error?.message) {
-                // Fallback：检查 error.message（用于非 API 错误）
-                if (error.message.includes('fetch') || error.message.includes('network')) {
-                    errorMessage = t.errors?.AI_CONNECTION_FAILED || '网络连接失败';
-                }
-            }
 
-            alert(errorMessage);
+                alert(errorMessage);
+            } catch (innerError) {
+                frontendLogger.error('[AddError]', 'Failed to process error message', {
+                    innerError: String(innerError)
+                });
+                // 确保至少弹出一个提示
+                alert('Analysis failed. Please try again.');
+            }
+        } finally {
+            // Always reset analysis state, even if setState throws
+            frontendLogger.info('[AddAnalyze]', 'Finally: Resetting analysis state to idle');
+            setAnalysisStep('idle');
+            frontendLogger.info('[AddAnalyze]', 'Analysis state reset complete');
         }
     };
 

@@ -39,7 +39,7 @@ model KnowledgeTag {
 
   // 层级控制 (邻接表模式)
   parentId  String?
-  parent    KnowledgeTag?  @relation("TagHierarchy", fields: [parentId], references: [id])
+  parent    KnowledgeTag?  @relation("TagHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children  KnowledgeTag[] @relation("TagHierarchy")
 
   // 排序与编码
@@ -57,8 +57,8 @@ model KnowledgeTag {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // 联合索引：确保同一用户（或系统）下同一学科的标签名不重复
-  @@unique([subject, name, userId])
+  // 联合索引：确保同一用户（或系统）下同一父节点下的标签名不重复
+  @@unique([subject, name, userId, parentId])
   // 索引：加速父子查询
   @@index([parentId])
   @@index([subject])

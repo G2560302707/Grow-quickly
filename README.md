@@ -126,6 +126,7 @@ cp .env.example .env
 | `NEXTAUTH_SECRET` | Auth 密钥 | 无 | 用于加密 Session，生产环境建议设置,可以使用 openssl rand -base64 32 生成一个随机字符串作为密钥 |
 | `NEXTAUTH_URL` | 访问地址 | `http://your-domain-name:3000` | 部署后的访问地址 |
 | `AUTH_TRUST_HOST` | 信任主机头 | `true` | 设置为 `true` 时自动推断 URL，适合 Docker/PaaS |
+| `LOG_LEVEL` | 日志级别 | `debug` (开发) / `info` (生产) | 可选值：`trace`, `debug`, `info`, `warn`, `error`, `fatal` |
 | `HTTP_PROXY` | HTTP 代理 | 无 | 设置 HTTP 代理 |
 | `HTTPS_PROXY` | HTTPS 代理 | 无 | 设置 HTTPS 代理 |
 

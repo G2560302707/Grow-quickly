@@ -75,9 +75,9 @@ export default function TagsPage() {
     const fetchCustomTags = useCallback(async () => {
         try {
             // 获取所有学科的扁平标签，过滤非系统标签
-            const allCustom: Array<{ id: string; name: string; subject: string }> = [];
+            const allCustom: Array<{ id: string; name: string; subject: string; parentName?: string }> = [];
             for (const { key } of SUBJECTS) {
-                const data = await apiClient.get<{ tags: Array<{ id: string; name: string; isSystem: boolean }> }>(
+                const data = await apiClient.get<{ tags: Array<{ id: string; name: string; isSystem: boolean; parentName?: string }> }>(
                     `/api/tags?subject=${key}&flat=true`
                 );
                 const custom = data.tags.filter(t => !t.isSystem).map(t => ({ ...t, subject: key }));
@@ -198,8 +198,32 @@ export default function TagsPage() {
             );
         }
 
-        // 判断子节点是否都是叶子节点
-        const allChildrenAreLeaves = node.children.every(child => child.children.length === 0);
+
+
+        // 过滤出系统标签子节点
+        const visibleChildren = node.children.filter(child => child.isSystem);
+
+        if (visibleChildren.length === 0) {
+            // 如果没有可见子节点，且当前节点非叶子（但所有子节点都被过滤了），也显示为 Badge？
+            // 原逻辑: !hasChildren -> Badge. 
+            // 这里我们保持原样，如果不显示子节点，它仍然是一个展开的Folder但内容为空。
+            // 或者我们可以返回 null? 不，父节点是系统节点，应该显示。
+            return (
+                <div key={node.id} className="space-y-2" style={{ paddingLeft }}>
+                    <div
+                        className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2"
+                        onClick={() => toggleNode(node.id)}
+                    >
+                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        <span className="font-medium text-sm">{node.name}</span>
+                        <span className="text-xs text-muted-foreground">({visibleChildren.length})</span>
+                    </div>
+                </div>
+            );
+        }
+
+        // 判断可见子节点是否都是叶子节点
+        const allChildrenAreLeaves = visibleChildren.every(child => child.children.filter(c => c.isSystem).length === 0);
 
         // 有子节点 - 可展开
         return (
@@ -210,18 +234,18 @@ export default function TagsPage() {
                 >
                     {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     <span className="font-medium text-sm">{node.name}</span>
-                    <span className="text-xs text-muted-foreground">({node.children.length})</span>
+                    <span className="text-xs text-muted-foreground">({visibleChildren.length})</span>
                 </div>
                 {isExpanded && (
                     allChildrenAreLeaves ? (
                         // 如果所有子节点都是叶子，使用 flex-wrap 布局
                         <div className="flex flex-wrap gap-2 pl-6">
-                            {node.children.map(child => renderTreeNode(child, 0, true))}
+                            {visibleChildren.map(child => renderTreeNode(child, 0, true))}
                         </div>
                     ) : (
                         // 如果有非叶子子节点，使用垂直堆叠布局
                         <div className="space-y-2 pl-6">
-                            {node.children.map(child => renderTreeNode(child, 0, false))}
+                            {visibleChildren.map(child => renderTreeNode(child, 0, false))}
                         </div>
                     )
                 )}
@@ -263,7 +287,7 @@ export default function TagsPage() {
                                             Loading...
                                         </div>
                                     ) : (
-                                        tags.map(node => renderTreeNode(node))
+                                        tags.filter(t => t.isSystem).map(node => renderTreeNode(node))
                                     )}
                                 </CardContent>
                             )}
@@ -335,24 +359,50 @@ export default function TagsPage() {
                     SUBJECTS.map(({ key, name }) => {
                         const tags = groupedBySubject[key];
                         if (!tags?.length) return null;
+
+                        // Group by parentName (or "General")
+                        const groupedByParent = tags.reduce((acc, tag) => {
+                            const groupName = tag.parentName || "通用";
+                            if (!acc[groupName]) acc[groupName] = [];
+                            acc[groupName].push(tag);
+                            return acc;
+                        }, {} as Record<string, typeof customTags>);
+
+                        // Sort groups keys to put "General" last or first? Let's put regular names first.
+                        const groupKeys = Object.keys(groupedByParent).sort((a, b) => {
+                            if (a === "通用") return 1;
+                            if (b === "通用") return -1;
+                            return a.localeCompare(b, "zh");
+                        });
+
                         return (
                             <Card key={key}>
                                 <CardHeader><CardTitle className="text-lg">{(t.tags?.subjects as any)?.[key] || name} ({tags.length})</CardTitle></CardHeader>
-                                <CardContent>
-                                    <div className="flex flex-wrap gap-2">
-                                        {tags.map((tag) => (
-                                            <Badge key={tag.id} variant="secondary" className="px-3 py-1.5 text-sm">
-                                                {tag.name}
-                                                <button
-                                                    onClick={() => handleRemoveCustomTag(tag.id, tag.name, key)}
-                                                    className="ml-2 hover:text-destructive transition-colors"
-                                                    title={t.common?.delete || "Delete"}
-                                                >
-                                                    <Trash2 className="h-3 w-3" />
-                                                </button>
-                                            </Badge>
-                                        ))}
-                                    </div>
+                                <CardContent className="space-y-4">
+                                    {groupKeys.map(groupName => (
+                                        <div key={groupName} className="space-y-2">
+                                            {groupName !== "通用" && (
+                                                <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1 mb-2">{groupName}</h4>
+                                            )}
+                                            {groupName === "通用" && groupKeys.length > 1 && (
+                                                <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1 mb-2">其他</h4>
+                                            )}
+                                            <div className="flex flex-wrap gap-2">
+                                                {groupedByParent[groupName].map((tag) => (
+                                                    <Badge key={tag.id} variant="secondary" className="px-3 py-1.5 text-sm">
+                                                        {tag.name}
+                                                        <button
+                                                            onClick={() => handleRemoveCustomTag(tag.id, tag.name, key)}
+                                                            className="ml-2 hover:text-destructive transition-colors"
+                                                            title={t.common?.delete || "Delete"}
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </button>
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </CardContent>
                             </Card>
                         );

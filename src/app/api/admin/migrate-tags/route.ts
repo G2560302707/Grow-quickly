@@ -11,6 +11,7 @@ import {
     BIOLOGY_CURRICULUM, BIOLOGY_GRADE_ORDER
 } from "@/lib/tag-data";
 import { createLogger } from "@/lib/logger";
+import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 
 const logger = createLogger('api:admin:migrate-tags');
 
@@ -142,12 +143,28 @@ export async function POST(req: Request) {
                             });
 
                             if (!customTag) {
+                                // Try to find grade context - this is tricky here as we only have tagName.
+                                // But we know errorItemId is associated with this tag.
+                                // We can fetch the error item to get the grade.
+                                // However, we are inside a loop over associations.
+                                // Let's simplify: If we are creating custom tags here, it's a fallback.
+                                // Can we get grade from assoc? We need to update TagAssociation interface Step 1.
+                                // For now, let's leave as is or fetch item?
+                                // Fetching item per tag creation is ok (rare case).
+                                const errorItem = await tx.errorItem.findUnique({
+                                    where: { id: errorItemId },
+                                    select: { gradeSemester: true }
+                                });
+
+                                const parentId = await findParentTagIdForGrade(errorItem?.gradeSemester, assoc.subject);
+
                                 customTag = await tx.knowledgeTag.create({
                                     data: {
                                         name: assoc.tagName,
                                         subject: assoc.subject,
                                         isSystem: false,
                                         userId: adminUser.id,
+                                        parentId: parentId || null
                                     },
                                     select: { id: true }
                                 });

@@ -93,16 +93,31 @@ export async function GET(request: NextRequest) {
                 !tags.some(other => other.parentId === t.id)
             );
             return NextResponse.json({
-                tags: leafTags.map(t => ({
-                    id: t.id,
-                    name: t.name,
-                    isSystem: t.isSystem,
-                })),
+                tags: leafTags.map(t => {
+                    const parent = t.parentId ? tags.find(p => p.id === t.parentId) : null;
+                    return {
+                        id: t.id,
+                        name: t.name,
+                        isSystem: t.isSystem,
+                        parentId: t.parentId,
+                        parentName: parent ? parent.name : null,
+                    };
+                }),
             });
         }
 
         // 返回树状结构
         const tree = buildTagTree(tags);
+        if (tags.length > 0) {
+            logger.debug({
+                subject,
+                totalTags: tags.length,
+                systemTags: tags.filter(t => t.isSystem).length,
+                userTags: tags.filter(t => !t.isSystem).length,
+                treeRoots: tree.length,
+                sampleRoot: tree.length > 0 ? tree[0].name : 'none'
+            }, 'Returning tag tree');
+        }
         return NextResponse.json({ tags: tree });
 
     } catch (error) {
@@ -129,17 +144,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Name and subject are required' }, { status: 400 });
         }
 
-        // 检查是否已存在
+        // 检查是否已存在 (在同一父节点下)
+        // 注意：Prisma对于可选字段的查询需要特殊处理。如果是null，必须显式指定。
         const existing = await prisma.knowledgeTag.findFirst({
             where: {
                 name: name.trim(),
                 subject,
                 userId: session.user.id,
+                parentId: parentId || null,
             },
         });
 
         if (existing) {
-            return NextResponse.json({ error: 'Tag already exists' }, { status: 409 });
+            return NextResponse.json({ error: 'Tag already exists in this group' }, { status: 409 });
         }
 
         // 创建自定义标签
