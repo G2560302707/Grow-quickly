@@ -1,0 +1,7 @@
+# Git mailmap file
+# Maps commit author identities to canonical names and emails
+# This helps consolidate contributor identities in git log and GitHub
+
+# Map Claude Code contributions to the main developer
+wttwins <feng_1982522@163.com> Claude Sonnet 4.5 <noreply@anthropic.com>
+wttwins <feng_1982522@163.com> claude <noreply@anthropic.com>
