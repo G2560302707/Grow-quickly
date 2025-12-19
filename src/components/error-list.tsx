@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { KnowledgeFilter } from "@/components/knowledge-filter";
-import { ErrorItem } from "@/types/api";
+import { ErrorItem, PaginatedResponse } from "@/types/api";
 import { apiClient } from "@/lib/api-client";
 import { cleanMarkdown } from "@/lib/markdown-utils";
+import { Pagination } from "@/components/ui/pagination";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination";
 
 interface ErrorListProps {
     subjectId?: string;
@@ -40,6 +42,11 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
     const [paperLevelFilter, setPaperLevelFilter] = useState<"all" | "a" | "b" | "other">("all");
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
     const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
+    // 分页状态
+    const [page, setPage] = useState(1);
+    const [pageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
     const { t } = useLanguage();
     const router = useRouter();
 
@@ -71,7 +78,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
         if (chapter !== undefined) setChapterFilter(chapter);
         if (tag !== undefined) setSelectedTag(tag);
 
-        // Clear dependent filters
+        // Clear dependent filters and reset page
         if (!gradeSemester) {
             setGradeFilter("");
             setChapterFilter("");
@@ -79,6 +86,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
         } else if (!chapter) {
             setChapterFilter("");
         }
+        setPage(1); // 筛选变化时重置页码
     };
 
     // 使用服务端 items 直接渲染，章节过滤已在 KnowledgeFilter 中通过 tag 实现
@@ -98,9 +106,32 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
         });
     };
 
+    // 追踪筛选条件是否变化（用于判断是否需要重置页码）
+    const prevFiltersRef = useRef({ search, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, paperLevelFilter });
+
     useEffect(() => {
+        const prevFilters = prevFiltersRef.current;
+        const filtersChanged =
+            prevFilters.search !== search ||
+            prevFilters.masteryFilter !== masteryFilter ||
+            prevFilters.timeFilter !== timeFilter ||
+            prevFilters.selectedTag !== selectedTag ||
+            prevFilters.subjectId !== subjectId ||
+            prevFilters.gradeFilter !== gradeFilter ||
+            prevFilters.paperLevelFilter !== paperLevelFilter;
+
+        // 更新 ref
+        prevFiltersRef.current = { search, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, paperLevelFilter };
+
+        if (filtersChanged && page !== 1) {
+            // 筛选条件变化且不在第一页，重置到第一页（会再次触发此 effect）
+            setPage(1);
+            return;
+        }
+
+        // 正常请求数据
         fetchItems();
-    }, [search, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, paperLevelFilter]);
+    }, [page, search, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, paperLevelFilter]);
 
     const fetchItems = async () => {
         setLoading(true);
@@ -119,9 +150,14 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             }
             if (gradeFilter) params.append("gradeSemester", gradeFilter);
             if (paperLevelFilter !== "all") params.append("paperLevel", paperLevelFilter);
+            // 分页参数
+            params.append("page", page.toString());
+            params.append("pageSize", pageSize.toString());
 
-            const data = await apiClient.get<ErrorItem[]>(`/api/error-items/list?${params.toString()}`);
-            setItems(data);
+            const response = await apiClient.get<PaginatedResponse<ErrorItem>>(`/api/error-items/list?${params.toString()}`);
+            setItems(response.items);
+            setTotal(response.total);
+            setTotalPages(response.totalPages);
         } catch (error) {
             console.error(error);
         } finally {
@@ -321,6 +357,15 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
                     );
                 })}
             </div>
+
+            {/* 分页器 */}
+            <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={setPage}
+            />
         </div>
     );
 }

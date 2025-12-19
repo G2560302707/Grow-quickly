@@ -1,5 +1,14 @@
 import { ParsedQuestion } from "@/lib/ai/types";
 
+// 通用分页响应类型
+export interface PaginatedResponse<T> {
+    items: T[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+}
+
 export interface Tag {
     id: string;
     name: string;

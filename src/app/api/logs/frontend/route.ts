@@ -15,42 +15,52 @@ interface FrontendLogEntry {
   userAgent?: string;
 }
 
+interface BatchLogRequest {
+  logs: FrontendLogEntry[];
+}
+
 /**
  * POST /api/logs/frontend
  *
  * Receives frontend logs and writes them to backend logger
+ * Supports both single log and batch log formats.
  */
 export async function POST(request: NextRequest) {
   try {
-    const body: FrontendLogEntry = await request.json();
+    const body = await request.json();
 
-    const { level, prefix, message, context = {}, timestamp, url, userAgent } = body;
+    // 支持批量日志格式 { logs: [...] } 和单条日志格式
+    const logs: FrontendLogEntry[] = Array.isArray(body.logs) ? body.logs : [body];
 
-    // Build log context
-    const logContext = {
-      source: 'frontend',
-      prefix,
-      url: url || request.headers.get('referer'),
-      userAgent: userAgent || request.headers.get('user-agent'),
-      clientTime: timestamp,
-      ...context,
-    };
+    for (const entry of logs) {
+      const { level, prefix, message, context = {}, timestamp, url, userAgent } = entry;
 
-    // Log to backend using appropriate level
-    switch (level) {
-      case 'error':
-        logger.error(logContext, message);
-        break;
-      case 'warn':
-        logger.warn(logContext, message);
-        break;
-      case 'info':
-      default:
-        logger.info(logContext, message);
-        break;
+      // Build log context
+      const logContext = {
+        source: 'frontend',
+        prefix,
+        url: url || request.headers.get('referer'),
+        userAgent: userAgent || request.headers.get('user-agent'),
+        clientTime: timestamp,
+        ...context,
+      };
+
+      // Log to backend using appropriate level
+      switch (level) {
+        case 'error':
+          logger.error(logContext, message);
+          break;
+        case 'warn':
+          logger.warn(logContext, message);
+          break;
+        case 'info':
+        default:
+          logger.info(logContext, message);
+          break;
+      }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, count: logs.length });
   } catch (error) {
     logger.error({ error }, 'Failed to process frontend log');
     return NextResponse.json({ success: false }, { status: 500 });

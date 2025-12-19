@@ -471,6 +471,13 @@ export const translations = {
             noVisionModel: "No vision model found, please enter manually",
             fetchFailed: "Failed to fetch models",
             enterManually: ", please enter manually",
+        },
+        pagination: {
+            showing: "Showing {start}-{end} of {total}",
+            first: "First page",
+            prev: "Previous page",
+            next: "Next page",
+            last: "Last page",
         }
     },
     zh: {
@@ -943,6 +950,13 @@ export const translations = {
             noVisionModel: "未找到支持vision的模型，请手动输入",
             fetchFailed: "获取模型列表失败",
             enterManually: "，请手动输入",
+        },
+        pagination: {
+            showing: "显示第 {start}-{end} 条，共 {total} 条",
+            first: "首页",
+            prev: "上一页",
+            next: "下一页",
+            last: "末页",
         }
     }
 };

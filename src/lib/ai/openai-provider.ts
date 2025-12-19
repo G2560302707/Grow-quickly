@@ -12,6 +12,7 @@ const logger = createLogger('ai:openai');
 export class OpenAIProvider implements AIService {
     private openai: OpenAI;
     private model: string;
+    private baseURL: string;
 
     constructor(config?: AIConfig) {
         const apiKey = config?.apiKey;
@@ -30,6 +31,14 @@ export class OpenAIProvider implements AIService {
         });
 
         this.model = config?.model || 'gpt-4o'; // Fallback for safety
+        this.baseURL = baseURL || 'https://api.openai.com/v1';
+
+        logger.info({
+            provider: 'OpenAI',
+            model: this.model,
+            baseURL: this.baseURL,
+            apiKeyPrefix: apiKey.substring(0, 8) + '...'
+        }, 'AI Provider initialized');
     }
 
     private extractTag(text: string, tagName: string): string | null {
@@ -122,6 +131,8 @@ export class OpenAIProvider implements AIService {
         });
 
         logger.box('🔍 AI Image Analysis Request', {
+            provider: 'OpenAI',
+            endpoint: `${this.baseURL}/chat/completions`,
             imageSize: `${imageBase64.length} bytes`,
             mimeType,
             model: this.model,
@@ -216,6 +227,9 @@ export class OpenAIProvider implements AIService {
         const userPrompt = `\nOriginal Question: "${originalQuestion}"\nKnowledge Points: ${knowledgePoints.join(", ")}\n    `;
 
         logger.box('🎯 Generate Similar Question Request', {
+            provider: 'OpenAI',
+            endpoint: `${this.baseURL}/chat/completions`,
+            model: this.model,
             originalQuestion: originalQuestion.substring(0, 100) + '...',
             knowledgePoints: knowledgePoints.join(', '),
             difficulty,
@@ -261,6 +275,9 @@ export class OpenAIProvider implements AIService {
         const prompt = generateReanswerPrompt(language, questionText, subject);
 
         logger.info({
+            provider: 'OpenAI',
+            endpoint: `${this.baseURL}/chat/completions`,
+            model: this.model,
             questionLength: questionText.length,
             subject: subject || 'auto',
             hasImage: !!imageBase64

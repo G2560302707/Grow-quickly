@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
         findMany: vi.fn(),
         update: vi.fn(),
         delete: vi.fn(),
+        count: vi.fn(),
     },
     mockPrismaKnowledgeTag: {
         findFirst: vi.fn(),
@@ -442,11 +443,12 @@ describe('/api/error-items', () => {
     });
 
     describe('GET /api/error-items/list (获取错题列表)', () => {
-        it('应该返回用户的所有错题', async () => {
+        it('应该返回用户的错题（分页响应）', async () => {
             const errorItems = [
                 { id: '1', questionText: '题目1', userId: 'user-123' },
                 { id: '2', questionText: '题目2', userId: 'user-123' },
             ];
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(2);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue(errorItems);
 
             const request = new Request('http://localhost/api/error-items/list');
@@ -454,10 +456,15 @@ describe('/api/error-items', () => {
             const data = await response.json();
 
             expect(response.status).toBe(200);
-            expect(data).toHaveLength(2);
+            expect(data.items).toHaveLength(2);
+            expect(data.total).toBe(2);
+            expect(data.page).toBe(1);
+            expect(data.pageSize).toBe(20);
+            expect(data.totalPages).toBe(1);
         });
 
         it('应该支持按科目筛选', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(1);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([
                 { id: '1', questionText: '数学题', subjectId: 'math-id' },
             ]);
@@ -477,6 +484,7 @@ describe('/api/error-items', () => {
         });
 
         it('应该支持搜索查询', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
 
             const request = new Request('http://localhost/api/error-items/list?query=方程');
@@ -493,6 +501,7 @@ describe('/api/error-items', () => {
         });
 
         it('应该支持按掌握程度筛选', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
 
             const request = new Request('http://localhost/api/error-items/list?mastery=1');
@@ -509,6 +518,7 @@ describe('/api/error-items', () => {
         });
 
         it('应该支持按知识点标签筛选', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
 
             const request = new Request('http://localhost/api/error-items/list?tag=一元一次方程');
@@ -525,6 +535,7 @@ describe('/api/error-items', () => {
         });
 
         it('应该支持按时间范围筛选（最近一周）', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
 
             const request = new Request('http://localhost/api/error-items/list?timeRange=week');
@@ -543,6 +554,7 @@ describe('/api/error-items', () => {
         });
 
         it('应该支持按试卷等级筛选', async () => {
+            mocks.mockPrismaErrorItem.count.mockResolvedValue(0);
             mocks.mockPrismaErrorItem.findMany.mockResolvedValue([]);
 
             const request = new Request('http://localhost/api/error-items/list?paperLevel=A');

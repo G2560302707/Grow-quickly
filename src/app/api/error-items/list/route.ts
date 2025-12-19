@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
 
 const logger = createLogger('api:error-items:list');
 
@@ -16,6 +17,10 @@ export async function GET(req: Request) {
     const mastery = searchParams.get("mastery");
     const timeRange = searchParams.get("timeRange");
     const tag = searchParams.get("tag");
+
+    // 分页参数
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(MIN_PAGE_SIZE, parseInt(searchParams.get("pageSize") || String(DEFAULT_PAGE_SIZE), 10)));
 
     try {
         let user;
@@ -94,6 +99,12 @@ export async function GET(req: Request) {
             whereClause.paperLevel = paperLevel;
         }
 
+        // 获取总数
+        const total = await prisma.errorItem.count({
+            where: whereClause,
+        });
+
+        // 分页查询
         const errorItems = await prisma.errorItem.findMany({
             where: whereClause,
             orderBy: { createdAt: "desc" },
@@ -101,9 +112,19 @@ export async function GET(req: Request) {
                 subject: true,
                 tags: true,
             },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
         });
 
-        return NextResponse.json(errorItems);
+        const totalPages = Math.ceil(total / pageSize);
+
+        return NextResponse.json({
+            items: errorItems,
+            total,
+            page,
+            pageSize,
+            totalPages,
+        });
     } catch (error) {
         logger.error({ error }, 'Error fetching items');
         return internalError("Failed to fetch error items");

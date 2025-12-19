@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, setDefaultBaseUrls } from "@google/genai";
 import { AIService, ParsedQuestion, DifficultyLevel, AIConfig } from "./types";
 import { generateAnalyzePrompt, generateSimilarQuestionPrompt } from './prompts';
 import { safeParseParsedQuestion } from './schema';
@@ -11,16 +11,31 @@ const logger = createLogger('ai:gemini');
 export class GeminiProvider implements AIService {
     private ai: GoogleGenAI;
     private modelName: string;
+    private baseUrl: string;
 
     constructor(config?: AIConfig) {
         const apiKey = config?.apiKey;
+        const baseUrl = config?.baseUrl;
 
         if (!apiKey) {
             throw new Error("AI_AUTH_ERROR: GOOGLE_API_KEY is required for Gemini provider");
         }
 
+        // 如果提供了自定义 baseUrl，设置全局默认值
+        if (baseUrl) {
+            setDefaultBaseUrls({ geminiUrl: baseUrl });
+        }
+
         this.ai = new GoogleGenAI({ apiKey });
         this.modelName = config?.model || 'gemini-2.0-flash';
+        this.baseUrl = baseUrl || 'https://generativelanguage.googleapis.com';
+
+        logger.info({
+            provider: 'Gemini',
+            model: this.modelName,
+            baseUrl: this.baseUrl,
+            apiKeyPrefix: apiKey.substring(0, 8) + '...'
+        }, 'AI Provider initialized');
     }
 
     private extractTag(text: string, tagName: string): string | null {
@@ -109,6 +124,8 @@ export class GeminiProvider implements AIService {
         });
 
         logger.box('🔍 AI Image Analysis Request', {
+            provider: 'Gemini',
+            endpoint: `${this.baseUrl}/v1beta/models/${this.modelName}:generateContent`,
             imageSize: `${imageBase64.length} bytes`,
             mimeType,
             model: this.modelName,
@@ -183,6 +200,8 @@ export class GeminiProvider implements AIService {
         });
 
         logger.box('🎯 Generate Similar Question Request', {
+            provider: 'Gemini',
+            endpoint: `${this.baseUrl}/v1beta/models/${this.modelName}:generateContent`,
             originalQuestion: originalQuestion.substring(0, 100) + '...',
             knowledgePoints: knowledgePoints.join(', '),
             difficulty,
@@ -222,6 +241,8 @@ export class GeminiProvider implements AIService {
         const prompt = generateReanswerPrompt(language, questionText, subject);
 
         logger.info({
+            provider: 'Gemini',
+            endpoint: `${this.baseUrl}/v1beta/models/${this.modelName}:generateContent`,
             questionLength: questionText.length,
             subject: subject || 'auto',
             hasImage: !!imageBase64
