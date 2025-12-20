@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAppConfig, updateAppConfig } from "@/lib/config";
 import { internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { OpenAIInstance } from "@/types/api";
 
 const logger = createLogger('api:settings');
 
@@ -25,10 +26,10 @@ export async function POST(req: Request) {
         // For OpenAI instances, preserve original keys for masked entries
         if (body.openai?.instances) {
             const currentInstances = currentConfig.openai?.instances || [];
-            body.openai.instances = body.openai.instances.map((instance: any) => {
+            body.openai.instances = body.openai.instances.map((instance: OpenAIInstance) => {
                 if (instance.apiKey === '********') {
                     // 查找原有实例并保留其 API Key
-                    const originalInstance = currentInstances.find((i: any) => i.id === instance.id);
+                    const originalInstance = currentInstances.find((i: OpenAIInstance) => i.id === instance.id);
                     return {
                         ...instance,
                         apiKey: originalInstance?.apiKey || '',
