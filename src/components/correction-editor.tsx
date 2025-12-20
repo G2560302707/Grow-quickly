@@ -200,11 +200,11 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             placeholder={t.editor.placeholder || "Supports Markdown and LaTeX..."}
                         />
                         <Button
-                            variant="outline"
+                            variant="default"
                             size="sm"
                             onClick={handleReanswer}
                             disabled={isReanswering || !data.questionText.trim()}
-                            className="w-full"
+                            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium"
                         >
                             {isReanswering ? (
                                 <>
@@ -220,6 +220,21 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                         </Button>
                         <p className="text-xs text-muted-foreground">
                             {t.editor.reanswerHint || '💡 If the question was misrecognized, correct it and click to regenerate answer'}
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>{t.editor.tags}</Label>
+                        <TagInput
+                            value={data.knowledgePoints}
+                            onChange={(tags) => setData({ ...data, knowledgePoints: tags })}
+                            placeholder={t.editor.tagsPlaceholder || "Enter knowledge tags..."}
+                            enterHint={t.editor.createTagHint}
+                            subject={inferSubjectFromName(notebooks.find(n => n.id === data.subjectId)?.name || null) || inferSubjectFromName(data.subject || null) || undefined}
+                            gradeStage={educationStage}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            {t.editor.tagsHint || "💡 Tag suggestions will appear as you type"}
                         </p>
                     </div>
 
@@ -241,21 +256,6 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             className="min-h-[200px] font-mono text-sm"
                             placeholder={t.editor.placeholder || "Supports Markdown and LaTeX..."}
                         />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>{t.editor.tags}</Label>
-                        <TagInput
-                            value={data.knowledgePoints}
-                            onChange={(tags) => setData({ ...data, knowledgePoints: tags })}
-                            placeholder={t.editor.tagsPlaceholder || "Enter knowledge tags..."}
-                            enterHint={t.editor.createTagHint}
-                            subject={inferSubjectFromName(notebooks.find(n => n.id === data.subjectId)?.name || null) || inferSubjectFromName(data.subject || null) || undefined}
-                            gradeStage={educationStage}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            {t.editor.tagsHint || "💡 Tag suggestions will appear as you type"}
-                        </p>
                     </div>
                 </div>
 

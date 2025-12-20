@@ -24,4 +24,7 @@ export interface AIConfig {
     apiKey?: string;
     baseUrl?: string;
     model?: string;
+    // Azure OpenAI 特有字段
+    azureDeployment?: string;   // Azure 部署名称
+    azureApiVersion?: string;   // API 版本 (如 2024-02-15-preview)
 }
