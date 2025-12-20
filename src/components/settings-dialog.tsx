@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { UserManagement } from "@/components/admin/user-management";
 import { apiClient } from "@/lib/api-client";
+import { frontendLogger } from "@/lib/frontend-logger";
 import { AppConfig, UserProfile, UpdateUserProfileRequest, OpenAIInstance } from "@/types/api";
 import { ModelSelector } from "@/components/ui/model-selector";
 import { PromptSettings } from "@/components/settings/prompt-settings";
@@ -95,7 +96,7 @@ export function SettingsDialog() {
             const data = await apiClient.get<AppConfig>("/api/settings");
             setConfig(data);
         } catch (error) {
-            console.error("Failed to fetch settings:", error);
+            frontendLogger.error('[SettingsDialog]', 'Failed to fetch settings', { error: error instanceof Error ? error.message : String(error) });
         } finally {
             setLoading(false);
         }
@@ -113,7 +114,7 @@ export function SettingsDialog() {
                 password: ""
             });
         } catch (error) {
-            console.error("Failed to fetch profile:", error);
+            frontendLogger.error('[SettingsDialog]', 'Failed to fetch profile', { error: error instanceof Error ? error.message : String(error) });
         } finally {
             setProfileLoading(false);
         }
@@ -177,7 +178,7 @@ export function SettingsDialog() {
             // 保存成功后滚动到顶部，方便关闭对话框
             dialogContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) {
-            console.error("Failed to save settings:", error);
+            frontendLogger.error('[SettingsDialog]', 'Failed to save settings', { error: error instanceof Error ? error.message : String(error) });
             alert(t.settings?.messages?.saveFailed || "Failed to save");
         } finally {
             setSaving(false);
@@ -217,7 +218,7 @@ export function SettingsDialog() {
             setShowConfirmPassword(false);
             window.location.reload(); // Reload to update user name in UI
         } catch (error: any) {
-            console.error("Failed to update profile:", error);
+            frontendLogger.error('[SettingsDialog]', 'Failed to update profile', { error: error?.data?.message || error?.message || String(error) });
             const message = error.data?.message || (t.settings?.messages?.updateFailed || "Update failed");
             alert(message);
         } finally {
@@ -237,7 +238,7 @@ export function SettingsDialog() {
             setOpen(false);
             window.location.reload();
         } catch (error) {
-            console.error(error);
+            frontendLogger.error('[SettingsDialog]', 'Failed to clear practice data', { error: error instanceof Error ? error.message : String(error) });
             alert(t.settings?.clearError || "Failed");
         } finally {
             setClearingPractice(false);
@@ -256,7 +257,7 @@ export function SettingsDialog() {
             setOpen(false);
             window.location.reload();
         } catch (error) {
-            console.error(error);
+            frontendLogger.error('[SettingsDialog]', 'Failed to clear error data', { error: error instanceof Error ? error.message : String(error) });
             alert(t.settings?.clearError || "Failed");
         } finally {
             setClearingError(false);
@@ -283,7 +284,7 @@ export function SettingsDialog() {
             setOpen(false);
             window.location.reload();
         } catch (error) {
-            console.error("System reset failed:", error);
+            frontendLogger.error('[SettingsDialog]', 'System reset failed', { error: error instanceof Error ? error.message : String(error) });
             alert(t.settings?.clearError || "Failed to reset system");
         } finally {
             setSystemResetting(false);
@@ -301,7 +302,7 @@ export function SettingsDialog() {
             alert(`${t.settings?.clearSuccess || "Success"}: ${(res as any).count || 0} tags migrated.`);
             // No reload needed necessarily, but good to refresh if user is viewing tags.
         } catch (error) {
-            console.error("Tag migration failed:", error);
+            frontendLogger.error('[SettingsDialog]', 'Tag migration failed', { error: error instanceof Error ? error.message : String(error) });
             alert(t.settings?.clearError || "Failed to migrate tags");
         } finally {
             setMigratingTags(false);

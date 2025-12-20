@@ -1,158 +1,38 @@
-# Global Rules for Antigravity Agent
-1. **Language Requirement**:
-   - You MUST use **Chinese (Simplified)** for ALL outputs.
-   - This includes:
-     - **Internal Thought Process & Reasoning** (MUST BE IN CHINESE).
-     - Conversational responses.
-     - Task summaries and status updates.
-     - Artifact content (task.md, implementation_plan.md, walkthrough.md, etc.).
-     - Code comments and documentation strings.
-     - Commit messages (unless specified otherwise).
-2. **Artifact Localization**:
-   - Ensure specific terms in artifacts are translated appropriately (e.g., "Implementation Plan" -> "实施计划", "Verification" -> "验证").
+# 项目规则 (Project Rules)
 
-# Git Commit Rules
-1. **🚫 严禁自动提交代码 (No Auto-Commit)**
-   - **NEVER** automatically execute `git add` or `git commit` commands without explicit user confirmation.
-   - When code changes are complete, you MUST:
-     - Ask the user: "代码修改已完成,是否需要创建 git 提交?"
-     - Wait for user's explicit approval before proceeding.
-   - Only execute git commands after receiving clear confirmation (e.g., "是", "提交", "commit", "好的").
+## 语言规则
+- 所有输出使用**简体中文**（回复、思考、artifact、代码注释、commit message）
 
-2. **提交前必须展示变更摘要 (Show Changes Summary)**
-   - Before committing, always run `git status` and `git diff` to show what will be committed.
-   - Present a summary of changes to the user for review.
+## Git 规则
+- 🚫 **严禁自动提交**：必须用户确认后才能执行 `git add/commit`
+- 提交前展示 `git status` 和 `git diff`
+- 格式：`<type>: <中文描述>`（feat/fix/docs/style/refactor/test/chore/ci）
+- 🚫 禁止 AI 署名（No Claude/AI attribution）
 
-3. **提交信息规范 (Commit Message Convention)**
-   - Use conventional commit format: `<type>: <description>`
-   - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`
-   - Description must be clear and concise in Chinese.
-   - **🚫 严禁添加 AI 工具署名 (No AI Tool Attribution)**:
-     - Do NOT add any Claude Code, AI assistant, or co-authorship references
-     - Do NOT include lines like "Generated with Claude Code"
-     - Do NOT add "Co-Authored-By: Claude" or similar attributions
-     - Keep commit messages clean and professional without AI tool mentions
-     - This prevents GitHub from showing AI tools as repository collaborators
+## 代码风格
+- **TypeScript**：避免 `any`，使用 `unknown` 或具体类型；使用 `import type`
+- **React**：组件文件 PascalCase，Props 必须有类型，>200 行需拆分
+- **导入顺序**：React/Next → 第三方 → @/components → @/lib → types → styles
 
-# Front-end Internationalization (i18n) Rules
-1. **🚫 严禁硬编码 (No Hardcoded Strings)**
-   - All UI text (buttons, placeholders, titles, alerts, errors) MUST be extracted via translation objects (e.g., `t.section.key`).
-   - Do NOT write hardcoded Chinese or English strings in JSX or business logic.
-   - If a key is missing, add it to `translations.ts` first.
+## 安全规则
+- 敏感信息存 `.env`，禁止硬编码
+- 使用 Prisma 参数化查询防 SQL 注入
+- 验证所有用户输入，过滤 XSS
 
-2. **🌍 Fallback 语言统一为英文 (Consistent English Fallback)**
-   - When providing fallback text (e.g., `t.key || 'Fallback'`), **ALWAYS use English**.
-   - Example: `<Button>{t.common.save || 'Save'}</Button>` is correct.
-   - Example: `<Button>{t.common.save || '保存'}</Button>` is **PROHIBITED**.
+## 错误处理
+- API 错误使用 `@/lib/api-errors`
+- 日志使用项目封装：后端 `@/lib/logger`，前端 `@/lib/frontend-logger`
 
-# Responsive Design Rules (响应式设计规则)
-1. **📱 必须考虑 PC 和移动端 (PC & Mobile Support Required)**
-   - **ALL** UI/page modifications MUST support both desktop and mobile viewports.
-   - When implementing features, you MUST:
-     - Ask yourself: "这个设计在移动端如何呈现?"
-     - Test layouts at common breakpoints: 320px (mobile), 768px (tablet), 1024px+ (desktop)
-     - Use responsive design patterns (e.g., stacked layout on mobile, side-by-side on desktop)
+## 国际化 (i18n)
+- 翻译定义在 `@/lib/translations.ts`
+- UI 文本使用 `t.section.key`，Fallback 用英文
 
-2. **🎨 响应式实现规范 (Responsive Implementation Standards)**
-   - **Use Tailwind responsive prefixes**: `sm:`, `md:`, `lg:`, `xl:` for breakpoint-specific styles.
-   - **Mobile-first approach**: Write base styles for mobile, then override with `md:` and `lg:` for larger screens.
-   - **Common patterns**:
-     - Navigation: Hamburger menu on mobile, full navbar on desktop
-     - Tables: Card view on mobile, table view on desktop
-     - Forms: Full-width inputs on mobile, multi-column on desktop
-     - Modals: Full-screen on mobile, centered dialog on desktop
+## 响应式设计
+- 必须同时支持 PC 和移动端（Mobile-first）
 
-3. **⚠️ 移动端特殊考虑 (Mobile-Specific Considerations)**
-   - **Touch targets**: Buttons/links should be at least 44px × 44px (minimum tap size)
-   - **Text readability**: Minimum font size 16px on mobile (prevents zoom on iOS)
-   - **Spacing**: Use adequate padding/margin for touch-friendly interactions
-   - **Performance**: Optimize images and avoid heavy animations on mobile
-
-4. **✅ 修改前必须确认 (Confirm Before Modifying)**
-   - Before implementing page/component changes, you MUST ask:
-     - "这个功能在移动端需要特殊处理吗?"
-     - "移动端和 PC 端的布局是否需要不同?"
-   - If unclear, propose both mobile and desktop designs for user approval.
-
-# Testing Rules (测试规则)
-
-1. **🔄 自动化测试触发 (Automated Testing)**
-   - After completing code modifications (without errors), automatically run tests based on change scope
-   - Do NOT run `npm run build` unless explicitly requested by the user
-   - Do NOT wait for user confirmation to run tests — this is an automated quality gate
-   - Use smart triggers and tiered testing strategy (see below)
-
-2. **🎯 智能测试触发 (Smart Test Triggers)**
-
-   **自动运行测试** (需要测试的情况):
-   - 修改 `.ts`、`.tsx` 源代码文件
-   - 修改 API 路由 (`src/app/api/*`)
-   - 修改核心库代码 (`src/lib/*`)
-   - 修改数据库相关代码 (`prisma/*`)
-   - 修改组件代码 (`src/components/*`)
-   - 修改测试文件本身 (`src/__tests__/*`)
-
-   **跳过测试** (不需要测试的情况):
-   - 仅修改文档文件 (`.md`, `.txt`, `doc/*`)
-   - 仅修改配置示例 (`.env.example`, `.gitignore`, `.cursorrulers`)
-   - 仅修改样式文件 (`.css`, 纯样式调整)
-   - 仅修改注释或代码格式化 (不改变逻辑)
-
-   **用户确认** (不确定是否需要测试时):
-   - 修改构建配置 (`package.json`, `tsconfig.json`, `next.config.js`)
-   - 修改测试配置 (`vitest.config.ts`, `playwright.config.ts`)
-
-3. **🚀 分级测试策略 (Tiered Testing Strategy)**
-
-   **Level 1 - 快速验证** (< 1秒):
-   - 适用于: 单个函数/组件小改动
-   - 运行: 相关的单元测试子集
-   - 示例: `vitest run src/__tests__/unit/utils.test.ts`
-
-   **Level 2 - 标准验证** (~3秒):
-   - 适用于: 多文件修改、新功能开发
-   - 运行: 完整单元测试
-   - 命令: `npm run test:unit`
-
-   **Level 3 - 完整验证** (~5秒) ⭐ **默认级别**:
-   - 适用于: API/数据库修改、核心逻辑变更
-   - 运行: 单元测试 + 集成测试
-   - 命令: `npm run test:unit && npm run test:integration`
-
-   **Level 4 - 发布准备** (5-10分钟):
-   - 适用于: 准备提交 PR、发布前验证
-   - 运行: 所有测试 + 类型检查 + 构建
-   - 命令: `npm run test && npm run build`
-   - ⚠️ **仅在用户明确要求时运行**
-
-4. **📊 测试结果处理 (Test Results Handling)**
-   - **If tests PASS**: Report success with summary and proceed
-   - **If tests FAIL**:
-     - Analyze the failure and attempt to fix the issue
-     - Re-run the failed tests after fixing
-     - Only report completion after ALL tests pass
-   - Always show a clear summary of test results to the user:
-     - Number of tests passed/failed
-     - Execution time
-     - Failed test details (if any)
-
-5. **⚠️ 测试覆盖要求 (Test Coverage Requirements)**
-   - When adding new features:
-     - Write unit tests for new functions/classes
-     - Write integration tests for new API routes
-     - Update existing tests if behavior changes
-   - When modifying existing code:
-     - Ensure related tests still pass
-     - Update tests if contracts change
-     - Add tests for new edge cases
-   - When fixing bugs:
-     - Add a test that reproduces the bug
-     - Verify the test fails before fix
-     - Verify the test passes after fix
-
-6. **🎯 最佳实践 (Best Practices)**
-   - Prefer Level 3 (完整验证) for most development work
-   - Use Level 1-2 for rapid iteration during development
-   - Reserve Level 4 for pre-commit/pre-PR validation
-   - If unsure which level to use, default to Level 3
-   - Build (`npm run build`) should only run in CI/CD or when explicitly requested
+## 测试规则
+- 代码编辑完成后（无错误），基于变更自动运行测试
+- 默认：`npm run test:unit && npm run test:integration`
+- 跳过：.md/.css/.env.example 等非逻辑文件，或仅注释/格式化
+- 失败时自动修复并重跑
+- 禁止自动 `npm run build`（除非用户明确要求）
