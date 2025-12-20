@@ -47,12 +47,19 @@ export async function GET(req: Request) {
             whereClause.subjectId = subjectId;
         }
 
+        // 搜索条件需要使用 AND 包装，避免与其他 OR 条件冲突
+        // 最终的 whereClause.AND 会包含所有需要同时满足的条件
+        const andConditions: any[] = [];
+
         if (query) {
-            whereClause.OR = [
-                { questionText: { contains: query } },
-                { analysis: { contains: query } },
-                { knowledgePoints: { contains: query } },
-            ];
+            // 搜索条件：在题目、解析、知识点中任一匹配即可
+            andConditions.push({
+                OR: [
+                    { questionText: { contains: query } },
+                    { analysis: { contains: query } },
+                    { knowledgePoints: { contains: query } },
+                ]
+            });
         }
 
         // Mastery filter
@@ -126,6 +133,11 @@ export async function GET(req: Request) {
         const paperLevel = searchParams.get("paperLevel");
         if (paperLevel && paperLevel !== "all") {
             whereClause.paperLevel = paperLevel;
+        }
+
+        // 将所有 AND 条件合并到 whereClause
+        if (andConditions.length > 0) {
+            whereClause.AND = andConditions;
         }
 
         // 获取总数

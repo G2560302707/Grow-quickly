@@ -15,6 +15,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
 import { Upload, BookOpen, Tags, LogOut, BarChart3, ArrowLeft } from "lucide-react";
 import { SettingsDialog } from "@/components/settings-dialog";
+import { BroadcastNotification } from "@/components/broadcast-notification";
 import { signOut, useSession } from "next-auth/react";
 
 import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedback";
@@ -260,6 +261,7 @@ function HomeContent() {
                     <UserWelcome />
 
                     <div className="flex items-center gap-2 bg-card p-2 rounded-lg border shadow-sm shrink-0">
+                        <BroadcastNotification />
                         <SettingsDialog />
                         <Button
                             variant="ghost"

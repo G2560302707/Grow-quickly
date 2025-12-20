@@ -64,6 +64,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             params.append("tag", selectedTag);
         }
         if (gradeFilter) params.append("gradeSemester", gradeFilter);
+        if (chapterFilter) params.append("chapter", chapterFilter); // 章节筛选
         if (paperLevelFilter !== "all") params.append("paperLevel", paperLevelFilter);
 
         router.push(`/print-preview?${params.toString()}`);
@@ -76,7 +77,12 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
     const handleFilterChange = ({ gradeSemester, chapter, tag }: any) => {
         if (gradeSemester !== undefined) setGradeFilter(gradeSemester);
         if (chapter !== undefined) setChapterFilter(chapter);
-        if (tag !== undefined) setSelectedTag(tag);
+        // 注意：tag 可能是 undefined（表示清除），需要用 'tag' in obj 来判断是否传入了该参数
+        // 但由于我们的结构是直接解构，这里改用 null 作为清除标识
+        // 实际上 KnowledgeFilter 传入的是 { tag: undefined }，所以 tag 参数确实会被设置
+        // 问题在于 !== undefined 不能区分"未传入"和"传入undefined"
+        // 正确的做法是检查参数对象中是否有该 key
+        setSelectedTag(tag === undefined ? null : tag);
 
         // Clear dependent filters and reset page
         if (!gradeSemester) {

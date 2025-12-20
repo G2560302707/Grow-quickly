@@ -478,6 +478,13 @@ export const translations = {
             prev: "Previous page",
             next: "Next page",
             last: "Last page",
+        },
+        broadcast: {
+            title: "Announcements",
+            profileReminder: "Please make sure to correctly fill in your education stage and enrollment year to ensure tags are associated correctly.",
+            settingsPath: "Setting path: Settings → Account",
+            tagMigrationReminder: "If the standard tag library fails to load, please use an admin account to reset it.",
+            settingsPath2: "Setting path: Settings → Danger → Tag System Migration",
         }
     },
     zh: {
@@ -957,6 +964,13 @@ export const translations = {
             prev: "上一页",
             next: "下一页",
             last: "末页",
+        },
+        broadcast: {
+            title: "公告通知",
+            profileReminder: "请务必正确填写用户教育阶段和入学年份，保障标签正确关联。",
+            settingsPath: "设置路径：设置 → 账户",
+            tagMigrationReminder: "如果标准标签库加载异常，请使用管理员账号重置标准标签库。",
+            settingsPath2: "设置路径：设置 → 危险 → 标签系统迁移",
         }
     }
 };
