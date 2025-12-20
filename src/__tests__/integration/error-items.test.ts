@@ -491,10 +491,15 @@ describe('/api/error-items', () => {
             const response = await GET_LIST(request);
 
             expect(response.status).toBe(200);
+            // 搜索条件现在被包装在 AND 数组中，以便与其他筛选条件正确组合
             expect(mocks.mockPrismaErrorItem.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: expect.objectContaining({
-                        OR: expect.any(Array),
+                        AND: expect.arrayContaining([
+                            expect.objectContaining({
+                                OR: expect.any(Array),
+                            }),
+                        ]),
                     }),
                 })
             );
