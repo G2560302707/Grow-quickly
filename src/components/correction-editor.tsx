@@ -26,7 +26,7 @@ interface ParsedQuestionWithSubject extends ParsedQuestion {
 
 interface CorrectionEditorProps {
     initialData: ParsedQuestion;
-    onSave: (data: ParsedQuestionWithSubject) => void;
+    onSave: (data: ParsedQuestionWithSubject) => Promise<void>;
     onCancel: () => void;
     imagePreview?: string | null;
     initialSubjectId?: string;
@@ -42,6 +42,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
     });
     const { t, language } = useLanguage();
     const [isReanswering, setIsReanswering] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     const [educationStage, setEducationStage] = useState<string | undefined>(undefined);
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
@@ -132,15 +133,28 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                     <Button variant="outline" onClick={onCancel}>
                         {t.editor.cancel}
                     </Button>
-                    <Button onClick={() => {
-                        if (!data.subjectId) {
-                            alert(t.editor.messages?.selectNotebook || "Please select a notebook");
-                            return;
-                        }
-                        onSave(data);
-                    }}>
-                        <Save className="mr-2 h-4 w-4" />
-                        {t.editor.save}
+                    <Button
+                        onClick={async () => {
+                            if (!data.subjectId) {
+                                alert(t.editor.messages?.selectNotebook || "Please select a notebook");
+                                return;
+                            }
+                            if (isSaving) return; // 防止重复点击
+                            setIsSaving(true);
+                            try {
+                                await onSave(data);
+                            } finally {
+                                setIsSaving(false);
+                            }
+                        }}
+                        disabled={isSaving}
+                    >
+                        {isSaving ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Save className="mr-2 h-4 w-4" />
+                        )}
+                        {isSaving ? (t.common?.pleaseWait || "Please wait...") : t.editor.save}
                     </Button>
                 </div>
             </div>

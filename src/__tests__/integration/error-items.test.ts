@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     mockPrismaErrorItem: {
         create: vi.fn(),
         findUnique: vi.fn(),
+        findFirst: vi.fn(), // 用于去重检查
         findMany: vi.fn(),
         update: vi.fn(),
         delete: vi.fn(),
@@ -99,6 +100,9 @@ describe('/api/error-items', () => {
             id: `tag-new-${Date.now()}`,
             ...args.data,
         }));
+
+        // Default: errorItem.findFirst returns null (no duplicate found)
+        mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
     });
 
     describe('POST /api/error-items (创建错题)', () => {
