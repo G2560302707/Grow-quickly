@@ -326,6 +326,16 @@ export const translations = {
                 prompts: "Prompts",
                 admin: "User Management",
                 danger: "Danger",
+                about: "About",
+            },
+            about: {
+                title: "About",
+                version: "Version",
+                github: "GitHub Repository",
+                desc: "Smart Error Notebook - AI-powered learning assistant",
+                releaseNotes: "Release Notes",
+                feedback: "Feedback",
+                copyright: "© 2025 Wttwins. All rights reserved.",
             },
             account: {
                 changePassword: "Change Password (Leave empty to keep)",
@@ -846,6 +856,16 @@ export const translations = {
                 prompts: "提示词",
                 admin: "用户管理",
                 danger: "危险",
+                about: "关于",
+            },
+            about: {
+                title: "关于",
+                version: "当前版本",
+                github: "GitHub 仓库",
+                desc: "智能错题本 - AI 驱动的学习助手",
+                releaseNotes: "发行说明",
+                feedback: "问题反馈",
+                copyright: "© 2025 Wttwins. All rights reserved.",
             },
             account: {
                 changePassword: "修改密码 (留空不修改)",
