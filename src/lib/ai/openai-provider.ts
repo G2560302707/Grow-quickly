@@ -45,13 +45,27 @@ export class OpenAIProvider implements AIService {
         const startTag = `<${tagName}>`;
         const endTag = `</${tagName}>`;
         const startIndex = text.indexOf(startTag);
-        const endIndex = text.lastIndexOf(endTag);
 
-        if (startIndex === -1 || endIndex === -1 || startIndex >= endIndex) {
+        // 如果找不到开始标签，返回 null
+        if (startIndex === -1) {
             return null;
         }
 
-        return text.substring(startIndex + startTag.length, endIndex).trim();
+        const contentStartIndex = startIndex + startTag.length;
+        let endIndex = text.lastIndexOf(endTag);
+
+        // 特殊处理：如果闭合标签丢失（通常主要发生在最后的 analysis 标签被截断时）
+        // 我们尝试读取到字符串末尾
+        if (endIndex === -1 && tagName === 'analysis') {
+            logger.warn({ tagName }, 'Tag was verified unclosed, treating as truncated and reading to end');
+            return text.substring(contentStartIndex).trim();
+        }
+
+        if (endIndex === -1 || contentStartIndex >= endIndex) {
+            return null;
+        }
+
+        return text.substring(contentStartIndex, endIndex).trim();
     }
 
     private parseResponse(text: string): ParsedQuestion {
