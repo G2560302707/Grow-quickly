@@ -84,7 +84,7 @@ export const translations = {
             support: "Support JPG, PNG (Max 5MB)",
             analyze: "Analyze with AI",
             // analyzing: "Analyzing...", // Moved to app
-             screenshot: "Screenshot",
+            screenshot: "Screenshot",
             screenshotDesc: "Capture screen content (select 'This Tab' to avoid switching)",
             screenshotNotSupported: "Screenshot not supported in this browser",
             screenshotFailed: "Screenshot failed",
@@ -325,6 +325,10 @@ export const translations = {
         settings: {
             title: "Settings",
             desc: "Manage your preferences and data.",
+            general: {
+                timeoutLabel: "AI Analysis Timeout (Seconds)",
+                timeoutDesc: "Increase this value if you experience frequent timeouts during AI analysis.",
+            },
             tabs: {
                 general: "General",
                 account: "Account",
@@ -861,6 +865,10 @@ export const translations = {
         settings: {
             title: "设置",
             desc: "管理您的应用偏好和数据。",
+            general: {
+                timeoutLabel: "AI 分析超时时间 (秒)",
+                timeoutDesc: "如果 AI 分析频繁超时，请增加此值。",
+            },
             tabs: {
                 general: "通用",
                 account: "账户",
