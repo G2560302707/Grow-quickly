@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw, Plus } from "lucide-react";
+import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw, Plus, Zap, CheckCircle2, XCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -68,6 +68,17 @@ export function SettingsDialog() {
     const [config, setConfig] = useState<AppConfig>({ aiProvider: 'gemini' });
     // OpenAI 多实例状态
     const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
+
+    // AI 连接测试状态
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<{
+        success: boolean;
+        textSupport: boolean;
+        visionSupport: boolean;
+        textError?: string;
+        visionError?: string;
+        modelInfo?: string;
+    } | null>(null);
 
     // Profile State
     const [profile, setProfile] = useState<ProfileFormState>({
@@ -414,6 +425,83 @@ export function SettingsDialog() {
             }
         }));
     };
+
+    // 测试 AI 连接
+    const handleTestConnection = async () => {
+        setTesting(true);
+        setTestResult(null);
+        try {
+            let requestBody: Record<string, unknown>;
+            if (config.aiProvider === 'openai') {
+                const instance = getSelectedInstance();
+                if (!instance?.apiKey) {
+                    setTestResult({ success: false, textSupport: false, visionSupport: false, textError: t.settings?.ai?.validationApiKeyRequired || 'API Key is required' });
+                    setTesting(false);
+                    return;
+                }
+                requestBody = {
+                    provider: 'openai',
+                    apiKey: instance.apiKey,
+                    baseUrl: instance.baseUrl,
+                    model: instance.model,
+                    language: language
+                };
+            } else if (config.aiProvider === 'gemini') {
+                if (!config.gemini?.apiKey) {
+                    setTestResult({ success: false, textSupport: false, visionSupport: false, textError: t.settings?.ai?.validationApiKeyRequired || 'API Key is required' });
+                    setTesting(false);
+                    return;
+                }
+                requestBody = {
+                    provider: 'gemini',
+                    apiKey: config.gemini.apiKey,
+                    baseUrl: config.gemini.baseUrl,
+                    model: config.gemini.model,
+                    language: language
+                };
+            } else if (config.aiProvider === 'azure') {
+                if (!config.azure?.apiKey || !config.azure?.endpoint || !config.azure?.deploymentName) {
+                    setTestResult({ success: false, textSupport: false, visionSupport: false, textError: t.settings?.ai?.validationAzureEndpointRequired || 'Azure config is incomplete' });
+                    setTesting(false);
+                    return;
+                }
+                requestBody = {
+                    provider: 'azure',
+                    apiKey: config.azure.apiKey,
+                    endpoint: config.azure.endpoint,
+                    deploymentName: config.azure.deploymentName,
+                    apiVersion: config.azure.apiVersion,
+                    model: config.azure.model,
+                    language: language
+                };
+            } else {
+                setTesting(false);
+                return;
+            }
+
+            const response = await apiClient.post<{
+                success: boolean;
+                textSupport: boolean;
+                visionSupport: boolean;
+                textError?: string;
+                visionError?: string;
+                modelInfo?: string;
+            }>('/api/ai/test', requestBody);
+
+            setTestResult(response);
+        } catch (error) {
+            frontendLogger.error('[SettingsDialog]', 'AI connection test failed', { error: error instanceof Error ? error.message : String(error) });
+            setTestResult({
+                success: false,
+                textSupport: false,
+                visionSupport: false,
+                textError: error instanceof Error ? error.message : String(error)
+            });
+        } finally {
+            setTesting(false);
+        }
+    };
+
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -888,11 +976,75 @@ export function SettingsDialog() {
                                         </div>
                                     </div>
                                 )}
+                                {/* 测试连接和保存按钮 */}
+                                <div className="space-y-3 pt-3 border-t">
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleTestConnection}
+                                            disabled={testing || saving}
+                                            className="flex-1"
+                                        >
+                                            {testing ? (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Zap className="mr-2 h-4 w-4" />
+                                            )}
+                                            {testing ? (t.settings?.ai?.testing || "测试中...") : (t.settings?.ai?.testConnection || "测试连接")}
+                                        </Button>
+                                        <Button onClick={handleSaveSettings} disabled={saving || testing} className="flex-1">
+                                            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {t.settings?.ai?.save || "Save AI Settings"}
+                                        </Button>
+                                    </div>
 
-                                <Button onClick={handleSaveSettings} disabled={saving} className="w-full">
-                                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {t.settings?.ai?.save || "Save AI Settings"}
-                                </Button>
+                                    {/* 测试结果显示 */}
+                                    {testResult && (
+                                        <div className={`p-3 rounded-md text-sm ${testResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                                            <div className="flex items-center gap-2 font-medium mb-2">
+                                                {testResult.success ? (
+                                                    <>
+                                                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                                        <span className="text-green-700">{t.settings?.ai?.testSuccess || "连接成功"}</span>
+                                                        {testResult.modelInfo && <span className="text-green-600 text-xs">({testResult.modelInfo})</span>}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <XCircle className="h-4 w-4 text-red-600" />
+                                                        <span className="text-red-700">{t.settings?.ai?.testFailed || "连接失败"}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                            {testResult.success && (
+                                                <div className="space-y-1 text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-muted-foreground">{t.settings?.ai?.textSupport || "文本生成"}:</span>
+                                                        <span className="text-green-600">✓ {t.settings?.ai?.supported || "支持"}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-muted-foreground">{t.settings?.ai?.visionSupport || "图像识别"}:</span>
+                                                        {testResult.visionSupport ? (
+                                                            <span className="text-green-600">✓ {t.settings?.ai?.supported || "支持"}</span>
+                                                        ) : (
+                                                            <span className="text-amber-600">✗ {
+                                                                testResult.visionError
+                                                                    ? ((t.settings?.ai?.errors as Record<string, string>)?.[testResult.visionError] || testResult.visionError.replace('UNKNOWN:', ''))
+                                                                    : (t.settings?.ai?.notSupported || "不支持")
+                                                            }</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {!testResult.success && testResult.textError && (
+                                                <p className="text-red-600 text-xs mt-1">{
+                                                    (t.settings?.ai?.errors as Record<string, string>)?.[testResult.textError]
+                                                    || testResult.textError.replace('UNKNOWN:', '')
+                                                }</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </TabsContent>
