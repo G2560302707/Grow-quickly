@@ -6,6 +6,8 @@ import { OpenAIInstance } from "@/types/api";
 
 const logger = createLogger('api:settings');
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     const config = getAppConfig();
     // Return full config including API keys since this is an authenticated endpoint

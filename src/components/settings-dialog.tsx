@@ -520,7 +520,7 @@ export function SettingsDialog() {
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className={`grid w-full grid-cols-3 sm:grid-cols-6 ${(session?.user as any)?.role === 'admin' ? 'sm:grid-cols-7' : ''} gap-1 h-auto`}>
+                    <TabsList className={`grid w-full grid-cols-4 ${(session?.user as any)?.role === 'admin' ? 'sm:grid-cols-7' : 'sm:grid-cols-4'} gap-1 h-auto`}>
                         <TabsTrigger value="general" className="px-2 sm:px-3">
                             <Languages className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">{t.settings?.tabs?.general || "General"}</span>
@@ -529,19 +529,21 @@ export function SettingsDialog() {
                             <User className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">{t.settings?.tabs?.account || "Account"}</span>
                         </TabsTrigger>
-                        <TabsTrigger value="ai" className="px-2 sm:px-3">
-                            <Bot className="h-4 w-4 sm:mr-2" />
-                            <span className="hidden sm:inline">{t.settings?.tabs?.ai || "AI Provider"}</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="prompts" className="px-2 sm:px-3">
-                            <MessageSquareText className="h-4 w-4 sm:mr-2" />
-                            <span className="hidden sm:inline">{t.settings?.tabs?.prompts || "Prompts"}</span>
-                        </TabsTrigger>
                         {(session?.user as any)?.role === 'admin' && (
-                            <TabsTrigger value="admin" className="px-2 sm:px-3">
-                                <Shield className="h-4 w-4 sm:mr-2" />
-                                <span className="hidden sm:inline">{t.settings?.tabs?.admin || "User Management"}</span>
-                            </TabsTrigger>
+                            <>
+                                <TabsTrigger value="ai" className="px-2 sm:px-3">
+                                    <Bot className="h-4 w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">{t.settings?.tabs?.ai || "AI Provider"}</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="prompts" className="px-2 sm:px-3">
+                                    <MessageSquareText className="h-4 w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">{t.settings?.tabs?.prompts || "Prompts"}</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="admin" className="px-2 sm:px-3">
+                                    <Shield className="h-4 w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">{t.settings?.tabs?.admin || "User Management"}</span>
+                                </TabsTrigger>
+                            </>
                         )}
                         <TabsTrigger value="danger" className="px-2 sm:px-3">
                             <AlertTriangle className="h-4 w-4 sm:mr-2" />
@@ -576,20 +578,36 @@ export function SettingsDialog() {
                                 <Label>{t.settings?.general?.timeoutLabel || "AI Analysis Timeout (Seconds)"}</Label>
                                 <Input
                                     type="number"
-                                    value={(config.timeouts?.analyze || 180000) / 1000}
+                                    value={config.timeouts?.analyze ? config.timeouts.analyze / 1000 : ''}
                                     onChange={(e) => {
-                                        const val = parseInt(e.target.value);
-                                        // Default to 60s if invalid, limit between 5s and 600s
-                                        const safeVal = (!isNaN(val) && val >= 5) ? Math.min(val, 600) : 60;
+                                        const val = e.target.value === '' ? 0 : parseInt(e.target.value);
+                                        // Allow typing, validate later
                                         setConfig(prev => ({
                                             ...prev,
                                             timeouts: {
                                                 ...prev.timeouts,
-                                                analyze: safeVal * 1000
+                                                analyze: isNaN(val) ? 0 : val * 1000
                                             }
                                         }));
                                     }}
-                                    min={5}
+                                    onBlur={() => {
+                                        const currentVal = (config.timeouts?.analyze || 0) / 1000;
+                                        // Valid range 120-600, default 120
+                                        let safeVal = currentVal;
+                                        if (safeVal < 120) safeVal = 120;
+                                        if (safeVal > 600) safeVal = 600;
+
+                                        if (safeVal !== currentVal) {
+                                            setConfig(prev => ({
+                                                ...prev,
+                                                timeouts: {
+                                                    ...prev.timeouts,
+                                                    analyze: safeVal * 1000
+                                                }
+                                            }));
+                                        }
+                                    }}
+                                    min={120}
                                     max={600}
                                 />
                                 <p className="text-xs text-muted-foreground">
@@ -597,6 +615,10 @@ export function SettingsDialog() {
                                 </p>
                             </div>
                         </div>
+                        <Button onClick={handleSaveSettings} disabled={saving} className="w-full">
+                            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {t.settings?.save || "Save Settings"}
+                        </Button>
                     </TabsContent>
 
                     {/* Account Tab */}
