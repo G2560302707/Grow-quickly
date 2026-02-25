@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { spawn } = require('child_process');
 
 const MOCK_OPENCLAW_PORT = 8080;
 const WRONG_NOTEBOOK_URL = process.env.WRONG_NOTEBOOK_URL || 'http://localhost:3000';
-const API_KEY = 'test-api-key-12345';
+const AUTH_MODE = process.env.OPENCLAW_AUTH_MODE || 'credentials';
 
 const mockOpenclawServer = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/api/recognize') {
@@ -32,14 +29,6 @@ const mockOpenclawServer = http.createServer((req, res) => {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify(response));
             }, 100);
-        });
-    } else if (req.method === 'POST' && req.url === '/api/recognize-error') {
-        let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', () => {
-            console.log(`[Mock Openclaw] 收到会失败的识别请求`);
-            res.writeHead(500);
-            res.end(JSON.stringify({ error: '识别失败' }));
         });
     } else {
         res.writeHead(404);
@@ -89,9 +78,25 @@ function httpRequest(options, postData) {
     });
 }
 
+function getAuthRequestBody() {
+    if (AUTH_MODE === 'apikey') {
+        return { userEmail: 'admin@localhost', images: [] };
+    } else {
+        return { username: 'admin@localhost', password: '123456', images: [] };
+    }
+}
+
+function getAuthRequestBodyWithImages(images) {
+    if (AUTH_MODE === 'apikey') {
+        return { userEmail: 'admin@localhost', images };
+    } else {
+        return { username: 'admin@localhost', password: '123456', images };
+    }
+}
+
 async function runTests() {
     console.log('\n=========================================');
-    console.log('Openclaw 批量上传接口测试');
+    console.log(`Openclaw 批量上传接口测试 (认证模式: ${AUTH_MODE})`);
     console.log('=========================================\n');
 
     await startMockOpenclaw();
@@ -99,17 +104,12 @@ async function runTests() {
     let passed = 0;
     let failed = 0;
 
-    async function test(name, expectedStatus, requestBody, apiKey = null) {
-        const headers = { 'Content-Type': 'application/json' };
-        if (apiKey) {
-            headers['X-Api-Key'] = apiKey;
-        }
-
+    async function test(name, expectedStatus, requestBody, headers = {}) {
         try {
             const result = await httpRequest({
                 path: '/api/openclaw/batch-upload',
                 method: 'POST',
-                headers
+                headers: { 'Content-Type': 'application/json', ...headers }
             }, JSON.stringify(requestBody));
 
             const actualStatus = result.status;
@@ -131,50 +131,64 @@ async function runTests() {
 
     console.log('\n--- 认证测试 ---\n');
 
-    await test(
-        '测试1: 无API密钥',
-        401,
-        { userEmail: 'admin@localhost', images: [] }
-    );
+    if (AUTH_MODE === 'apikey') {
+        await test(
+            '测试1: 无API密钥',
+            401,
+            { userEmail: 'admin@localhost', images: [] }
+        );
 
-    await test(
-        '测试2: 无效API密钥',
-        401,
-        { userEmail: 'admin@localhost', images: [] },
-        'wrong-key'
-    );
+        await test(
+            '测试2: 无效API密钥',
+            401,
+            { userEmail: 'admin@localhost', images: [] },
+            { 'X-Api-Key': 'wrong-key' }
+        );
+    } else {
+        await test(
+            '测试1: 无用户名密码',
+            401,
+            { images: [] }
+        );
+
+        await test(
+            '测试2: 错误密码',
+            401,
+            { username: 'admin@localhost', password: 'wrongpassword', images: [] }
+        );
+
+        await test(
+            '测试3: 不存在的用户',
+            404,
+            { username: 'notexist', password: '123456', images: [] }
+        );
+    }
 
     console.log('\n--- 参数验证测试 ---\n');
 
+    const baseAuth = AUTH_MODE === 'apikey' 
+        ? { userEmail: 'admin@localhost' } 
+        : { username: 'admin@localhost', password: '123456' };
+
     await test(
-        '测试3: 空图片数组',
+        '测试4: 空图片数组',
         400,
-        { userEmail: 'admin@localhost', images: [] },
-        API_KEY
+        { ...baseAuth, images: [] }
     );
 
     await test(
-        '测试4: 图片数量超限 (21张)',
+        '测试5: 图片数量超限 (21张)',
         400,
         { 
-            userEmail: 'admin@localhost', 
+            ...baseAuth, 
             images: Array(21).fill({ base64: 'abc', mimeType: 'image/jpeg', filename: 'test.jpg' })
-        },
-        API_KEY
-    );
-
-    await test(
-        '测试5: 用户不存在',
-        404,
-        { userEmail: 'notexist@example.com', images: [{ base64: 'abc', mimeType: 'image/jpeg', filename: 'test.jpg' }] },
-        API_KEY
+        }
     );
 
     await test(
         '测试6: 不支持的图片格式 (返回207表示部分成功)',
         207,
-        { userEmail: 'admin@localhost', images: [{ base64: 'abc', mimeType: 'image/gif', filename: 'test.gif' }] },
-        API_KEY
+        { ...baseAuth, images: [{ base64: 'abc', mimeType: 'image/gif', filename: 'test.gif' }] }
     );
 
     console.log('\n--- 功能测试 ---\n');
@@ -185,23 +199,21 @@ async function runTests() {
         '测试7: 成功上传单张图片',
         201,
         { 
-            userEmail: 'admin@localhost', 
+            ...baseAuth, 
             images: [{ base64: testImageBase64, mimeType: 'image/png', filename: 'test.png' }] 
-        },
-        API_KEY
+        }
     );
 
     await test(
         '测试8: 批量上传多张图片',
         201,
         { 
-            userEmail: 'admin@localhost', 
+            ...baseAuth, 
             images: [
                 { base64: testImageBase64, mimeType: 'image/png', filename: 'test1.png' },
                 { base64: testImageBase64, mimeType: 'image/jpeg', filename: 'test2.jpg' }
             ] 
-        },
-        API_KEY
+        }
     );
 
     console.log('\n=========================================');

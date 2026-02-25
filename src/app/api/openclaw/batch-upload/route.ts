@@ -5,6 +5,7 @@ import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { compare } from "bcryptjs";
 
 const logger = createLogger('api:openclaw:batch-upload');
 
@@ -194,43 +195,100 @@ async function createErrorItem(
 export async function POST(req: Request) {
     logger.info('POST /api/openclaw/batch-upload called');
 
+    // 获取请求头中的 API Key
     const apiKey = req.headers.get('x-api-key');
+    // 从环境变量获取配置的 API Key
     const expectedApiKey = process.env.OPENCLAW_INTEGRATION_API_KEY;
+    // 认证模式：credentials（用户名密码，默认）或 apikey（API Key）
+    const authMode = process.env.OPENCLAW_AUTH_MODE || 'credentials';
 
-    if (!expectedApiKey) {
-        logger.error('OPENCLAW_INTEGRATION_API_KEY not configured');
-        return createErrorResponse(
-            '服务器配置错误: API密钥未配置',
-            500,
-            ErrorCode.INTERNAL_ERROR,
-            'API key not configured on server'
-        );
-    }
-
-    if (!apiKey) {
-        logger.warn('Missing API key in request');
-        return createErrorResponse(
-            '未提供API密钥',
-            401,
-            ErrorCode.UNAUTHORIZED,
-            'Missing API key'
-        );
-    }
-
-    if (apiKey !== expectedApiKey) {
-        logger.warn('Invalid API key provided');
-        return createErrorResponse(
-            'API密钥无效',
-            401,
-            ErrorCode.UNAUTHORIZED,
-            'Invalid API key'
-        );
-    }
+    let user = null;
+    let userEmail = null;
+    let subjectId = null;
 
     try {
         const body = await req.json();
-        const { images, userEmail, subjectId } = body;
+        const requestData = body;
 
+        // 根据认证模式选择验证方式
+        if (authMode === 'apikey' && expectedApiKey) {
+            // API Key 认证模式
+            if (!apiKey) {
+                logger.warn('Missing API key in request');
+                return createErrorResponse(
+                    '未提供API密钥',
+                    401,
+                    ErrorCode.UNAUTHORIZED,
+                    'Missing API key'
+                );
+            }
+
+            if (apiKey !== expectedApiKey) {
+                logger.warn('Invalid API key provided');
+                return createErrorResponse(
+                    'API密钥无效',
+                    401,
+                    ErrorCode.UNAUTHORIZED,
+                    'Invalid API key'
+                );
+            }
+
+            userEmail = requestData.userEmail;
+            subjectId = requestData.subjectId;
+        } else {
+            // 用户名密码认证模式（默认）
+            const { username, password } = requestData;
+
+            if (!username || !password) {
+                return createErrorResponse(
+                    '请提供用户名和密码',
+                    401,
+                    ErrorCode.UNAUTHORIZED,
+                    'Missing username or password'
+                );
+            }
+
+            // 从数据库查找用户（支持邮箱或用户名登录）
+            user = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { email: username },
+                        { name: username }
+                    ]
+                }
+            });
+
+            if (!user) {
+                logger.warn({ username }, 'User not found');
+                return createErrorResponse(
+                    '用户不存在',
+                    404,
+                    ErrorCode.USER_NOT_FOUND,
+                    'User not found'
+                );
+            }
+
+            // 验证密码（使用 bcrypt 比对）
+            const isPasswordValid = await compare(password, user.password);
+            if (!isPasswordValid) {
+                logger.warn({ username }, 'Invalid password');
+                return createErrorResponse(
+                    '密码错误',
+                    401,
+                    ErrorCode.UNAUTHORIZED,
+                    'Invalid password'
+                );
+            }
+
+            userEmail = user.email;
+            subjectId = requestData.subjectId;
+            logger.info({ userId: user.id, email: user.email }, 'User authenticated via credentials');
+        }
+
+        // 获取图片数组
+        const { images } = requestData;
+
+        // 验证图片数组
         if (!images || !Array.isArray(images) || images.length === 0) {
             return createErrorResponse(
                 '未提供图片数据',
@@ -240,6 +298,7 @@ export async function POST(req: Request) {
             );
         }
 
+        // 验证图片数量
         if (images.length > MAX_IMAGES) {
             return createErrorResponse(
                 `图片数量超过限制: 最多${MAX_IMAGES}张`,
@@ -249,11 +308,15 @@ export async function POST(req: Request) {
             );
         }
 
-        const user = await prisma.user.findUnique({
-            where: { email: userEmail },
-        });
+        // 获取用户信息（API Key模式需要单独查询）
+        let dbUser = user;
+        if (!dbUser) {
+            dbUser = await prisma.user.findUnique({
+                where: { email: userEmail },
+            });
+        }
 
-        if (!user) {
+        if (!dbUser) {
             logger.warn({ userEmail }, 'User not found');
             return createErrorResponse(
                 '用户不存在',
@@ -301,7 +364,7 @@ export async function POST(req: Request) {
 
             try {
                 const errorItem = await createErrorItem(
-                    user.id,
+                    dbUser.id,
                     base64,
                     mimeType,
                     openclawResponse.data,

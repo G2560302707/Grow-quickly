@@ -1,0 +1,631 @@
+From 4193720771a0d4097636406cc1ad382c8ba85190 Mon Sep 17 00:00:00 2001
+From: Leon <121897923@qq.com>
+Date: Fri, 20 Feb 2026 12:20:52 +0800
+Subject: [PATCH] =?UTF-8?q?feat:=20=E6=B7=BB=E5=8A=A0=E4=B8=8EOpenclaw=20a?=
+ =?UTF-8?q?gent=E5=AF=B9=E6=8E=A5=E7=9A=84=E6=89=B9=E9=87=8F=E9=94=99?=
+ =?UTF-8?q?=E9=A2=98=E4=B8=8A=E4=BC=A0=E6=8E=A5=E5=8F=A3?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 新增 RESTful API 端点: POST /api/openclaw/batch-upload
+- 支持最多20张图片批量上传
+- 实现图片格式验证（JPG、PNG，单张不超过5MB）
+- 实现基于API Key的身份验证
+- 对接本地Openclaw agent进行图片识别
+- 自动完成错题信息录入数据库
+- 完善的错误处理机制
+---
+ .env.example                               |  10 +
+ scripts/test-openclaw.js                   | 218 +++++++++++++
+ src/app/api/openclaw/batch-upload/route.ts | 355 +++++++++++++++++++++
+ 3 files changed, 583 insertions(+)
+ create mode 100644 scripts/test-openclaw.js
+ create mode 100644 src/app/api/openclaw/batch-upload/route.ts
+
+diff --git a/.env.example b/.env.example
+index 87bdb19..84a1ef4 100644
+--- a/.env.example
++++ b/.env.example
+@@ -37,3 +37,13 @@ LOG_LEVEL="debug"
+ # Database Debugging
+ # Set to "true" to enable SQL query logging
+ DEBUG_DB="false"
++
++# Openclaw Agent API 配置
++# 用于对接本地部署的 Openclaw agent 进行错题识别
++OPENCLAW_API_URL="http://localhost:8080"  # Openclaw agent 服务地址
++OPENCLAW_API_KEY=""  # Openclaw API 密钥
++OPENCLAW_TIMEOUT=30000  # 请求超时时间（毫秒），默认30秒
++
++# 本系统 API 密钥（用于 Openclaw agent 调用本系统）
++# 用于身份验证，生成方式: openssl rand -hex 32
++OPENCLAW_INTEGRATION_API_KEY=""
+diff --git a/scripts/test-openclaw.js b/scripts/test-openclaw.js
+new file mode 100644
+index 0000000..f6e2408
+--- /dev/null
++++ b/scripts/test-openclaw.js
+@@ -0,0 +1,218 @@
++#!/usr/bin/env node
++
++const http = require('http');
++const fs = require('fs');
++const path = require('path');
++const { spawn } = require('child_process');
++
++const MOCK_OPENCLAW_PORT = 8080;
++const WRONG_NOTEBOOK_URL = process.env.WRONG_NOTEBOOK_URL || 'http://localhost:3000';
++const API_KEY = 'test-api-key-12345';
++
++const mockOpenclawServer = http.createServer((req, res) => {
++    if (req.method === 'POST' && req.url === '/api/recognize') {
++        let body = '';
++        req.on('data', chunk => { body += chunk; });
++        req.on('end', () => {
++            console.log(`[Mock Openclaw] 收到识别请求`);
++
++            setTimeout(() => {
++                const response = {
++                    success: true,
++                    data: {
++                        questionText: '已知函数 f(x) = x² + 2x + 1，求 f(3) 的值。',
++                        answerText: 'f(3) = 3² + 2×3 + 1 = 9 + 6 + 1 = 16',
++                        analysis: '这是一个关于函数求值的题目。首先将 x=3 代入函数表达式，然后进行计算。',
++                        knowledgePoints: ['函数', '代数代入', '平方运算'],
++                        subject: '数学',
++                        errorType: '计算错误',
++                        source: '期末考试'
++                    }
++                };
++                res.writeHead(200, { 'Content-Type': 'application/json' });
++                res.end(JSON.stringify(response));
++            }, 100);
++        });
++    } else if (req.method === 'POST' && req.url === '/api/recognize-error') {
++        let body = '';
++        req.on('data', chunk => { body += chunk; });
++        req.on('end', () => {
++            console.log(`[Mock Openclaw] 收到会失败的识别请求`);
++            res.writeHead(500);
++            res.end(JSON.stringify({ error: '识别失败' }));
++        });
++    } else {
++        res.writeHead(404);
++        res.end('Not Found');
++    }
++});
++
++function startMockOpenclaw() {
++    return new Promise((resolve) => {
++        mockOpenclawServer.listen(MOCK_OPENCLAW_PORT, () => {
++            console.log(`✅ Mock Openclaw 服务已启动 (端口 ${MOCK_OPENCLAW_PORT})`);
++            resolve();
++        });
++    });
++}
++
++function stopMockOpenclaw() {
++    return new Promise((resolve) => {
++        mockOpenclawServer.close(() => {
++            console.log(`✅ Mock Openclaw 服务已停止`);
++            resolve();
++        });
++    });
++}
++
++function httpRequest(options, postData) {
++    return new Promise((resolve, reject) => {
++        const url = new URL(WRONG_NOTEBOOK_URL);
++        const req = http.request({
++            hostname: url.hostname,
++            port: url.port || 80,
++            path: options.path,
++            method: options.method || 'GET',
++            headers: options.headers || {}
++        }, (res) => {
++            let data = '';
++            res.on('data', chunk => { data += chunk; });
++            res.on('end', () => {
++                resolve({ status: res.statusCode, body: data });
++            });
++        });
++        req.on('error', reject);
++        if (postData) {
++            req.write(postData);
++        }
++        req.end();
++    });
++}
++
++async function runTests() {
++    console.log('\n=========================================');
++    console.log('Openclaw 批量上传接口测试');
++    console.log('=========================================\n');
++
++    await startMockOpenclaw();
++
++    let passed = 0;
++    let failed = 0;
++
++    async function test(name, expectedStatus, requestBody, apiKey = null) {
++        const headers = { 'Content-Type': 'application/json' };
++        if (apiKey) {
++            headers['X-Api-Key'] = apiKey;
++        }
++
++        try {
++            const result = await httpRequest({
++                path: '/api/openclaw/batch-upload',
++                method: 'POST',
++                headers
++            }, JSON.stringify(requestBody));
++
++            const actualStatus = result.status;
++            const success = actualStatus === expectedStatus;
++
++            if (success) {
++                console.log(`✅ ${name} (期望: ${expectedStatus}, 实际: ${actualStatus})`);
++                passed++;
++            } else {
++                console.log(`❌ ${name} (期望: ${expectedStatus}, 实际: ${actualStatus})`);
++                console.log(`   响应: ${result.body.substring(0, 200)}`);
++                failed++;
++            }
++        } catch (error) {
++            console.log(`❌ ${name} - 请求失败: ${error.message}`);
++            failed++;
++        }
++    }
++
++    console.log('\n--- 认证测试 ---\n');
++
++    await test(
++        '测试1: 无API密钥',
++        401,
++        { userEmail: 'admin@localhost', images: [] }
++    );
++
++    await test(
++        '测试2: 无效API密钥',
++        401,
++        { userEmail: 'admin@localhost', images: [] },
++        'wrong-key'
++    );
++
++    console.log('\n--- 参数验证测试 ---\n');
++
++    await test(
++        '测试3: 空图片数组',
++        400,
++        { userEmail: 'admin@localhost', images: [] },
++        API_KEY
++    );
++
++    await test(
++        '测试4: 图片数量超限 (21张)',
++        400,
++        { 
++            userEmail: 'admin@localhost', 
++            images: Array(21).fill({ base64: 'abc', mimeType: 'image/jpeg', filename: 'test.jpg' })
++        },
++        API_KEY
++    );
++
++    await test(
++        '测试5: 用户不存在',
++        404,
++        { userEmail: 'notexist@example.com', images: [{ base64: 'abc', mimeType: 'image/jpeg', filename: 'test.jpg' }] },
++        API_KEY
++    );
++
++    await test(
++        '测试6: 不支持的图片格式 (返回207表示部分成功)',
++        207,
++        { userEmail: 'admin@localhost', images: [{ base64: 'abc', mimeType: 'image/gif', filename: 'test.gif' }] },
++        API_KEY
++    );
++
++    console.log('\n--- 功能测试 ---\n');
++
++    const testImageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
++
++    await test(
++        '测试7: 成功上传单张图片',
++        201,
++        { 
++            userEmail: 'admin@localhost', 
++            images: [{ base64: testImageBase64, mimeType: 'image/png', filename: 'test.png' }] 
++        },
++        API_KEY
++    );
++
++    await test(
++        '测试8: 批量上传多张图片',
++        201,
++        { 
++            userEmail: 'admin@localhost', 
++            images: [
++                { base64: testImageBase64, mimeType: 'image/png', filename: 'test1.png' },
++                { base64: testImageBase64, mimeType: 'image/jpeg', filename: 'test2.jpg' }
++            ] 
++        },
++        API_KEY
++    );
++
++    console.log('\n=========================================');
++    console.log(`测试结果: ${passed} 通过, ${failed} 失败`);
++    console.log('=========================================\n');
++
++    await stopMockOpenclaw();
++
++    process.exit(failed > 0 ? 1 : 0);
++}
++
++console.log('注意: 请确保 wrong-notebook 服务正在运行\n');
++
++runTests().catch(console.error);
+diff --git a/src/app/api/openclaw/batch-upload/route.ts b/src/app/api/openclaw/batch-upload/route.ts
+new file mode 100644
+index 0000000..d09ca05
+--- /dev/null
++++ b/src/app/api/openclaw/batch-upload/route.ts
+@@ -0,0 +1,355 @@
++import { NextResponse } from "next/server";
++import { prisma } from "@/lib/prisma";
++import { createLogger } from "@/lib/logger";
++import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
++import { calculateGrade } from "@/lib/grade-calculator";
++import { inferSubjectFromName } from "@/lib/knowledge-tags";
++import { findParentTagIdForGrade } from "@/lib/tag-recognition";
++
++const logger = createLogger('api:openclaw:batch-upload');
++
++const MAX_IMAGES = 20;
++const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
++const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png'];
++const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png'];
++
++interface ImageData {
++    base64: string;
++    mimeType: string;
++    filename: string;
++}
++
++interface OpenclawResponse {
++    success: boolean;
++    data?: {
++        questionText: string;
++        answerText: string;
++        analysis: string;
++        knowledgePoints: string[];
++        subject?: string;
++        errorType?: string;
++        source?: string;
++    };
++    error?: string;
++}
++
++function validateImage(base64: string, filename: string): { valid: boolean; error?: string } {
++    if (!base64 || base64.length === 0) {
++        return { valid: false, error: '图片数据为空' };
++    }
++
++    const extension = filename.toLowerCase().substring(filename.lastIndexOf('.'));
++    if (!ALLOWED_EXTENSIONS.includes(extension)) {
++        return { valid: false, error: `不支持的图片格式: ${extension}，仅支持 JPG、PNG` };
++    }
++
++    const estimatedSize = (base64.length * 3) / 4;
++    if (estimatedSize > MAX_IMAGE_SIZE) {
++        return { valid: false, error: `图片大小超过限制: ${Math.round(estimatedSize / 1024 / 1024)}MB > 5MB` };
++    }
++
++    return { valid: true };
++}
++
++async function callOpenclawAgent(imageBase64: string, mimeType: string, timeout: number): Promise<OpenclawResponse> {
++    const openclawUrl = process.env.OPENCLAW_API_URL || 'http://localhost:8080';
++    const openclawApiKey = process.env.OPENCLAW_API_KEY || '';
++
++    const controller = new AbortController();
++    const timeoutId = setTimeout(() => controller.abort(), timeout);
++
++    try {
++        const response = await fetch(`${openclawUrl}/api/recognize`, {
++            method: 'POST',
++            headers: {
++                'Content-Type': 'application/json',
++                ...(openclawApiKey ? { 'Authorization': `Bearer ${openclawApiKey}` } : {}),
++            },
++            body: JSON.stringify({
++                image: imageBase64,
++                mimeType: mimeType,
++            }),
++            signal: controller.signal,
++        });
++
++        clearTimeout(timeoutId);
++
++        if (!response.ok) {
++            const errorText = await response.text();
++            logger.error({ status: response.status, error: errorText }, 'Openclaw agent error');
++            return {
++                success: false,
++                error: `识别服务异常: HTTP ${response.status}`,
++            };
++        }
++
++        const data = await response.json() as OpenclawResponse;
++        return data;
++    } catch (error: any) {
++        clearTimeout(timeoutId);
++        
++        if (error.name === 'AbortError') {
++            logger.error('Openclaw agent timeout');
++            return {
++                success: false,
++                error: '识别服务超时',
++            };
++        }
++        
++        logger.error({ error: error?.message || String(error) }, 'Openclaw agent request failed');
++        return {
++            success: false,
++            error: `识别服务请求失败: ${error?.message || String(error)}`,
++        };
++    }
++}
++
++async function createErrorItem(
++    userId: string,
++    imageBase64: string,
++    mimeType: string,
++    parsedData: OpenclawResponse['data'],
++    subjectId?: string
++) {
++    const { questionText, answerText, analysis, knowledgePoints, errorType, source } = parsedData || {};
++
++    const tagNames: string[] = Array.isArray(knowledgePoints) ? knowledgePoints : [];
++    const tagConnections: { id: string }[] = [];
++
++    const subject = subjectId ? await prisma.subject.findUnique({ where: { id: subjectId } }) : null;
++    const subjectKey = subject ? inferSubjectFromName(subject.name) : null;
++
++    const user = await prisma.user.findUnique({
++        where: { id: userId },
++        select: { educationStage: true, enrollmentYear: true }
++    });
++
++    let finalGradeSemester: string | null = null;
++    if (user?.educationStage && user?.enrollmentYear) {
++        finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear);
++    }
++
++    for (const tagName of tagNames) {
++        try {
++            let tag = await prisma.knowledgeTag.findFirst({
++                where: {
++                    name: tagName,
++                    OR: [
++                        { isSystem: true },
++                        { userId: userId },
++                    ],
++                },
++            });
++
++            if (!tag) {
++                const parentId = finalGradeSemester && subjectKey 
++                    ? await findParentTagIdForGrade(finalGradeSemester, subjectKey)
++                    : null;
++
++                tag = await prisma.knowledgeTag.create({
++                    data: {
++                        name: tagName,
++                        subject: subjectKey || 'other',
++                        isSystem: false,
++                        userId: userId,
++                        parentId: parentId || undefined,
++                    },
++                });
++            }
++
++            tagConnections.push({ id: tag.id });
++        } catch (tagError) {
++            logger.error({ tagName, error: tagError }, 'Error processing tag');
++        }
++    }
++
++    const errorItem = await prisma.errorItem.create({
++        data: {
++            userId: userId,
++            subjectId: subjectId || undefined,
++            originalImageUrl: `data:${mimeType};base64,${imageBase64}`,
++            ocrText: questionText || null,
++            questionText: questionText || null,
++            answerText: answerText || null,
++            analysis: analysis || null,
++            knowledgePoints: JSON.stringify(tagNames),
++            gradeSemester: finalGradeSemester,
++            paperLevel: null,
++            errorType: errorType || null,
++            source: source || 'Openclaw',
++            masteryLevel: 0,
++            tags: {
++                connect: tagConnections,
++            },
++        },
++        include: {
++            tags: true,
++            subject: true,
++        },
++    });
++
++    return errorItem;
++}
++
++export async function POST(req: Request) {
++    logger.info('POST /api/openclaw/batch-upload called');
++
++    const apiKey = req.headers.get('x-api-key');
++    const expectedApiKey = process.env.OPENCLAW_INTEGRATION_API_KEY;
++
++    if (!expectedApiKey) {
++        logger.error('OPENCLAW_INTEGRATION_API_KEY not configured');
++        return createErrorResponse(
++            '服务器配置错误: API密钥未配置',
++            500,
++            ErrorCode.INTERNAL_ERROR,
++            'API key not configured on server'
++        );
++    }
++
++    if (!apiKey) {
++        logger.warn('Missing API key in request');
++        return createErrorResponse(
++            '未提供API密钥',
++            401,
++            ErrorCode.UNAUTHORIZED,
++            'Missing API key'
++        );
++    }
++
++    if (apiKey !== expectedApiKey) {
++        logger.warn('Invalid API key provided');
++        return createErrorResponse(
++            'API密钥无效',
++            401,
++            ErrorCode.UNAUTHORIZED,
++            'Invalid API key'
++        );
++    }
++
++    try {
++        const body = await req.json();
++        const { images, userEmail, subjectId } = body;
++
++        if (!images || !Array.isArray(images) || images.length === 0) {
++            return createErrorResponse(
++                '未提供图片数据',
++                400,
++                ErrorCode.BAD_REQUEST,
++                'Missing images array'
++            );
++        }
++
++        if (images.length > MAX_IMAGES) {
++            return createErrorResponse(
++                `图片数量超过限制: 最多${MAX_IMAGES}张`,
++                400,
++                ErrorCode.BAD_REQUEST,
++                `Maximum ${MAX_IMAGES} images allowed`
++            );
++        }
++
++        const user = await prisma.user.findUnique({
++            where: { email: userEmail },
++        });
++
++        if (!user) {
++            logger.warn({ userEmail }, 'User not found');
++            return createErrorResponse(
++                '用户不存在',
++                404,
++                ErrorCode.USER_NOT_FOUND,
++                'User not found'
++            );
++        }
++
++        const timeout = parseInt(process.env.OPENCLAW_TIMEOUT || '30000', 10);
++        const singleImageTimeout = Math.min(3000, timeout / images.length);
++        const results: Array<{
++            success: boolean;
++            index: number;
++            errorItemId?: string;
++            error?: string;
++        }> = [];
++
++        for (let i = 0; i < images.length; i++) {
++            const imageData = images[i] as ImageData;
++            const { base64, mimeType, filename } = imageData;
++
++            const validation = validateImage(base64, filename);
++            if (!validation.valid) {
++                logger.warn({ index: i, filename, error: validation.error }, 'Image validation failed');
++                results.push({
++                    success: false,
++                    index: i,
++                    error: validation.error,
++                });
++                continue;
++            }
++
++            const openclawResponse = await callOpenclawAgent(base64, mimeType, singleImageTimeout);
++
++            if (!openclawResponse.success || !openclawResponse.data) {
++                logger.error({ index: i, error: openclawResponse.error }, 'Openclaw recognition failed');
++                results.push({
++                    success: false,
++                    index: i,
++                    error: openclawResponse.error || '识别失败',
++                });
++                continue;
++            }
++
++            try {
++                const errorItem = await createErrorItem(
++                    user.id,
++                    base64,
++                    mimeType,
++                    openclawResponse.data,
++                    subjectId
++                );
++
++                results.push({
++                    success: true,
++                    index: i,
++                    errorItemId: errorItem.id,
++                });
++
++                logger.info({ index: i, errorItemId: errorItem.id }, 'Error item created successfully');
++            } catch (dbError: any) {
++                logger.error({ index: i, error: dbError?.message || String(dbError) }, 'Failed to create error item');
++                results.push({
++                    success: false,
++                    index: i,
++                    error: `数据库写入失败: ${dbError?.message || String(dbError)}`,
++                });
++            }
++        }
++
++        const successCount = results.filter(r => r.success).length;
++        const failCount = results.length - successCount;
++
++        logger.info({ 
++            total: results.length, 
++            success: successCount, 
++            failed: failCount 
++        }, 'Batch upload completed');
++
++        const statusCode = failCount === 0 ? 201 : 207;
++
++        return NextResponse.json({
++            success: failCount === 0,
++            total: results.length,
++            successCount,
++            failCount,
++            results,
++        }, { status: statusCode });
++    } catch (error: any) {
++        logger.error({ error: error?.message || String(error), stack: error?.stack }, 'Batch upload error');
++        return createErrorResponse(
++            error?.message || '批量上传失败',
++            500,
++            ErrorCode.INTERNAL_ERROR,
++            error?.message || String(error)
++        );
++    }
++}
+-- 
+2.49.0
+
