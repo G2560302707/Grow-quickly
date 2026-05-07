@@ -3,13 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { getAIService } from "@/lib/ai";
-import { notFound, internalError } from "@/lib/api-errors";
+import { notFound, internalError, unauthorized } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:practice:generate');
 
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+        return unauthorized("Authentication required");
+    }
 
     try {
         const { errorItemId, language, difficulty } = await req.json();
