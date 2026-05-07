@@ -23,22 +23,7 @@ export async function GET() {
         }
 
         if (!user) {
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            // Create default user if DB is empty
-            user = await prisma.user.create({
-                data: {
-                    email: "default@example.com",
-                    password: "password",
-                    name: "Default User",
-                },
-            });
-        }
-
-        if (!user) {
-            return unauthorized();
+            return unauthorized("Authentication required");
         }
 
         let notebooks = await prisma.subject.findMany({
@@ -111,22 +96,7 @@ export async function POST(req: Request) {
         }
 
         if (!user) {
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            // Create default user if DB is empty
-            user = await prisma.user.create({
-                data: {
-                    email: "default@example.com",
-                    password: "password",
-                    name: "Default User",
-                },
-            });
-        }
-
-        if (!user) {
-            return unauthorized();
+            return unauthorized("Authentication required");
         }
 
         const body = await req.json();

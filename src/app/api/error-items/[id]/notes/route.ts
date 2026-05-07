@@ -23,12 +23,7 @@ export async function PATCH(
         }
 
         if (!user) {
-            logger.debug('No session or user found, attempting fallback to first user');
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            return unauthorized("No user found in DB");
+            return unauthorized("Authentication required");
         }
 
         const { userNotes } = await req.json();

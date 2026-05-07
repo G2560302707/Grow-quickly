@@ -39,12 +39,7 @@ export async function POST(req: Request) {
         }
 
         if (!user) {
-            logger.debug('No session or user found, attempting fallback to first user');
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            return unauthorized("No user found in DB");
+            return unauthorized("Authentication required");
         }
 
         logger.debug({ userId: user.id, idsCount: ids.length }, 'Batch delete request');

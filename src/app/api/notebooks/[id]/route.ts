@@ -27,22 +27,7 @@ export async function GET(
         }
 
         if (!user) {
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            // Create default user if DB is empty
-            user = await prisma.user.create({
-                data: {
-                    email: "default@example.com",
-                    password: "password",
-                    name: "Default User",
-                },
-            });
-        }
-
-        if (!user) {
-            return unauthorized();
+            return unauthorized("Authentication required");
         }
 
         const notebook = await prisma.subject.findUnique({
@@ -91,22 +76,7 @@ export async function PUT(
         }
 
         if (!user) {
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            // Create default user if DB is empty
-            user = await prisma.user.create({
-                data: {
-                    email: "default@example.com",
-                    password: "password",
-                    name: "Default User",
-                },
-            });
-        }
-
-        if (!user) {
-            return unauthorized();
+            return unauthorized("Authentication required");
         }
 
         const notebook = await prisma.subject.findUnique({
@@ -169,22 +139,7 @@ export async function DELETE(
         }
 
         if (!user) {
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            // Create default user if DB is empty
-            user = await prisma.user.create({
-                data: {
-                    email: "default@example.com",
-                    password: "password",
-                    name: "Default User",
-                },
-            });
-        }
-
-        if (!user) {
-            return unauthorized();
+            return unauthorized("Authentication required");
         }
 
         const notebook = await prisma.subject.findUnique({

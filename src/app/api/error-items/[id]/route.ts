@@ -26,12 +26,7 @@ export async function GET(
         }
 
         if (!user) {
-            logger.debug('No session or user found, attempting fallback to first user');
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            return unauthorized("No user found in DB");
+            return unauthorized("Authentication required");
         }
 
         const errorItem = await prisma.errorItem.findUnique({
@@ -76,11 +71,7 @@ export async function PUT(
         }
 
         if (!user) {
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            return unauthorized();
+            return unauthorized("Authentication required");
         }
 
         const body = await req.json();

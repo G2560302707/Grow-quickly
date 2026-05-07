@@ -684,6 +684,11 @@ describe('/api/error-items', () => {
 
     describe('PATCH /api/error-items/[id]/mastery (更新掌握程度)', () => {
         it('应该成功更新掌握程度为已掌握', async () => {
+            // Mock ownership check (findUnique)
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({
+                id: 'error-item-1',
+                userId: 'user-123',
+            });
             mocks.mockPrismaErrorItem.update.mockResolvedValue({
                 id: 'error-item-1',
                 userId: 'user-123',
@@ -704,6 +709,11 @@ describe('/api/error-items', () => {
         });
 
         it('应该成功更新掌握程度为未掌握', async () => {
+            // Mock ownership check (findUnique)
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({
+                id: 'error-item-1',
+                userId: 'user-123',
+            });
             mocks.mockPrismaErrorItem.update.mockResolvedValue({
                 id: 'error-item-1',
                 userId: 'user-123',
@@ -727,6 +737,11 @@ describe('/api/error-items', () => {
             const levels = [0, 1, 2, 3];
 
             for (const level of levels) {
+                // Mock ownership check (findUnique)
+                mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({
+                    id: 'error-item-1',
+                    userId: 'user-123',
+                });
                 mocks.mockPrismaErrorItem.update.mockResolvedValue({
                     id: 'error-item-1',
                     userId: 'user-123',
@@ -746,7 +761,6 @@ describe('/api/error-items', () => {
 
         it('应该拒绝未登录用户', async () => {
             mocks.mockPrismaUser.findUnique.mockResolvedValue(null);
-            mocks.mockPrismaUser.findFirst.mockResolvedValue(null);
 
             const request = new Request('http://localhost/api/error-items/error-item-1/mastery', {
                 method: 'PATCH',
@@ -762,6 +776,11 @@ describe('/api/error-items', () => {
         });
 
         it('应该处理数据库错误', async () => {
+            // Mock ownership check succeeds, but update fails
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({
+                id: 'error-item-1',
+                userId: 'user-123',
+            });
             mocks.mockPrismaErrorItem.update.mockRejectedValue(new Error('Database error'));
 
             const request = new Request('http://localhost/api/error-items/error-item-1/mastery', {

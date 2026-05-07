@@ -23,22 +23,31 @@ export async function PATCH(
         }
 
         if (!user) {
-            logger.debug('No session or user found, attempting fallback to first user');
-            user = await prisma.user.findFirst();
-        }
-
-        if (!user) {
-            return unauthorized("No user found in DB");
+            return unauthorized("Authentication required");
         }
 
         const { masteryLevel } = await req.json();
 
+        // Verify ownership before update
+        const existingItem = await prisma.errorItem.findUnique({
+            where: { id },
+            select: { userId: true },
+        });
+
+        if (!existingItem) {
+            return NextResponse.json({ message: "Item not found" }, { status: 404 });
+        }
+
+        if (existingItem.userId !== user.id) {
+            return NextResponse.json({ message: "Not authorized to update this item" }, { status: 403 });
+        }
+
         const errorItem = await prisma.errorItem.update({
             where: {
-                id: id,
+                id,
             },
             data: {
-                masteryLevel: masteryLevel,
+                masteryLevel,
             },
         });
 
