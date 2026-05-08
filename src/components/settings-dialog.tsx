@@ -342,6 +342,37 @@ export function SettingsDialog() {
         }
     };
 
+    const handleExportAllData = async () => {
+        if (!confirm(t.settings?.exportAllConfirm || "Export all users' data? This may take a while.")) {
+            return;
+        }
+        setExporting(true);
+        try {
+            const res = await fetch('/api/export?all=true');
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Export failed');
+            }
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const disposition = res.headers.get('Content-Disposition');
+            const filenameMatch = disposition?.match(/filename="(.+)"/);
+            a.download = filenameMatch ? filenameMatch[1] : 'wrong-notebook-export-all.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            alert(t.settings?.exportSuccess || "Export successful");
+        } catch (error) {
+            frontendLogger.error('[SettingsDialog]', 'Export all failed', { error: error instanceof Error ? error.message : String(error) });
+            alert(t.settings?.exportFailed || "Export failed");
+        } finally {
+            setExporting(false);
+        }
+    };
+
     const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -1188,20 +1219,38 @@ export function SettingsDialog() {
                                         <span className="text-sm text-blue-800 font-medium">
                                             {t.settings?.exportData || "Export Data"}
                                         </span>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleExportData}
-                                            disabled={exporting}
-                                            className="bg-blue-100 hover:bg-blue-200 text-blue-900 border-blue-300"
-                                        >
-                                            {exporting ? (
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Download className="mr-2 h-4 w-4" />
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleExportData}
+                                                disabled={exporting}
+                                                className="bg-blue-100 hover:bg-blue-200 text-blue-900 border-blue-300"
+                                            >
+                                                {exporting ? (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                )}
+                                                {t.settings?.exportData || "Export"}
+                                            </Button>
+                                            {(session?.user as any)?.role === 'admin' && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleExportAllData}
+                                                    disabled={exporting}
+                                                    className="bg-orange-100 hover:bg-orange-200 text-orange-900 border-orange-300"
+                                                >
+                                                    {exporting ? (
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Download className="mr-2 h-4 w-4" />
+                                                    )}
+                                                    {t.settings?.exportAllData || "Export All"}
+                                                </Button>
                                             )}
-                                            {t.settings?.exportData || "Export"}
-                                        </Button>
+                                        </div>
                                     </div>
                                     <p className="text-xs text-blue-700">
                                         {t.settings?.exportDataDesc || "Export all data as JSON file."}
@@ -1261,6 +1310,36 @@ export function SettingsDialog() {
                                 </div>
                             </div>
 
+                            {/* Migrate Tags (Admin Only) */}
+                            {(session?.user as any)?.role === 'admin' && (
+                                <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm text-blue-900 font-bold flex items-center gap-2">
+                                                <RefreshCw className="h-4 w-4" />
+                                                {t.settings?.migrateTags || "Migrate Tags"}
+                                            </span>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleMigrateTags}
+                                            disabled={migratingTags}
+                                            className="bg-blue-100 hover:bg-blue-200 text-blue-900 border-blue-300"
+                                        >
+                                            {migratingTags ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <RefreshCw className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-blue-800 mt-2 font-medium">
+                                        {t.settings?.migrateTagsDesc || 'Re-populates standard tags from file'}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Clear Practice Data */}
                             <div className="p-4 border border-red-200 rounded-lg bg-red-50">
                                 <div className="flex items-center justify-between">
@@ -1309,37 +1388,9 @@ export function SettingsDialog() {
                                 </p>
                             </div>
 
-                            {/* System Reset & Migration (Admin Only) */}
+                            {/* System Reset (Admin Only) */}
                             {(session?.user as any)?.role === 'admin' && (
                                 <>
-                                    {/* Migrate Tags */}
-                                    <div className="p-4 border border-blue-200 rounded-lg bg-blue-50 mb-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm text-blue-900 font-bold flex items-center gap-2">
-                                                    <RefreshCw className="h-4 w-4" />
-                                                    {t.settings?.migrateTags || "Migrate Tags"}
-                                                </span>
-                                            </div>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleMigrateTags}
-                                                disabled={migratingTags}
-                                                className="bg-blue-100 hover:bg-blue-200 text-blue-900 border-blue-300"
-                                            >
-                                                {migratingTags ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <RefreshCw className="h-4 w-4" />
-                                                )}
-                                            </Button>
-                                        </div>
-                                        <p className="text-xs text-blue-800 mt-2 font-medium">
-                                            {t.settings?.migrateTagsDesc || 'Re-populates standard tags from file'}
-                                        </p>
-                                    </div>
-
                                     {/* System Reset */}
                                     <div className="p-4 border border-red-600/50 rounded-lg bg-red-100/50">
                                         <div className="flex items-center justify-between">
