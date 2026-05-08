@@ -405,13 +405,52 @@ export function SettingsDialog() {
                     .replace('{records}', String(stats.practiceRecordsCreated))
             );
 
-            // Reset file selection
             setSelectedFile(null);
             setSelectedFileName("");
-            // Reload to reflect imported data
             window.location.reload();
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Import failed', { error: error instanceof Error ? error.message : String(error) });
+            alert(t.settings?.importFailed || "Import failed");
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const handleImportAllData = async () => {
+        if (!selectedFile) return;
+
+        if (!confirm(t.settings?.importAllConfirm || "Import all users' data? This will restore data for all users from the export file.")) {
+            return;
+        }
+
+        setImporting(true);
+        try {
+            const text = await selectedFile.text();
+            const data = JSON.parse(text);
+            const res = await fetch("/api/import?all=true", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+            });
+            const result = await res.json();
+            if (result.success) {
+                const s = result.stats;
+                alert(
+                    (t.settings?.importResultDesc || "Imported {subjects} notebooks, {tags} tags, {items} error items, {schedules} review schedules, {records} practice records.")
+                        .replace('{subjects}', String(s.subjectsCreated))
+                        .replace('{tags}', String(s.tagsCreated))
+                        .replace('{items}', String(s.errorItemsCreated))
+                        .replace('{schedules}', String(s.reviewSchedulesCreated))
+                        .replace('{records}', String(s.practiceRecordsCreated))
+                );
+                setSelectedFile(null);
+                setSelectedFileName("");
+                window.location.reload();
+            } else {
+                throw new Error(result.message || "Import failed");
+            }
+        } catch (error) {
+            frontendLogger.error('[SettingsDialog]', 'Import all failed', { error: error instanceof Error ? error.message : String(error) });
             alert(t.settings?.importFailed || "Import failed");
         } finally {
             setImporting(false);
@@ -1300,6 +1339,22 @@ export function SettingsDialog() {
                                                         <CheckCircle2 className="mr-2 h-4 w-4" />
                                                     )}
                                                     {t.settings?.importData || "Import"}
+                                                </Button>
+                                            )}
+                                            {selectedFile && (session?.user as any)?.role === 'admin' && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleImportAllData}
+                                                    disabled={importing}
+                                                    className="bg-orange-100 hover:bg-orange-200 text-orange-900 border-orange-300"
+                                                >
+                                                    {importing ? (
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                                                    )}
+                                                    {t.settings?.importAllData || "Import All"}
                                                 </Button>
                                             )}
                                         </div>

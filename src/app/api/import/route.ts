@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { unauthorized, internalError, badRequest } from "@/lib/api-errors";
+import { unauthorized, internalError, badRequest, forbidden } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:import');
@@ -10,6 +10,7 @@ const logger = createLogger('api:import');
 interface ImportData {
     version: number;
     exportedAt: string;
+    scope?: string;
     user: {
         id: string;
         email: string;
@@ -107,6 +108,14 @@ export async function POST(req: Request) {
         return unauthorized("User not found");
     }
 
+    const { searchParams } = new URL(req.url);
+    const importAll = searchParams.get('all') === 'true';
+
+    // 只有管理员可以导入全部数据
+    if (importAll && (session.user as any).role !== 'admin') {
+        return forbidden("Admin role required");
+    }
+
     try {
         const contentLength = req.headers.get('content-length');
         if (contentLength && parseInt(contentLength, 10) > 50 * 1024 * 1024) {
@@ -120,8 +129,8 @@ export async function POST(req: Request) {
             return badRequest("Invalid import data format");
         }
 
-        // 验证导出数据属于当前用户
-        if (body.user.email !== user.email) {
+        // 非管理员模式：验证导出数据属于当前用户
+        if (!importAll && body.user.email !== user.email) {
             return badRequest("Import data does not belong to current user");
         }
 
@@ -139,8 +148,9 @@ export async function POST(req: Request) {
             // 1. 导入 subjects
             const subjectIdMap = new Map<string, string>();
             for (const subject of (body.subjects || [])) {
+                const targetUserId = importAll ? subject.userId : user.id;
                 const existing = await tx.subject.findFirst({
-                    where: { name: subject.name, userId: user.id },
+                    where: { name: subject.name, userId: targetUserId },
                 });
                 if (existing) {
                     subjectIdMap.set(subject.id, existing.id);
@@ -148,7 +158,7 @@ export async function POST(req: Request) {
                     const created = await tx.subject.create({
                         data: {
                             name: subject.name,
-                            userId: user.id,
+                            userId: targetUserId,
                         },
                     });
                     subjectIdMap.set(subject.id, created.id);
@@ -159,10 +169,11 @@ export async function POST(req: Request) {
             // 2. 导入 custom tags
             const tagIdMap = new Map<string, string>();
             for (const tag of (body.customTags || [])) {
+                const targetUserId = importAll ? tag.userId : user.id;
                 const existing = await tx.knowledgeTag.findFirst({
                     where: {
                         name: tag.name,
-                        userId: user.id,
+                        userId: targetUserId,
                         isSystem: false,
                     },
                 });
@@ -179,7 +190,7 @@ export async function POST(req: Request) {
                             name: tag.name,
                             subject: tag.subject,
                             isSystem: false,
-                            userId: user.id,
+                            userId: targetUserId,
                             parentId: newParentId,
                             order: tag.order || 0,
                             code: tag.code,
@@ -191,7 +202,6 @@ export async function POST(req: Request) {
             }
 
             // 3. 预加载所有需要的 tags（批量查询，避免 N+1）
-            // 收集所有 errorItems 中引用的 tag names
             const allTagNames = new Set<string>();
             for (const item of body.errorItems) {
                 if (item.tags) {
@@ -200,20 +210,19 @@ export async function POST(req: Request) {
                     }
                 }
             }
-            // 批量查询：系统 tag + 用户自定义 tag
+            // 批量查询：系统 tag + 所有用户的自定义 tag
             const preloadedTags = await tx.knowledgeTag.findMany({
                 where: {
                     name: { in: Array.from(allTagNames) },
                     OR: [
                         { isSystem: true },
-                        { userId: user.id },
+                        ...(importAll ? [] : [{ userId: user.id }]),
                     ],
                 },
             });
-            // 建立 name -> tag 的映射（优先用户自定义 tag）
             const tagNameMap = new Map<string, string>();
             for (const tag of preloadedTags) {
-                if (!tagNameMap.has(tag.name) || tag.userId === user.id) {
+                if (!tagNameMap.has(tag.name) || (!importAll && tag.userId === user.id)) {
                     tagNameMap.set(tag.name, tag.id);
                 }
             }
@@ -221,11 +230,12 @@ export async function POST(req: Request) {
             // 4. 导入 error items
             const errorItemIdMap = new Map<string, string>();
             for (const item of body.errorItems) {
+                const targetUserId = importAll ? item.userId : user.id;
                 const newSubjectId = item.subjectId ? subjectIdMap.get(item.subjectId) : undefined;
 
                 const created = await tx.errorItem.create({
                     data: {
-                        userId: user.id,
+                        userId: targetUserId,
                         subjectId: newSubjectId || undefined,
                         originalImageUrl: item.originalImageUrl || '',
                         ocrText: item.ocrText,
@@ -248,15 +258,13 @@ export async function POST(req: Request) {
                 errorItemIdMap.set(item.id, created.id);
                 stats.errorItemsCreated++;
 
-                // 关联 tags（使用预加载的映射 + tagIdMap）
+                // 关联 tags
                 if (item.tags && item.tags.length > 0) {
                     const tagConnections: { id: string }[] = [];
                     for (const tag of item.tags) {
-                        // 优先使用导入数据中的 tag ID 映射
                         if (tagIdMap.has(tag.id)) {
                             tagConnections.push({ id: tagIdMap.get(tag.id)! });
                         } else if (tagNameMap.has(tag.name)) {
-                            // 使用预加载的 tag 名称映射
                             tagConnections.push({ id: tagNameMap.get(tag.name)! });
                         }
                     }
@@ -294,9 +302,10 @@ export async function POST(req: Request) {
 
             // 6. 导入 practice records
             for (const record of (body.practiceRecords || [])) {
+                const targetUserId = importAll ? record.userId : user.id;
                 await tx.practiceRecord.create({
                     data: {
-                        userId: user.id,
+                        userId: targetUserId,
                         subject: record.subject,
                         difficulty: record.difficulty,
                         isCorrect: record.isCorrect,
@@ -311,6 +320,7 @@ export async function POST(req: Request) {
 
         logger.info({
             userId: user.id,
+            scope: importAll ? 'all' : 'user',
             ...stats,
         }, 'Data import completed');
 
