@@ -64,3 +64,6 @@ dist-scripts
 *.log
 test_output*.txt
 upload_test_output*.txt
+
+# data
+/data/

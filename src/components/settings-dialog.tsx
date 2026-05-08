@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw, Plus, Zap, CheckCircle2, XCircle } from "lucide-react";
+import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw, Plus, Zap, CheckCircle2, XCircle, Download, Upload } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -92,6 +92,12 @@ export function SettingsDialog() {
     const [profileSaving, setProfileSaving] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+    // Import/Export state
+    const [exporting, setExporting] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFileName, setSelectedFileName] = useState<string>("");
 
     const router = useRouter();
 
@@ -305,6 +311,79 @@ export function SettingsDialog() {
             alert(t.settings?.clearError || "Failed to reset system");
         } finally {
             setSystemResetting(false);
+        }
+    };
+
+    const handleExportData = async () => {
+        setExporting(true);
+        try {
+            const res = await fetch('/api/export');
+            if (!res.ok) {
+                throw new Error('Export failed');
+            }
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            // Get filename from Content-Disposition header or use default
+            const disposition = res.headers.get('Content-Disposition');
+            const filenameMatch = disposition?.match(/filename="(.+)"/);
+            a.download = filenameMatch ? filenameMatch[1] : 'wrong-notebook-export.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            alert(t.settings?.exportSuccess || "Export successful");
+        } catch (error) {
+            frontendLogger.error('[SettingsDialog]', 'Export failed', { error: error instanceof Error ? error.message : String(error) });
+            alert(t.settings?.exportFailed || "Export failed");
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+            setSelectedFileName(file.name);
+        }
+    };
+
+    const handleImportData = async () => {
+        if (!selectedFile) return;
+
+        if (!confirm(t.settings?.importConfirm || "Are you sure you want to import?")) {
+            return;
+        }
+
+        setImporting(true);
+        try {
+            const text = await selectedFile.text();
+            const data = JSON.parse(text);
+
+            const response = await apiClient.post('/api/import', data);
+            const stats = (response as any).stats;
+
+            alert(
+                (t.settings?.importResultDesc || "Imported {subjects} notebooks, {tags} tags, {items} error items, {schedules} review schedules, {records} practice records.")
+                    .replace('{subjects}', String(stats.subjectsCreated))
+                    .replace('{tags}', String(stats.tagsCreated))
+                    .replace('{items}', String(stats.errorItemsCreated))
+                    .replace('{schedules}', String(stats.reviewSchedulesCreated))
+                    .replace('{records}', String(stats.practiceRecordsCreated))
+            );
+
+            // Reset file selection
+            setSelectedFile(null);
+            setSelectedFileName("");
+            // Reload to reflect imported data
+            window.location.reload();
+        } catch (error) {
+            frontendLogger.error('[SettingsDialog]', 'Import failed', { error: error instanceof Error ? error.message : String(error) });
+            alert(t.settings?.importFailed || "Import failed");
+        } finally {
+            setImporting(false);
         }
     };
 
@@ -1097,6 +1176,91 @@ export function SettingsDialog() {
                     {/* Danger Zone Tab */}
                     <TabsContent value="danger" className="space-y-4 py-4">
                         <div className="space-y-3">
+                            {/* Data Management Section - Available to all users */}
+                            <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
+                                <h4 className="text-sm font-bold text-blue-900 mb-3">
+                                    {t.settings?.dataManagement || "Data Management"}
+                                </h4>
+
+                                {/* Export */}
+                                <div className="mb-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm text-blue-800 font-medium">
+                                            {t.settings?.exportData || "Export Data"}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleExportData}
+                                            disabled={exporting}
+                                            className="bg-blue-100 hover:bg-blue-200 text-blue-900 border-blue-300"
+                                        >
+                                            {exporting ? (
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Download className="mr-2 h-4 w-4" />
+                                            )}
+                                            {t.settings?.exportData || "Export"}
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-blue-700">
+                                        {t.settings?.exportDataDesc || "Export all data as JSON file."}
+                                    </p>
+                                </div>
+
+                                {/* Import */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm text-blue-800 font-medium">
+                                            {t.settings?.importData || "Import Data"}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="file"
+                                                accept=".json"
+                                                onChange={handleImportFileChange}
+                                                className="hidden"
+                                                id="import-file-input"
+                                                disabled={importing}
+                                            />
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => document.getElementById('import-file-input')?.click()}
+                                                disabled={importing}
+                                                className="bg-blue-100 hover:bg-blue-200 text-blue-900 border-blue-300"
+                                            >
+                                                {importing ? (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Upload className="mr-2 h-4 w-4" />
+                                                )}
+                                                {selectedFileName || t.settings?.selectFile || "Select File"}
+                                            </Button>
+                                            {selectedFile && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleImportData}
+                                                    disabled={importing}
+                                                    className="bg-green-100 hover:bg-green-200 text-green-900 border-green-300"
+                                                >
+                                                    {importing ? (
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                                                    )}
+                                                    {t.settings?.importData || "Import"}
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-blue-700">
+                                        {t.settings?.importDataDesc || "Import data from JSON file. Existing data will be skipped."}
+                                    </p>
+                                </div>
+                            </div>
+
                             {/* Clear Practice Data */}
                             <div className="p-4 border border-red-200 rounded-lg bg-red-50">
                                 <div className="flex items-center justify-between">
