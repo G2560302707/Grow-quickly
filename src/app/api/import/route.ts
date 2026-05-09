@@ -233,6 +233,22 @@ export async function POST(req: Request) {
                 const targetUserId = importAll ? item.userId : user.id;
                 const newSubjectId = item.subjectId ? subjectIdMap.get(item.subjectId) : undefined;
 
+                // 去重：同一用户 + 同一科目 + 相同题目文本视为重复
+                if (item.questionText) {
+                    const existing = await tx.errorItem.findFirst({
+                        where: {
+                            userId: targetUserId,
+                            subjectId: newSubjectId || null,
+                            questionText: item.questionText,
+                        },
+                    });
+                    if (existing) {
+                        // 跳过重复，但记录 ID 映射（后续 reviewSchedule 可能需要）
+                        errorItemIdMap.set(item.id, existing.id);
+                        continue;
+                    }
+                }
+
                 const created = await tx.errorItem.create({
                     data: {
                         userId: targetUserId,
@@ -287,6 +303,15 @@ export async function POST(req: Request) {
                 if (newErrorItemId) {
                     const scheduledFor = safeParseDate(schedule.scheduledFor);
                     if (scheduledFor) {
+                        // 去重：同一 errorItem + 相同 scheduledFor 视为重复
+                        const existingSchedule = await tx.reviewSchedule.findFirst({
+                            where: {
+                                errorItemId: newErrorItemId,
+                                scheduledFor,
+                            },
+                        });
+                        if (existingSchedule) continue;
+
                         await tx.reviewSchedule.create({
                             data: {
                                 errorItemId: newErrorItemId,
