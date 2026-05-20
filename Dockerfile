@@ -71,6 +71,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/config ./config
 
 # Copy pre-compiled runtime scripts
 COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/seed-admin.js ./dist-scripts/scripts/seed-admin.js
 
 # Create data directory for SQLite persistence
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
