@@ -63,8 +63,8 @@ export async function GET() {
                 }
             },
             orderBy: {
-                _count: {
-                    errorItems: 'desc'
+                errorItems: {
+                    _count: 'desc'
                 }
             }
         })
