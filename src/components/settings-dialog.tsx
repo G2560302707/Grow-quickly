@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw, Plus, Zap, CheckCircle2, XCircle, Download, Upload } from "lucide-react";
+import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw, Plus, Zap, CheckCircle2, XCircle, Download, Upload, BarChart3 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -1238,7 +1238,20 @@ export function SettingsDialog() {
                     {
                         (session?.user as any)?.role === 'admin' && (
                             <TabsContent value="admin" className="space-y-4 py-4">
-                                <UserManagement />
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-start gap-2"
+                                    onClick={() => {
+                                        setOpen(false)
+                                        router.push("/admin")
+                                    }}
+                                >
+                                    <BarChart3 className="h-4 w-4" />
+                                    {t.admin?.dashboard?.title || "Admin Dashboard"}
+                                </Button>
+                                <div className="border-t pt-4">
+                                    <UserManagement />
+                                </div>
                             </TabsContent>
                         )
                     }

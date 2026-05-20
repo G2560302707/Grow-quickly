@@ -174,6 +174,69 @@ export interface AdminUser extends UserProfile {
     };
 }
 
+export interface AdminDashboardData {
+    overview: {
+        totalUsers: number;
+        totalErrorItems: number;
+        totalPracticeRecords: number;
+        totalSubjects: number;
+    };
+    userStats: AdminUserStats[];
+    subjectDistribution: { name: string; count: number }[];
+    dailyTrend: { date: string; count: number }[];
+    masteryDistribution: {
+        new: number;
+        reviewing: number;
+        mastered: number;
+    };
+}
+
+export interface AdminUserStats {
+    id: string;
+    name: string | null;
+    email: string;
+    role: string;
+    isActive: boolean;
+    createdAt: string;
+    educationStage: string | null;
+    enrollmentYear: number | null;
+    errorCount: number;
+    practiceCount: number;
+    notebookCount: number;
+}
+
+export interface AdminUserDetail {
+    user: {
+        id: string;
+        name: string | null;
+        email: string;
+        role: string;
+        isActive: boolean;
+        createdAt: string;
+        educationStage: string | null;
+        enrollmentYear: number | null;
+    };
+    notebooks: { id: string; name: string; errorCount: number }[];
+    errorCount: number;
+    practiceCount: number;
+    notebookCount: number;
+    recent7DaysCount: number;
+    masteryDistribution: {
+        new: number;
+        reviewing: number;
+        mastered: number;
+    };
+    subjectDistribution: { name: string; count: number }[];
+    recentErrorItems: {
+        id: string;
+        questionText: string | null;
+        ocrText: string | null;
+        masteryLevel: number;
+        createdAt: string;
+        subject: { name: string } | null;
+    }[];
+}
+
 export interface RegisterRequest {
     name: string;
     email: string;

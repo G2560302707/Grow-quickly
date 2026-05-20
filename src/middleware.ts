@@ -18,6 +18,7 @@ export async function middleware(req: NextRequest) {
 
         const isAuth = !!token;
         const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
+        const isAdminPage = req.nextUrl.pathname.startsWith("/admin");
 
         logger.debug({
             path: req.nextUrl.pathname,
@@ -45,6 +46,12 @@ export async function middleware(req: NextRequest) {
             return NextResponse.redirect(
                 new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
             );
+        }
+
+        // Admin route protection: only allow users with admin role
+        if (isAdminPage && token?.role !== "admin") {
+            logger.warn({ userId: token?.id, path: req.nextUrl.pathname }, 'Non-admin user attempting to access admin area');
+            return NextResponse.redirect(new URL("/", req.url));
         }
     } catch (e) {
         logger.error({ error: e }, 'Error processing token');
