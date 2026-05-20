@@ -68,3 +68,4 @@ upload_test_output*.txt
 
 # data
 /data/
+.next-prebuilt/
