@@ -92,7 +92,7 @@ export async function GET() {
             dailyTrend.push({ date: dateStr, count: 0 })
         }
         for (const item of recentErrorItems) {
-            const dateStr = new Date(item.createdAt).toISOString().split('T')[0]'
+            const dateStr = new Date(item.createdAt).toISOString().split('T')[0]
             const found = dailyTrend.find(d => d.date === dateStr)
             if (found) {
                 found.count += item._count.id
