@@ -87,4 +87,97 @@ describe('seed-admin docker helper', () => {
             },
         });
     });
+
+    it('restores admin role when user role was reset to user', async () => {
+        const prisma = {
+            user: {
+                findUnique: vi.fn().mockResolvedValue({
+                    email: 'admin@localhost',
+                    role: 'user', // Role was reset by migration
+                    isActive: true,
+                    educationStage: 'senior_high',
+                    enrollmentYear: 2024,
+                }),
+                create: vi.fn(),
+                update: vi.fn().mockResolvedValue({ email: 'admin@localhost' }),
+            },
+        };
+        const hash = vi.fn();
+        const { seedAdmin } = require('../../../../scripts/seed-admin.js');
+
+        const result = await seedAdmin({ prisma, hash });
+
+        expect(result).toEqual({ action: 'updated', email: 'admin@localhost' });
+        expect(prisma.user.update).toHaveBeenCalledWith({
+            where: { email: 'admin@localhost' },
+            data: {
+                role: 'admin', // Should restore admin role
+                isActive: true,
+                educationStage: 'senior_high',
+                enrollmentYear: 2024,
+            },
+        });
+    });
+
+    it('reactivates admin when isActive was set to false', async () => {
+        const prisma = {
+            user: {
+                findUnique: vi.fn().mockResolvedValue({
+                    email: 'admin@localhost',
+                    role: 'admin',
+                    isActive: false, // Account was disabled
+                    educationStage: 'junior_high',
+                    enrollmentYear: 2025,
+                }),
+                create: vi.fn(),
+                update: vi.fn().mockResolvedValue({ email: 'admin@localhost' }),
+            },
+        };
+        const hash = vi.fn();
+        const { seedAdmin } = require('../../../../scripts/seed-admin.js');
+
+        const result = await seedAdmin({ prisma, hash });
+
+        expect(result).toEqual({ action: 'updated', email: 'admin@localhost' });
+        expect(prisma.user.update).toHaveBeenCalledWith({
+            where: { email: 'admin@localhost' },
+            data: {
+                role: 'admin',
+                isActive: true, // Should reactivate account
+                educationStage: 'junior_high',
+                enrollmentYear: 2025,
+            },
+        });
+    });
+
+    it('restores both role and isActive when both were corrupted', async () => {
+        const prisma = {
+            user: {
+                findUnique: vi.fn().mockResolvedValue({
+                    email: 'admin@localhost',
+                    role: 'user', // Downgraded
+                    isActive: false, // Disabled
+                    educationStage: 'senior_high',
+                    enrollmentYear: 2024,
+                }),
+                create: vi.fn(),
+                update: vi.fn().mockResolvedValue({ email: 'admin@localhost' }),
+            },
+        };
+        const hash = vi.fn();
+        const { seedAdmin } = require('../../../../scripts/seed-admin.js');
+
+        const result = await seedAdmin({ prisma, hash });
+
+        expect(result).toEqual({ action: 'updated', email: 'admin@localhost' });
+        expect(prisma.user.update).toHaveBeenCalledWith({
+            where: { email: 'admin@localhost' },
+            data: {
+                role: 'admin', // Restore admin role
+                isActive: true, // Reactivate account
+                educationStage: 'senior_high',
+                enrollmentYear: 2024,
+            },
+        });
+    });
 });
