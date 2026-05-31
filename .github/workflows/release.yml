@@ -59,13 +59,15 @@ jobs:
             RANGE="HEAD"
             echo "首次发版，列出所有 commit"
           else
-            RANGE="${{ steps.version.outputs.tag }}...${PREV_TAG}"
+            RANGE="${{ steps.version.outputs.tag }}..${PREV_TAG}"
             echo "范围: $RANGE"
           fi
 
-          # 分类提取 commit
+          # 分类提取 commit（feat/fix 前缀 + 其他重要 commit）
           FEATS=$(git log "$RANGE" --pretty=format:"%s" --no-merges | grep -iE '^feat[:(]' | sed 's/^feat: //; s/^feat([^)]*): //' || true)
           FIXES=$(git log "$RANGE" --pretty=format:"%s" --no-merges | grep -iE '^fix[:(]' | sed 's/^fix: //; s/^fix([^)]*): //' || true)
+          # 捕获不符合 conventional commit 格式的重要 commit（排除纯 chore/ci）
+          OTHERS=$(git log "$RANGE" --pretty=format:"%s" --no-merges | grep -viE '^(feat|fix|chore|ci|docs|style|refactor|perf|test|build)[:(]|^[Mm]erge |bump version|\[skip ci\]' || true)
 
           # 组装 changelog
           CHANGELOG=""
@@ -82,6 +84,14 @@ jobs:
             while IFS= read -r line; do
               CHANGELOG+="- ${line}"$'\n'
             done <<< "$FIXES"
+          fi
+
+          if [ -n "$OTHERS" ]; then
+            [ -n "$CHANGELOG" ] && CHANGELOG+=$'\n'
+            CHANGELOG+="### 📦 其他变更"$'\n'
+            while IFS= read -r line; do
+              CHANGELOG+="- ${line}"$'\n'
+            done <<< "$OTHERS"
           fi
 
           if [ -z "$CHANGELOG" ]; then
