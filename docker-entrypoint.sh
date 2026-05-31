@@ -48,13 +48,13 @@ cd /app && $PRISMA_BIN migrate deploy --schema=./prisma/schema.prisma && {
     echo "[Entrypoint] Migrations completed successfully."
 } || echo "[Entrypoint] Migration failed or no pending migrations."
 
-if [ ! -f "$SEED_MARKER" ]; then
-    echo "[Entrypoint] Seeding default admin user..."
-    cd /app && node "$SEED_ADMIN_SCRIPT" && {
-        echo "[Entrypoint] Admin seed completed successfully."
-        touch "$SEED_MARKER"
-    } || echo "[Entrypoint] Admin seed failed (non-fatal, continuing...)."
-fi
+# Always run seed after migrations to ensure admin user has correct role/isActive
+# (migration may have reset role to default 'user' for existing installs)
+echo "[Entrypoint] Ensuring admin user exists with correct role..."
+cd /app && node "$SEED_ADMIN_SCRIPT" && {
+    echo "[Entrypoint] Admin seed completed successfully."
+} || echo "[Entrypoint] Admin seed failed (non-fatal, continuing...)."
+touch "$SEED_MARKER" 2>/dev/null
 
 # Check if version changed - rebuild system tags automatically
 if [ "$PREVIOUS_VERSION" != "$CURRENT_VERSION" ]; then

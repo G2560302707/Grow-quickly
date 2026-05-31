@@ -20,8 +20,10 @@ async function seedAdmin({ prisma, hash: hashPassword }) {
         await prisma.user.update({
             where: { email: DEFAULT_ADMIN.email },
             data: {
-                educationStage: DEFAULT_ADMIN.educationStage,
-                enrollmentYear: DEFAULT_ADMIN.enrollmentYear,
+                role: DEFAULT_ADMIN.role,
+                isActive: DEFAULT_ADMIN.isActive,
+                educationStage: existingUser.educationStage ?? DEFAULT_ADMIN.educationStage,
+                enrollmentYear: existingUser.enrollmentYear ?? DEFAULT_ADMIN.enrollmentYear,
             },
         });
         return { action: 'updated', email: DEFAULT_ADMIN.email };

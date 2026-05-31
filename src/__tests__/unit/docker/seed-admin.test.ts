@@ -39,7 +39,7 @@ describe('seed-admin docker helper', () => {
     it('updates default education fields when the admin user already exists', async () => {
         const prisma = {
             user: {
-                findUnique: vi.fn().mockResolvedValue({ email: 'admin@localhost' }),
+                findUnique: vi.fn().mockResolvedValue({ email: 'admin@localhost', educationStage: 'senior_high', enrollmentYear: 2024 }),
                 create: vi.fn(),
                 update: vi.fn().mockResolvedValue({ email: 'admin@localhost' }),
             },
@@ -55,6 +55,33 @@ describe('seed-admin docker helper', () => {
         expect(prisma.user.update).toHaveBeenCalledWith({
             where: { email: 'admin@localhost' },
             data: {
+                role: 'admin',
+                isActive: true,
+                educationStage: 'senior_high',
+                enrollmentYear: 2024,
+            },
+        });
+    });
+
+    it('preserves existing education fields when admin user has them set', async () => {
+        const prisma = {
+            user: {
+                findUnique: vi.fn().mockResolvedValue({ email: 'admin@localhost' }),
+                create: vi.fn(),
+                update: vi.fn().mockResolvedValue({ email: 'admin@localhost' }),
+            },
+        };
+        const hash = vi.fn();
+        const { seedAdmin } = require('../../../../scripts/seed-admin.js');
+
+        const result = await seedAdmin({ prisma, hash });
+
+        expect(result).toEqual({ action: 'updated', email: 'admin@localhost' });
+        expect(prisma.user.update).toHaveBeenCalledWith({
+            where: { email: 'admin@localhost' },
+            data: {
+                role: 'admin',
+                isActive: true,
                 educationStage: 'junior_high',
                 enrollmentYear: 2025,
             },
