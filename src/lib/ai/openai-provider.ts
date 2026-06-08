@@ -461,7 +461,8 @@ export class OpenAIProvider implements AIService {
             const response = await this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
-                    { role: "user", content: prompt }
+                    { role: "system", content: prompt },
+                    { role: "user", content: "请分析上述题目并生成 GeoGebra 演示命令。" }
                 ],
                 max_tokens: 4096,
             });

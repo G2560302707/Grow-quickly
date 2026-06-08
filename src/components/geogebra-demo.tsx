@@ -65,9 +65,37 @@ function isApiCall(cmd: string): boolean {
 }
 
 function parseApiArgs(cmd: string): { m: string; a: unknown[] } | null {
-    const m = cmd.match(/^(\w+)\((.+)\)$/s);
+    const m = cmd.match(/^(\w+)\(([\s\S]+)\)$/);
     if (!m) return null;
-    try { return { m: m[1], a: new Function(`return [${m[2]}]`)() }; }
+    try {
+        // Safe parsing: only allow numbers, booleans, strings, and arrays
+        const argsStr = m[2].trim();
+        // Simple JSON-like array: [1, 2, 3] or ["a", "b"]
+        if (argsStr.startsWith('[') && argsStr.endsWith(']')) {
+            return { m: m[1], a: JSON.parse(argsStr) };
+        }
+        // Single value: number, boolean, or quoted string
+        if (/^-?\d+(\.\d+)?$/.test(argsStr)) {
+            return { m: m[1], a: [Number(argsStr)] };
+        }
+        if (argsStr === 'true' || argsStr === 'false') {
+            return { m: m[1], a: [argsStr === 'true'] };
+        }
+        if ((argsStr.startsWith('"') && argsStr.endsWith('"')) ||
+            (argsStr.startsWith("'") && argsStr.endsWith("'"))) {
+            return { m: m[1], a: [argsStr.slice(1, -1)] };
+        }
+        // Multiple comma-separated values
+        const parts = argsStr.split(',').map(s => s.trim());
+        const parsed: unknown[] = parts.map(p => {
+            if (/^-?\d+(\.\d+)?$/.test(p)) return Number(p);
+            if (p === 'true' || p === 'false') return p === 'true';
+            if ((p.startsWith('"') && p.endsWith('"')) ||
+                (p.startsWith("'") && p.endsWith("'"))) return p.slice(1, -1);
+            return p; // Keep as string for object names etc.
+        });
+        return { m: m[1], a: parsed };
+    }
     catch { return null; }
 }
 
@@ -76,9 +104,15 @@ function runCommands(api: any, cmds: string[]) {
         try {
             if (isApiCall(cmd)) {
                 const p = parseApiArgs(cmd);
-                if (p && typeof api[p.m] === "function") api[p.m](...p.a);
+                if (p && typeof api[p.m] === 'function') api[p.m](...p.a);
             } else {
-                api.evalCommand(cmd);
+                // Basic command validation: only allow safe characters
+                const sanitized = cmd.trim();
+                if (sanitized && !/[<>'"]/.test(sanitized)) {
+                    api.evalCommand(sanitized);
+                } else {
+                    console.warn(`[GGB] Blocked potentially unsafe command: ${cmd.substring(0, 50)}`);
+                }
             }
         } catch (e) {
             console.warn(`[GGB] Failed: ${cmd}`, e);
@@ -158,7 +192,23 @@ export function GeogebraDemo({
             if (!dead) { setError("无法加载 GeoGebra 组件"); setLoading(false); }
         });
 
-        return () => { dead = true; apiRef.current = null; };
+        return () => {
+            dead = true;
+            // Cleanup GeoGebra instance to prevent memory leaks
+            try {
+                const api = apiRef.current;
+                if (api && typeof api.remove === 'function') {
+                    api.remove();
+                }
+            } catch (e) {
+                console.warn('[GGB] Cleanup failed:', e);
+            }
+            apiRef.current = null;
+            // Clear injected DOM
+            if (ggbHostRef.current) {
+                ggbHostRef.current.innerHTML = '';
+            }
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cmds, showToolBar, showAlgebraInput, showMenuBar]);
 
