@@ -266,7 +266,7 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
                         onChange={setKnowledgePoints}
                         placeholder={t.editor?.tagsPlaceholder || "输入知识点标签..."}
                         enterHint={t.editor?.createTagHint}
-                        subject={inferSubjectFromName(defaultNotebookName || null)}
+                        subject={inferSubjectFromName(defaultNotebookName || null) || undefined}
                     />
                     <p className="text-xs text-muted-foreground">
                         {t.editor?.tagsHint || "💡 输入时会自动匹配已有标签"}

@@ -46,7 +46,7 @@ function parseCommands(raw: string): string[] {
         try {
             const a = JSON.parse(t);
             if (Array.isArray(a))
-                return a.filter((c): c is string => typeof c === "string" && c.trim());
+                return a.filter((c): c is string => typeof c === "string" && c.trim() !== "");
         } catch { /* fall through */ }
     }
     return t.split("\n").map((c) => c.trim()).filter((c) => c && !c.startsWith("//"));
