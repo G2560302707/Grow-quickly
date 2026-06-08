@@ -13,13 +13,15 @@ import { AnalyzeResponse, Notebook, AppConfig } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
-import { Upload, BookOpen, Tags, LogOut, BarChart3 } from "lucide-react";
+import { Upload, BookOpen, Tags, LogOut, BarChart3, PenLine } from "lucide-react";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { BroadcastNotification } from "@/components/broadcast-notification";
 import { signOut } from "next-auth/react";
 
 import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { TextInputZone } from "@/components/text-input-zone";
+import { DirectTextEditor } from "@/components/direct-text-editor";
 
 function HomeContent() {
     const [step, setStep] = useState<"upload" | "review">("upload");
@@ -35,6 +37,9 @@ function HomeContent() {
     const [autoSelectedNotebookId, setAutoSelectedNotebookId] = useState<string | null>(null);
 
     const [config, setConfig] = useState<AppConfig | null>(null);
+
+    // Input mode: "image" for photo upload, "text" for AI solve, "direct" for manual entry
+    const [inputMode, setInputMode] = useState<"image" | "text" | "direct">("image");
 
     // Cropper state
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
@@ -288,12 +293,142 @@ function HomeContent() {
         }
     };
 
+    const handleTextSubmit = async (questionText: string) => {
+        const startTime = Date.now();
+        frontendLogger.info('[HomeTextSubmit]', 'Starting text-based analysis', { textLength: questionText.length });
+
+        try {
+            setAnalysisStep('analyzing');
+
+            // Infer subject from auto-selected notebook
+            const targetNotebookId = initialNotebookId || autoSelectedNotebookId;
+            const matchedNotebook = targetNotebookId
+                ? notebooks.find(n => n.id === targetNotebookId)
+                : undefined;
+
+            const result = await apiClient.post<{
+                answerText: string;
+                analysis: string;
+                knowledgePoints: string[];
+                wrongAnswerText: string;
+                mistakeAnalysis: string;
+                mistakeStatus: string;
+            }>("/api/reanswer", {
+                questionText,
+                language,
+                subject: matchedNotebook?.name || undefined,
+            }, { timeout: aiTimeout });
+
+            setAnalysisStep('processing');
+            setProgress(100);
+
+            const parsed: ParsedQuestion = {
+                questionText,
+                answerText: result.answerText,
+                analysis: result.analysis,
+                knowledgePoints: result.knowledgePoints || [],
+                wrongAnswerText: result.wrongAnswerText || "",
+                mistakeAnalysis: result.mistakeAnalysis || "",
+                mistakeStatus: (result.mistakeStatus as any) || "unknown",
+                subject: "数学", // Default, will be overridden by notebook selection
+                requiresImage: false,
+            };
+
+            setCurrentImage(null); // No image for text input
+            setParsedData(parsed);
+            setStep("review");
+
+            const totalDuration = Date.now() - startTime;
+            frontendLogger.info('[HomeTextSubmit]', 'Text analysis completed', { totalDuration });
+        } catch (error: any) {
+            const errorDuration = Date.now() - startTime;
+            frontendLogger.error('[HomeTextSubmit]', 'Analysis failed', {
+                errorDuration,
+                error: error.message || String(error)
+            });
+
+            try {
+                let errorMessage = t.common?.messages?.analysisFailed || 'Analysis failed, please try again';
+                const backendErrorType = error?.data?.message;
+                if (backendErrorType && typeof backendErrorType === 'string') {
+                    if (t.errors && typeof t.errors === 'object' && backendErrorType in t.errors) {
+                        const mappedError = (t.errors as any)[backendErrorType];
+                        if (typeof mappedError === 'string') errorMessage = mappedError;
+                    } else {
+                        errorMessage = backendErrorType;
+                    }
+                }
+                alert(errorMessage);
+            } catch {
+                alert('Analysis failed. Please try again.');
+            }
+        } finally {
+            setAnalysisStep('idle');
+        }
+    };
+
+    const handleDirectSave = async (data: {
+        questionText: string;
+        answerText: string;
+        analysis: string;
+        wrongAnswerText: string;
+        mistakeAnalysis: string;
+        mistakeStatus: string;
+        knowledgePoints: string[];
+        subjectId: string;
+        gradeSemester?: string;
+        paperLevel?: string;
+    }): Promise<void> => {
+        frontendLogger.info('[HomeDirectSave]', 'Starting direct save', {
+            hasQuestionText: !!data.questionText,
+            hasAnswerText: !!data.answerText,
+            subjectId: data.subjectId,
+        });
+
+        try {
+            setAnalysisStep('saving');
+            const result = await apiClient.post<{ id: string; duplicate?: boolean }>("/api/error-items", {
+                questionText: data.questionText,
+                answerText: data.answerText,
+                analysis: data.analysis,
+                wrongAnswerText: data.wrongAnswerText || null,
+                mistakeAnalysis: data.mistakeAnalysis || null,
+                mistakeStatus: data.mistakeStatus || "unknown",
+                knowledgePoints: data.knowledgePoints,
+                subjectId: data.subjectId,
+                gradeSemester: data.gradeSemester,
+                paperLevel: data.paperLevel,
+                originalImageUrl: "",
+            });
+
+            if (result.duplicate) {
+                frontendLogger.info('[HomeDirectSave]', 'Duplicate detected');
+            }
+
+            frontendLogger.info('[HomeDirectSave]', 'Save successful');
+            setAnalysisStep('idle');
+            alert(t.common?.messages?.saveSuccess || 'Saved successfully!');
+
+            if (data.subjectId) {
+                router.push(`/notebooks/${data.subjectId}`);
+            }
+        } catch (error: any) {
+            frontendLogger.error('[HomeDirectSave]', 'Save failed', {
+                errorStatus: error?.status,
+                errorMessage: error?.data?.message || error?.message || String(error),
+            });
+            setAnalysisStep('idle');
+            alert(t.common?.messages?.saveFailed || 'Failed to save');
+        }
+    };
+
     const getProgressMessage = () => {
         switch (analysisStep) {
             case 'compressing': return t.common.progress?.compressing || "Compressing...";
             case 'uploading': return t.common.progress?.uploading || "Uploading...";
             case 'analyzing': return t.common.progress?.analyzing || "Analyzing...";
             case 'processing': return t.common.progress?.processing || "Processing...";
+            case 'saving': return "保存中...";
             default: return "";
         }
     };
@@ -332,7 +467,7 @@ function HomeContent() {
                         size="lg"
                         className={`h-auto py-4 text-base shadow-sm hover:shadow-md transition-all ${initialNotebookId ? "w-full max-w-md" : ""}`}
                         variant={step === "upload" ? "default" : "secondary"}
-                        onClick={() => setStep("upload")}
+                        onClick={() => { setStep("upload"); setInputMode("image"); }}
                     >
                         <div className="flex items-center gap-2">
                             <Upload className="h-5 w-5" />
@@ -385,7 +520,69 @@ function HomeContent() {
                 </div>
 
                 {step === "upload" && (
-                    <UploadZone onImageSelect={onImageSelect} isAnalyzing={analysisStep !== 'idle'} />
+                    <div className="space-y-4">
+                        {/* Input mode tabs */}
+                        <div className="flex gap-2 border-b">
+                            <button
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                                    inputMode === "image"
+                                        ? "border-primary text-primary"
+                                        : "border-transparent text-muted-foreground hover:text-foreground"
+                                }`}
+                                onClick={() => setInputMode("image")}
+                            >
+                                <Upload className="h-4 w-4" />
+                                {t.app?.uploadImage || "拍照上传"}
+                            </button>
+                            <button
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                                    inputMode === "text"
+                                        ? "border-primary text-primary"
+                                        : "border-transparent text-muted-foreground hover:text-foreground"
+                                }`}
+                                onClick={() => setInputMode("text")}
+                            >
+                                <PenLine className="h-4 w-4" />
+                                {t.app?.manualInput || "AI解题"}
+                            </button>
+                            <button
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                                    inputMode === "direct"
+                                        ? "border-primary text-primary"
+                                        : "border-transparent text-muted-foreground hover:text-foreground"
+                                }`}
+                                onClick={() => setInputMode("direct")}
+                            >
+                                <PenLine className="h-4 w-4" />
+                                直接录入
+                            </button>
+                        </div>
+
+                        {inputMode === "image" ? (
+                            <UploadZone onImageSelect={onImageSelect} isAnalyzing={analysisStep !== 'idle'} />
+                        ) : inputMode === "text" ? (
+                            <TextInputZone
+                                onSubmit={handleTextSubmit}
+                                isAnalyzing={analysisStep !== 'idle'}
+                                defaultNotebookName={
+                                    (initialNotebookId || autoSelectedNotebookId)
+                                        ? notebooks.find(n => n.id === (initialNotebookId || autoSelectedNotebookId))?.name
+                                        : undefined
+                                }
+                            />
+                        ) : (
+                            <DirectTextEditor
+                                onSubmit={handleDirectSave}
+                                defaultNotebookId={initialNotebookId || autoSelectedNotebookId || undefined}
+                                defaultNotebookName={
+                                    (initialNotebookId || autoSelectedNotebookId)
+                                        ? notebooks.find(n => n.id === (initialNotebookId || autoSelectedNotebookId))?.name
+                                        : undefined
+                                }
+                                isSaving={analysisStep === 'saving'}
+                            />
+                        )}
+                    </div>
                 )}
 
                 {croppingImage && (

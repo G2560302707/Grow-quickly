@@ -96,7 +96,8 @@ model ErrorItem {
   mistakeAnalysis  String? // Analysis of why the wrong answer happened
   mistakeStatus    String? // not_attempted, wrong_attempt, unknown
   knowledgePoints  String? // [DEPRECATED] JSON string - kept for migration only
-  
+  geogebraCommands String? // GeoGebra commands for interactive demo (JSON or newline-separated)
+
   // New: many-to-many relation with KnowledgeTag
   tags             KnowledgeTag[]
   

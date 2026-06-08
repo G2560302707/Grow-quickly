@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Save, X } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Save, X, Box, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -18,6 +18,7 @@ import { UserProfile, Notebook } from "@/types/api";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { getMistakeStatusLabel, normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 import { NotebookSelector } from "@/components/notebook-selector";
+import { GeogebraDemo } from "@/components/geogebra-demo";
 
 interface KnowledgeTag {
     id: string;
@@ -44,6 +45,7 @@ interface ErrorItemDetail {
     } | null;
     gradeSemester?: string | null;
     paperLevel?: string | null;
+    geogebraCommands?: string | null;
 }
 
 export default function ErrorDetailPage() {
@@ -63,6 +65,9 @@ export default function ErrorDetailPage() {
     const [notebookInput, setNotebookInput] = useState<string | null>(null);
 
     const [educationStage, setEducationStage] = useState<string | undefined>(undefined);
+
+    const [isAnalyzingGeogebra, setIsAnalyzingGeogebra] = useState(false);
+    const [geogebraError, setGeogebraError] = useState<string | null>(null);
 
     useEffect(() => {
         // Fetch user info for education stage
@@ -89,6 +94,37 @@ export default function ErrorDetailPage() {
             router.push("/notebooks");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAnalyzeGeogebra = async () => {
+        if (!item) return;
+        setIsAnalyzingGeogebra(true);
+        setGeogebraError(null);
+        try {
+            const result = await apiClient.post<{
+                suitable: boolean;
+                commands: string[];
+                description: string;
+            }>(`/api/error-items/${item.id}/geogebra`, {});
+
+            if (result.suitable && result.commands.length > 0) {
+                setItem({ ...item, geogebraCommands: JSON.stringify(result.commands) });
+            } else {
+                setGeogebraError(result.description || "该题目不适合用 GeoGebra 演示");
+            }
+        } catch (error: any) {
+            console.error("GeoGebra analysis failed:", error);
+            const msg = error?.data?.message || error?.message || "";
+            if (msg.includes("AI_AUTH_ERROR")) {
+                setGeogebraError("AI 认证失败，请检查设置");
+            } else if (msg.includes("AI_CONNECTION")) {
+                setGeogebraError("AI 连接失败，请检查网络");
+            } else {
+                setGeogebraError("分析失败，请稍后重试");
+            }
+        } finally {
+            setIsAnalyzingGeogebra(false);
         }
     };
 
@@ -693,6 +729,44 @@ export default function ErrorDetailPage() {
 
                     {/* Right Column: Analysis & Answer */}
                     <div className="space-y-6 min-w-0">
+                        {/* GeoGebra Dynamic Demo */}
+                        {item.geogebraCommands ? (
+                            <GeogebraDemo commands={item.geogebraCommands} height={400} onRegenerate={handleAnalyzeGeogebra} />
+                        ) : (
+                            <div className="rounded-lg border border-dashed p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <Box className="h-4 w-4" />
+                                        <span>GeoGebra 动态演示</span>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleAnalyzeGeogebra}
+                                        disabled={isAnalyzingGeogebra}
+                                    >
+                                        {isAnalyzingGeogebra ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                AI 分析中...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Box className="mr-2 h-4 w-4" />
+                                                生成演示
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                                {geogebraError && (
+                                    <p className="text-xs text-muted-foreground mt-2">{geogebraError}</p>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    AI 将判断本题是否可以用 GeoGebra 进行动态演示，如适合则自动生成交互式图形
+                                </p>
+                            </div>
+                        )}
+
                         <Card className="border-primary/20">
                             <CardHeader>
                                 <div className="flex justify-between items-center">

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, RefreshCw, Loader2 } from "lucide-react";
+import { Save, RefreshCw, Loader2, Box } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
@@ -21,11 +21,13 @@ import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { normalizeMistakeStatusForSave, type MistakeStatus } from "@/lib/mistake-status";
 import type { ReanswerQuestionResult } from "@/lib/ai/types";
 import { buildReanswerRequestBody } from "@/lib/reanswer-request";
+import { GeogebraDemo } from "@/components/geogebra-demo";
 
 interface ParsedQuestionWithSubject extends ParsedQuestion {
     subjectId?: string;
     gradeSemester?: string;
     paperLevel?: string;
+    geogebraCommands?: string;
 }
 
 interface CorrectionEditorProps {
@@ -57,6 +59,8 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
     const { t, language } = useLanguage();
     const [isReanswering, setIsReanswering] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isAnalyzingGeogebra, setIsAnalyzingGeogebra] = useState(false);
+    const [geogebraError, setGeogebraError] = useState<string | null>(null);
 
     const [educationStage, setEducationStage] = useState<string | undefined>(undefined);
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
@@ -142,6 +146,50 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
 
         } finally {
             setIsReanswering(false);
+        }
+    };
+
+    const handleAnalyzeGeogebra = async () => {
+        if (!data.questionText.trim()) {
+            alert(t.editor.enterQuestionFirst || '请先输入题目文本');
+            return;
+        }
+        if (!data.answerText.trim()) {
+            alert('请先生成或输入答案');
+            return;
+        }
+
+        setIsAnalyzingGeogebra(true);
+        setGeogebraError(null);
+        try {
+            const response = await fetch("/api/geogebra-analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    questionText: data.questionText,
+                    answerText: data.answerText,
+                    analysis: data.analysis,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Analysis failed");
+            }
+
+            const result = await response.json();
+            if (result.suitable && result.commands?.length > 0) {
+                setData(prev => ({
+                    ...prev,
+                    geogebraCommands: JSON.stringify(result.commands),
+                }));
+            } else {
+                setGeogebraError(result.description || "该题目不适合用 GeoGebra 演示");
+            }
+        } catch (error: any) {
+            console.error("GeoGebra analysis failed:", error);
+            setGeogebraError("分析失败，请稍后重试");
+        } finally {
+            setIsAnalyzingGeogebra(false);
         }
     };
 
@@ -359,6 +407,44 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             <MarkdownRenderer content={data.questionText} />
                         </CardContent>
                     </Card>
+
+                    {/* GeoGebra Dynamic Demo */}
+                    {data.geogebraCommands ? (
+                        <GeogebraDemo commands={data.geogebraCommands} height={350} onRegenerate={handleAnalyzeGeogebra} />
+                    ) : data.questionText.trim() && data.answerText.trim() ? (
+                        <div className="rounded-lg border border-dashed p-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Box className="h-4 w-4" />
+                                    <span>GeoGebra 动态演示</span>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAnalyzeGeogebra}
+                                    disabled={isAnalyzingGeogebra}
+                                >
+                                    {isAnalyzingGeogebra ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            AI 分析中...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Box className="mr-2 h-4 w-4" />
+                                            生成演示
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                            {geogebraError && (
+                                <p className="text-xs text-muted-foreground mt-2">{geogebraError}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-2">
+                                AI 将判断本题是否可以用 GeoGebra 进行动态演示
+                            </p>
+                        </div>
+                    ) : null}
 
                     <Card>
                         <CardHeader>

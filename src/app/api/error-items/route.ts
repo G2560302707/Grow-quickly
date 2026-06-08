@@ -30,6 +30,7 @@ export async function POST(req: Request) {
             subjectId,
             gradeSemester,
             paperLevel,
+            geogebraCommands,
         } = body;
 
         // 记录请求参数（不记录完整图片数据）
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
             subjectId,
             gradeSemester,
             paperLevel,
+            hasGeogebraCommands: !!geogebraCommands,
         }, 'Request parameters received');
 
         // 查找用户
@@ -171,6 +173,7 @@ export async function POST(req: Request) {
                     knowledgePoints: JSON.stringify(tagNames),
                     gradeSemester: finalGradeSemester,
                     paperLevel: paperLevel,
+                    geogebraCommands: geogebraCommands || null,
                     masteryLevel: 0,
                     tags: {
                         connect: tagConnections,

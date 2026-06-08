@@ -75,7 +75,7 @@ export async function PUT(
         }
 
         const body = await req.json();
-        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus } = body;
+        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands } = body;
 
         const errorItem = await prisma.errorItem.findUnique({
             where: { id },
@@ -115,6 +115,7 @@ export async function PUT(
                 nextWrongAnswerText
             );
         }
+        if (geogebraCommands !== undefined) updateData.geogebraCommands = geogebraCommands || null;
 
         // 处理 knowledgePoints (标签)
         if (knowledgePoints !== undefined) {

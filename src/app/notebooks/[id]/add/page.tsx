@@ -12,9 +12,10 @@ import { AnalyzeResponse, Notebook, AppConfig } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Upload, PenLine } from "lucide-react";
 import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
+import { TextInputZone } from "@/components/text-input-zone";
 
 export default function AddErrorPage() {
     const params = useParams();
@@ -28,6 +29,9 @@ export default function AddErrorPage() {
     const { t, language } = useLanguage();
     const [notebook, setNotebook] = useState<Notebook | null>(null);
     const [config, setConfig] = useState<AppConfig | null>(null);
+
+    // Input mode: "image" for photo upload, "text" for manual text input
+    const [inputMode, setInputMode] = useState<"image" | "text">("image");
 
     // Cropper state
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
@@ -233,16 +237,79 @@ export default function AddErrorPage() {
         }
     };
 
-    const handleSave = async (finalData: ParsedQuestion & { subjectId?: string; gradeSemester?: string; paperLevel?: string }): Promise<void> => {
-        if (!currentImage) {
-            alert(t.common.messages?.missingImage || 'Missing image');
-            return;
-        }
+    const handleTextSubmit = async (questionText: string) => {
+        const startTime = Date.now();
+        frontendLogger.info('[AddTextSubmit]', 'Starting text-based analysis', { textLength: questionText.length });
 
+        try {
+            setAnalysisStep('analyzing');
+
+            const result = await apiClient.post<{
+                answerText: string;
+                analysis: string;
+                knowledgePoints: string[];
+                wrongAnswerText: string;
+                mistakeAnalysis: string;
+                mistakeStatus: string;
+            }>("/api/reanswer", {
+                questionText,
+                language,
+                subject: notebook?.name || undefined,
+            }, { timeout: aiTimeout });
+
+            setAnalysisStep('processing');
+            setProgress(100);
+
+            const parsed: ParsedQuestion = {
+                questionText,
+                answerText: result.answerText,
+                analysis: result.analysis,
+                knowledgePoints: result.knowledgePoints || [],
+                wrongAnswerText: result.wrongAnswerText || "",
+                mistakeAnalysis: result.mistakeAnalysis || "",
+                mistakeStatus: (result.mistakeStatus as any) || "unknown",
+                subject: "数学",
+                requiresImage: false,
+            };
+
+            setCurrentImage(null);
+            setParsedData(parsed);
+            setStep("review");
+
+            const totalDuration = Date.now() - startTime;
+            frontendLogger.info('[AddTextSubmit]', 'Text analysis completed', { totalDuration });
+        } catch (error: any) {
+            const errorDuration = Date.now() - startTime;
+            frontendLogger.error('[AddTextSubmit]', 'Analysis failed', {
+                errorDuration,
+                error: error.message || String(error)
+            });
+
+            try {
+                let errorMessage = t.common.messages?.analysisFailed || 'Analysis failed';
+                const backendErrorType = error?.data?.message;
+                if (backendErrorType && typeof backendErrorType === 'string') {
+                    if (t.errors && typeof t.errors === 'object' && backendErrorType in t.errors) {
+                        const mappedError = (t.errors as any)[backendErrorType];
+                        if (typeof mappedError === 'string') errorMessage = mappedError;
+                    } else {
+                        errorMessage = backendErrorType;
+                    }
+                }
+                alert(errorMessage);
+            } catch {
+                alert('Analysis failed. Please try again.');
+            }
+        } finally {
+            setAnalysisStep('idle');
+        }
+    };
+
+    const handleSave = async (finalData: ParsedQuestion & { subjectId?: string; gradeSemester?: string; paperLevel?: string }): Promise<void> => {
         try {
             const result = await apiClient.post<{ id: string; duplicate?: boolean }>("/api/error-items", {
                 ...finalData,
-                originalImageUrl: currentImage,
+                originalImageUrl: currentImage || "",
                 subjectId: notebookId,
             });
 
@@ -298,10 +365,46 @@ export default function AddErrorPage() {
 
                 {/* Main Content */}
                 {step === "upload" && (
-                    <UploadZone onImageSelect={onImageSelect} isAnalyzing={analysisStep !== 'idle'} />
+                    <div className="space-y-4">
+                        {/* Input mode tabs */}
+                        <div className="flex gap-2 border-b">
+                            <button
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                                    inputMode === "image"
+                                        ? "border-primary text-primary"
+                                        : "border-transparent text-muted-foreground hover:text-foreground"
+                                }`}
+                                onClick={() => setInputMode("image")}
+                            >
+                                <Upload className="h-4 w-4" />
+                                {t.app?.uploadImage || "拍照上传"}
+                            </button>
+                            <button
+                                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                                    inputMode === "text"
+                                        ? "border-primary text-primary"
+                                        : "border-transparent text-muted-foreground hover:text-foreground"
+                                }`}
+                                onClick={() => setInputMode("text")}
+                            >
+                                <PenLine className="h-4 w-4" />
+                                {t.app?.manualInput || "手动输入"}
+                            </button>
+                        </div>
+
+                        {inputMode === "image" ? (
+                            <UploadZone onImageSelect={onImageSelect} isAnalyzing={analysisStep !== 'idle'} />
+                        ) : (
+                            <TextInputZone
+                                onSubmit={handleTextSubmit}
+                                isAnalyzing={analysisStep !== 'idle'}
+                                defaultNotebookName={notebook?.name}
+                            />
+                        )}
+                    </div>
                 )}
 
-                {step === "review" && parsedData && currentImage && (
+                {step === "review" && parsedData && (
                     <CorrectionEditor
                         initialData={parsedData}
                         imagePreview={currentImage}
