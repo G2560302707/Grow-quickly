@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
-import { AIService, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt } from './prompts';
+import { AIService, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt } from './prompts';
 import { safeParseParsedQuestion } from './schema';
 import { getAppConfig } from '../config';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
@@ -346,6 +346,54 @@ export class GeminiProvider implements AIService {
 
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async analyzeForGeogebra(questionText: string, answerText: string, analysis: string): Promise<GeogebraAnalysisResult> {
+        const prompt = generateGeogebraPrompt(questionText, answerText, analysis);
+
+        logger.info({
+            provider: 'Gemini',
+            model: this.modelName,
+            questionLength: questionText.length,
+        }, 'GeoGebra Analysis Request');
+
+        try {
+            const response = await this.retryOperation(() => this.ai.models.generateContent({
+                model: this.modelName,
+                contents: prompt
+            }));
+
+            const text = response.text || '';
+            logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');
+
+            if (!text) throw new Error("Empty response from AI");
+
+            // Extract JSON from response (handle possible markdown code blocks)
+            let jsonStr = text.trim();
+            const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (jsonMatch) {
+                jsonStr = jsonMatch[1].trim();
+            }
+
+            // Try to find JSON object
+            const objStart = jsonStr.indexOf('{');
+            const objEnd = jsonStr.lastIndexOf('}');
+            if (objStart !== -1 && objEnd !== -1) {
+                jsonStr = jsonStr.substring(objStart, objEnd + 1);
+            }
+
+            const parsed = JSON.parse(jsonStr);
+
+            return {
+                suitable: Boolean(parsed.suitable),
+                commands: Array.isArray(parsed.commands) ? parsed.commands : [],
+                description: parsed.description || "",
+            };
+        } catch (error) {
+            logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during GeoGebra analysis');
             this.handleError(error);
             throw error;
         }
