@@ -448,8 +448,8 @@ export class OpenAIProvider implements AIService {
         }
     }
 
-    async analyzeForGeogebra(questionText: string, answerText: string, analysis: string): Promise<GeogebraAnalysisResult> {
-        const prompt = generateGeogebraPrompt(questionText, answerText, analysis);
+    async analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult> {
+        const prompt = generateGeogebraPrompt(questionText, answerText, analysis, previousErrors);
 
         logger.info({
             provider: 'OpenAI',

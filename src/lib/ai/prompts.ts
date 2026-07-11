@@ -521,6 +521,8 @@ export const DEFAULT_GEOGEBRA_PROMPT = `【角色与核心任务 (ROLE AND CORE 
 【解析内容 (ANALYSIS)】
 {{analysis}}
 
+{{error_feedback}}
+
 【判断标准 (SUITABILITY CRITERIA)】
 适合用 GeoGebra 演示的题目类型：
 1. **函数与图像**：一次函数、二次函数、反比例函数、指数函数、对数函数、三角函数等
@@ -592,7 +594,14 @@ export const DEFAULT_GEOGEBRA_PROMPT = `【角色与核心任务 (ROLE AND CORE 
 5. 确保坐标范围能让所有关键图形和交点清晰可见
 6. description 用简体中文
 7. 如果题目涉及参数讨论（如讨论 a 的取值范围），用滑动条 (Slider) 展示参数变化效果
-8. 对于函数题，应画出函数图像并标注关键点（交点、顶点、渐近线等）`;
+8. 对于函数题，应画出函数图像并标注关键点（交点、顶点、渐近线等）
+9. 【!!! 命令语法检查 (COMMAND SYNTAX CHECK) !!!】在生成命令后，必须逐条检查以下内容：
+   a. 每个变量在使用前必须已被定义（例如如果使用 F = Intersect(f, g)，则 f 和 g 必须在之前已定义）
+   b. 所有命令名称必须是 GeoGebra 官方支持的指令（如平行线用 Line(P, l) 而非 ParallelLine(P, l)）
+   c. 命令顺序必须合理：先定义基础对象（点、线、函数），再定义派生对象（交点、轨迹、变换）
+   d. 每个命令的语法必须正确（参数数量、类型、顺序与 GeoGebra 官方文档一致）
+   e. 如果使用了循环或条件语句，确保语法正确
+   f. 坐标轴范围 (setCoordSystem) 必须在所有绘图命令之前设置`;
 
 /**
  * 生成 GeoGebra 分析提示词
@@ -600,14 +609,26 @@ export const DEFAULT_GEOGEBRA_PROMPT = `【角色与核心任务 (ROLE AND CORE 
 export function generateGeogebraPrompt(
     questionText: string,
     answerText: string,
-    analysis: string
+    analysis: string,
+    previousErrors?: string
 ): string {
-    return DEFAULT_GEOGEBRA_PROMPT.replace(
+    let prompt = DEFAULT_GEOGEBRA_PROMPT.replace(
         "{{question_text}}",
         questionText
     )
         .replace("{{answer_text}}", answerText)
         .replace("{{analysis}}", analysis);
+
+    if (previousErrors?.trim()) {
+        prompt = prompt.replace(
+            "{{error_feedback}}",
+            `【上次执行错误 (PREVIOUS ERRORS)】\n上次生成的 GeoGebra 命令执行时出现了以下错误，请分析错误原因并在这次生成中修正：\n${previousErrors}\n\n【错误修正要求 (ERROR FIX RULES)】\n请严格按以下步骤修正：\n1. 检查每条失败命令，确认是语法错误、变量未定义还是命令名称错误\n2. 如果是"未定义变量X"，在命令之前添加定义该变量的命令，或调整命令顺序\n3. 如果是"未知的指令"，替换为 GeoGebra 官方支持的等效命令（如 Line(P, l) 替代 ParallelLine(P, l)）\n4. 重新排列所有命令的顺序，确保每个对象在使用前已定义\n5. 生成后再次逐条检查：每条命令的语法、变量引用、依赖关系是否正确`
+        );
+    } else {
+        prompt = prompt.replace("{{error_feedback}}", "");
+    }
+
+    return prompt;
 }
 
 /**

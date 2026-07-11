@@ -65,10 +65,18 @@ export async function POST(
         }
 
         const aiService = getAIService();
+
+        // Use frontend-provided data if available (more up-to-date), fall back to DB
+        const body = await req.json().catch(() => ({}));
+        const questionText = body.questionText || errorItem.questionText;
+        const answerText = body.answerText || errorItem.answerText || "";
+        const previousErrors = body.previousErrors || "";
+
         const result = await aiService.analyzeForGeogebra(
-            errorItem.questionText,
-            errorItem.answerText || "",
-            errorItem.analysis || ""
+            questionText,
+            answerText,
+            errorItem.analysis || "",
+            previousErrors
         );
 
         // If suitable, save the commands to the database
