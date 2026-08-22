@@ -11,8 +11,8 @@ interface GeogebraDemoProps {
     showAlgebraInput?: boolean;
     showMenuBar?: boolean;
     className?: string;
-    /** Called when user clicks "重新生成" — parent should re-call AI and update commands */
-    onRegenerate?: () => Promise<void>;
+    onRegenerate?: (errors?: string) => Promise<void>;
+    onSaveCommands?: (commands: string) => Promise<void>;
 }
 
 // ── Singleton script loader ─────────────────────────────────────────────
@@ -123,7 +123,7 @@ function runCommands(api: any, cmds: string[]) {
 // ── Component ───────────────────────────────────────────────────────────
 export function GeogebraDemo({
     commands,
-    height = 450,
+    height = 700,
     showToolBar = false,
     showAlgebraInput = false,
     showMenuBar = false,
@@ -139,7 +139,7 @@ export function GeogebraDemo({
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const [regenerating, setRegenerating] = useState(false);
 
     const cmds = useMemo(() => parseCommands(commands), [commands]);
@@ -177,6 +177,12 @@ export function GeogebraDemo({
                     appletOnLoad: (api: any) => {
                         if (dead) return;
                         apiRef.current = api;
+                        const ggbDiv = ggbHostRef.current?.firstElementChild as HTMLElement | null;
+                        if (ggbDiv) {
+                            ggbDiv.style.width = '100%';
+                            const w = ggbHostRef.current?.offsetWidth || ggbDiv.offsetWidth || 800;
+                            api.setSize(w, height);
+                        }
                         runCommands(api, cmds);
                         setLoading(false);
                     },
@@ -217,9 +223,13 @@ export function GeogebraDemo({
         const ggbDiv = ggbHostRef.current?.firstElementChild as HTMLElement | null;
         if (!ggbDiv) return;
         const h = expanded ? 700 : height;
+        ggbDiv.style.width = '100%';
         ggbDiv.style.height = `${h}px`;
         const api = apiRef.current;
-        if (api?.setSize) api.setSize(ggbDiv.offsetWidth, h);
+        if (api?.setSize) {
+            const w = ggbHostRef.current?.offsetWidth || ggbDiv.offsetWidth || 800;
+            api.setSize(w, h);
+        }
     }, [expanded, height]);
 
     // ── Reset ───────────────────────────────────────────────────────────
@@ -284,7 +294,7 @@ export function GeogebraDemo({
              * The effect writes innerHTML directly, so React never
              * tries to reconcile DOM nodes inside this div.
              */}
-            <div ref={ggbHostRef} />
+            <div ref={ggbHostRef} style={{ width: '100%' }} />
 
             {/* Loading overlay — sibling, not child of ggbHost */}
             {loading && (
