@@ -1,27 +1,48 @@
 <template>
 	<view class="page">
-		<view v-if="loading && items.length === 0" class="empty-tip">加载中...</view>
+		<!-- 搜索 -->
+		<view class="search-wrap">
+			<view class="search-box">
+				<text class="search-icon">🔍</text>
+				<input
+					v-model="searchText"
+					class="search-input"
+					placeholder="搜索题目关键词"
+					placeholder-class="ph"
+					confirm-type="search"
+					@confirm="doSearch"
+				/>
+				<text v-if="searchText" class="search-clear" @tap="clearSearch">✕</text>
+			</view>
+		</view>
+
+		<view v-if="loading && items.length === 0" class="empty-tip">正在加载错题...</view>
 		<view v-else-if="errorMsg" class="error-tip">{{ errorMsg }}</view>
-		<view v-else-if="items.length === 0" class="empty-tip">这本还没有错题，去"识别"页添加吧</view>
+		<view v-else-if="items.length === 0" class="empty-tip">
+			<text class="empty-main">{{ searchText ? "没有找到相关错题" : "这本还没有错题" }}</text>
+			<text v-if="!searchText" class="empty-sub">去"识别"页添加吧</text>
+		</view>
 		<view v-else>
 			<view
-				v-for="item in items"
+				v-for="(item, idx) in items"
 				:key="item.id"
 				class="card item-card"
+				hover-class="card-hover"
 				@tap="openDetail(item)"
 			>
-				<text class="item-question">{{ item.questionText || "（无题目文本）" }}</text>
-				<view class="item-footer">
-					<view class="tag-row">
-						<text v-if="firstTag(item)" class="tag">{{ firstTag(item) }}</text>
-					</view>
-					<text class="mastery" :class="masteryClass(item.masteryLevel)">
+				<view class="item-top">
+					<text class="item-no">{{ (page - 1) * PAGE_SIZE + idx + 1 }}</text>
+					<text class="mastery badge" :class="masteryClass(item.masteryLevel)">
 						{{ masteryLabel(item.masteryLevel) }}
 					</text>
 				</view>
+				<text class="item-question">{{ item.questionText || "（无题目文本）" }}</text>
+				<view v-if="firstTag(item)" class="item-tags">
+					<text class="tag">{{ firstTag(item) }}</text>
+				</view>
 			</view>
-			<view v-if="loadingMore" class="empty-tip">加载中...</view>
-			<view v-else-if="page >= totalPages" class="list-end">— 没有更多了 —</view>
+			<view v-if="loadingMore" class="list-tip">加载中...</view>
+			<view v-else-if="page >= totalPages" class="list-tip list-end">— 没有更多了 —</view>
 		</view>
 	</view>
 </template>
@@ -31,6 +52,8 @@ import { ref } from "vue";
 import { onLoad, onPullDownRefresh, onReachBottom } from "@dcloudio/uni-app";
 import { listErrorItems, type ErrorItem } from "@/api";
 
+const PAGE_SIZE = 15;
+
 const subjectId = ref("");
 const items = ref<ErrorItem[]>([]);
 const page = ref(1);
@@ -38,6 +61,8 @@ const totalPages = ref(1);
 const loading = ref(true);
 const loadingMore = ref(false);
 const errorMsg = ref("");
+const searchText = ref("");
+const activeQuery = ref("");
 
 onLoad((query) => {
 	subjectId.value = (query?.subjectId as string) || "";
@@ -47,20 +72,41 @@ onLoad((query) => {
 	loadFirstPage();
 });
 
+async function fetchPage(targetPage: number, append: boolean) {
+	const res = await listErrorItems({
+		subjectId: subjectId.value,
+		query: activeQuery.value || undefined,
+		page: targetPage,
+		pageSize: PAGE_SIZE,
+	});
+	items.value = append ? [...items.value, ...res.items] : res.items;
+	page.value = targetPage;
+	totalPages.value = res.totalPages;
+}
+
 async function loadFirstPage() {
 	loading.value = true;
 	errorMsg.value = "";
 	try {
-		const res = await listErrorItems({ subjectId: subjectId.value, page: 1, pageSize: 15 });
-		items.value = res.items;
-		totalPages.value = res.totalPages;
-		page.value = 1;
+		await fetchPage(1, false);
 	} catch (e: any) {
 		errorMsg.value = e?.message || "加载失败";
 	} finally {
 		loading.value = false;
 		uni.stopPullDownRefresh();
 	}
+}
+
+function doSearch() {
+	activeQuery.value = searchText.value.trim();
+	loadFirstPage();
+}
+
+function clearSearch() {
+	if (!searchText.value && !activeQuery.value) return;
+	searchText.value = "";
+	activeQuery.value = "";
+	loadFirstPage();
 }
 
 onPullDownRefresh(() => {
@@ -71,11 +117,7 @@ onReachBottom(async () => {
 	if (loadingMore.value || page.value >= totalPages.value) return;
 	loadingMore.value = true;
 	try {
-		const next = page.value + 1;
-		const res = await listErrorItems({ subjectId: subjectId.value, page: next, pageSize: 15 });
-		items.value = [...items.value, ...res.items];
-		page.value = next;
-		totalPages.value = res.totalPages;
+		await fetchPage(page.value + 1, true);
 	} catch (e: any) {
 		uni.showToast({ title: e?.message || "加载更多失败", icon: "none" });
 	} finally {
@@ -105,64 +147,90 @@ function masteryLabel(level: number): string {
 }
 
 function masteryClass(level: number): string {
-	if (level >= 2) return "mastery-done";
-	if (level === 1) return "mastery-doing";
-	return "mastery-new";
+	if (level >= 2) return "badge-done";
+	if (level === 1) return "badge-doing";
+	return "badge-new";
 }
 </script>
 
 <style scoped>
+.search-wrap {
+	padding: 20rpx 24rpx 4rpx;
+}
+.search-box {
+	background: #ffffff;
+	border-radius: 999rpx;
+	padding: 18rpx 28rpx;
+	display: flex;
+	align-items: center;
+	box-shadow: 0 2rpx 10rpx rgba(31, 41, 55, 0.04);
+}
+.search-icon {
+	font-size: 28rpx;
+	margin-right: 14rpx;
+}
+.search-input {
+	flex: 1;
+	font-size: 28rpx;
+}
+.ph {
+	color: #c4c9d4;
+}
+.search-clear {
+	color: #c4c9d4;
+	font-size: 26rpx;
+	padding: 0 8rpx;
+}
+
 .item-card {
 	display: flex;
 	flex-direction: column;
 }
+.item-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 14rpx;
+}
+.item-no {
+	font-size: 24rpx;
+	color: #c4c9d4;
+	font-weight: 600;
+}
 .item-question {
 	font-size: 30rpx;
-	line-height: 1.5;
+	line-height: 1.55;
+	color: #1f2937;
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 	overflow: hidden;
 }
-.item-footer {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-top: 20rpx;
-}
-.tag-row {
+.item-tags {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 12rpx;
+	margin-top: 18rpx;
 }
-.tag {
-	background: #fff7ed;
-	color: #ea580c;
-	font-size: 22rpx;
-	padding: 4rpx 16rpx;
-	border-radius: 999rpx;
-}
-.mastery {
-	font-size: 22rpx;
-	padding: 4rpx 16rpx;
-	border-radius: 999rpx;
-}
-.mastery-new {
-	background: #fef2f2;
-	color: #ef4444;
-}
-.mastery-doing {
-	background: #fffbeb;
-	color: #d97706;
-}
-.mastery-done {
-	background: #f0fdf4;
-	color: #16a34a;
-}
-.list-end {
+.list-tip {
 	text-align: center;
-	color: #d1d5db;
+	color: #c4c9d4;
 	font-size: 24rpx;
 	padding: 30rpx 0;
+}
+.list-end {
+	color: #e0e3ea;
+}
+.empty-main {
+	display: block;
+	font-size: 32rpx;
+	color: #6b7280;
+	font-weight: 600;
+}
+.empty-sub {
+	display: block;
+	font-size: 24rpx;
+	color: #c4c9d4;
+	margin-top: 12rpx;
 }
 </style>

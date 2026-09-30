@@ -3,64 +3,82 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "错题本"
+				"navigationBarTitleText": "错题本",
+				"enablePullDownRefresh": true,
+				"navigationBarTextStyle": "white",
+				"navigationBarBackgroundColor": "#f97316"
 			}
 		},
 		{
 			"path": "pages/analyze/analyze",
 			"style": {
-				"navigationBarTitleText": "拍照识别"
+				"navigationBarTitleText": "拍照识别",
+				"navigationBarTextStyle": "white",
+				"navigationBarBackgroundColor": "#f97316"
 			}
 		},
 		{
 			"path": "pages/profile/profile",
 			"style": {
-				"navigationBarTitleText": "我的"
+				"navigationBarTitleText": "我的",
+				"navigationStyle": "custom"
 			}
 		},
 		{
 			"path": "pages/login/login",
 			"style": {
-				"navigationBarTitleText": "登录"
+				"navigationStyle": "custom"
 			}
 		},
 		{
 			"path": "pages/items/items",
 			"style": {
 				"navigationBarTitleText": "错题列表",
-				"enablePullDownRefresh": true
+				"enablePullDownRefresh": true,
+				"navigationBarTextStyle": "white",
+				"navigationBarBackgroundColor": "#f97316"
 			}
 		},
 		{
 			"path": "pages/detail/detail",
 			"style": {
-				"navigationBarTitleText": "错题详情"
+				"navigationBarTitleText": "错题详情",
+				"navigationBarTextStyle": "white",
+				"navigationBarBackgroundColor": "#f97316"
 			}
 		},
 		{
 			"path": "pages/practice/practice",
 			"style": {
-				"navigationBarTitleText": "举一反三"
+				"navigationBarTitleText": "举一反三",
+				"navigationBarTextStyle": "white",
+				"navigationBarBackgroundColor": "#f97316"
 			}
 		}
 	],
 	"tabBar": {
-		"color": "#999999",
+		"color": "#9ca3af",
 		"selectedColor": "#f97316",
 		"backgroundColor": "#ffffff",
-		"borderStyle": "black",
+		"borderStyle": "white",
 		"list": [
 			{
 				"pagePath": "pages/index/index",
-				"text": "错题本"
+				"text": "错题本",
+				"iconPath": "static/tab/home.png",
+				"selectedIconPath": "static/tab/home-active.png"
 			},
 			{
 				"pagePath": "pages/analyze/analyze",
-				"text": "识别"
+				"text": "识别",
+				"iconPath": "static/tab/scan.png",
+				"selectedIconPath": "static/tab/scan-active.png"
 			},
 			{
 				"pagePath": "pages/profile/profile",
-				"text": "我的"
+				"text": "我的",
+				"iconPath": "static/tab/me.png",
+				"selectedIconPath": "static/tab/me-active.png"
 			}
 		]
 	},
@@ -68,6 +86,6 @@
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "智能错题本",
 		"navigationBarBackgroundColor": "#ffffff",
-		"backgroundColor": "#f5f5f5"
+		"backgroundColor": "#f5f6fa"
 	}
 }
