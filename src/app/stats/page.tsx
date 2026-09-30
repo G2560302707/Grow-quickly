@@ -1,16 +1,42 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { WrongAnswerStats } from "@/components/wrong-answer-stats";
-import { PracticeStats } from "@/components/practice-stats";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart3, TrendingUp, Activity, House } from "lucide-react";
 import Link from "next/link";
 
+// recharts 体积较大，图表组件懒加载，移出统计页首屏包
+const WrongAnswerStats = dynamic(
+    () => import("@/components/wrong-answer-stats").then(mod => mod.WrongAnswerStats),
+    { ssr: false, loading: () => <ChartSkeleton /> }
+);
+const PracticeStats = dynamic(
+    () => import("@/components/practice-stats").then(mod => mod.PracticeStats),
+    { ssr: false, loading: () => <ChartSkeleton /> }
+);
+
+function ChartSkeleton() {
+    return (
+        <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-3">
+                <Skeleton className="h-28 rounded-xl" />
+                <Skeleton className="h-28 rounded-xl" />
+                <Skeleton className="h-28 rounded-xl" />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+                <Skeleton className="h-[360px] rounded-xl" />
+                <Skeleton className="h-[360px] rounded-xl" />
+            </div>
+        </div>
+    );
+}
+
 export default function StatsPage() {
-    const { t, language } = useLanguage();
+    const { t } = useLanguage();
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-6xl">
