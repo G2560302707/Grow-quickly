@@ -63,3 +63,18 @@ develop 汇合；"后端"用提交前缀表达，而不是长期分支。**
 - 本地验证产物不入库：`uniapp/.ui-shots/`、`prisma/dev.db.backup-*`（已在 .gitignore）
 - 数据库备份文件（dev.db.backup-*）仅存在于本地，作为迁移前保险
 - `.zcode/` 为本地工具工作区，不入库
+
+## 变体：两条端线作为长期开发线（当前采用）
+
+也可以不删 feature 线，把它们当作**长期的端线**持续开发（当前项目的选择）：
+
+- `feature/frontend-upgrade` = 网页端开发线
+- `feature/uniapp-frontend` = 小程序开发线
+
+日常直接在这两条线上开发（或从它们拉短期分支），定期：
+
+1. `git switch feature/xxx && git merge develop` —— 先同步另一条线的成果（都是快进，无冲突）
+2. 验证后 `git switch main && git merge develop` —— 发版
+
+两条线偶尔会分叉，合回时以"两边功能都保留"为原则逐文件取舍（参考 2026-10 本次合并：
+page.tsx 取改版外壳、settings-dialog 取功能全侧、stats 取懒加载+诊断卡共存）。
