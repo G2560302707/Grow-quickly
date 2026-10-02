@@ -1,9 +1,9 @@
 <template>
 	<view class="page">
 		<!-- 步骤一：选择错题本 -->
-		<view class="card">
+		<view class="card fade-up">
 			<view class="step-head">
-				<text class="step-no">1</text>
+				<text class="step-no num">1</text>
 				<text class="step-title">选择错题本</text>
 			</view>
 			<picker :range="notebookNames" @change="onNotebookChange">
@@ -17,13 +17,18 @@
 		</view>
 
 		<!-- 步骤二：拍摄题目 -->
-		<view class="card">
+		<view class="card fade-up">
 			<view class="step-head">
-				<text class="step-no">2</text>
+				<text class="step-no num">2</text>
 				<text class="step-title">拍摄题目</text>
 			</view>
 			<view v-if="!imagePath" class="upload-zone" hover-class="hv" @tap="chooseImage('camera')">
-				<view class="upload-icon">📷</view>
+				<view class="camera-glyph">
+					<view class="camera-body">
+						<view class="camera-lens" />
+					</view>
+					<view class="camera-hump" />
+				</view>
 				<text class="upload-text">点击拍照</text>
 				<text class="upload-hint">对准题目，光线充足效果更好</text>
 			</view>
@@ -40,9 +45,9 @@
 		</view>
 
 		<!-- 步骤三：AI 识别 -->
-		<view class="card">
+		<view class="card fade-up">
 			<view class="step-head">
-				<text class="step-no">3</text>
+				<text class="step-no num">3</text>
 				<text class="step-title">AI 识别与保存</text>
 			</view>
 
@@ -52,44 +57,51 @@
 				hover-class="button-hover"
 				@tap="handleAnalyze"
 			>
-				<text v-if="analyzing">✦ AI 识别中，约需 10-30 秒...</text>
+				<text v-if="analyzing">AI 识别中，约需 10-30 秒...</text>
 				<text v-else>开始 AI 识别</text>
 			</button>
-			<view v-if="errorMsg" class="error-tip">{{ errorMsg }}</view>
-
-			<!-- 识别结果 -->
-			<view v-if="result" class="result">
-				<view class="result-block result-q">
-					<text class="result-label">题目</text>
-					<text class="result-text">{{ result.questionText || "（未识别到题目）" }}</text>
-				</view>
-				<view v-if="result.wrongAnswerText" class="result-block result-wrong">
-					<text class="result-label">我的答案</text>
-					<text class="result-text">{{ result.wrongAnswerText }}</text>
-				</view>
-				<view class="result-block result-right">
-					<text class="result-label">正确答案</text>
-					<text class="result-text">{{ result.answerText || "—" }}</text>
-				</view>
-				<view v-if="result.analysis" class="result-block">
-					<text class="result-label">解析</text>
-					<MdView :content="result.analysis" />
-				</view>
-				<view v-if="result.mistakeAnalysis" class="result-block">
-					<text class="result-label">错因分析</text>
-					<text class="result-text">{{ result.mistakeAnalysis }}</text>
-				</view>
-				<view v-if="result.knowledgePoints?.length" class="result-block">
-					<text class="result-label">知识点</text>
-					<view class="tag-row">
-						<text v-for="tag in result.knowledgePoints" :key="tag" class="tag">{{ tag }}</text>
-					</view>
-				</view>
-
-				<button class="btn-primary save-btn" :disabled="saving" hover-class="button-hover" @tap="handleSave">
-					{{ saving ? "保存中..." : "保存到错题本" }}
-				</button>
+			<view v-if="errorMsg" class="error-tip analyze-error">{{ errorMsg }}</view>
+			<view v-if="analyzing" class="analyzing-hint">
+				<view class="pulse-dot" />
+				<text class="analyzing-text">正在识别题目、答案与解析</text>
 			</view>
+		</view>
+
+		<!-- 识别结果 -->
+		<view v-if="result" class="card result fade-up">
+			<view class="section-head">
+				<text class="section-title">识别结果</text>
+			</view>
+			<view class="result-block result-q">
+				<text class="result-label">题目</text>
+				<text class="result-text">{{ result.questionText || "（未识别到题目）" }}</text>
+			</view>
+			<view v-if="result.wrongAnswerText" class="result-block result-wrong">
+				<text class="result-label">我的答案</text>
+				<text class="result-text">{{ result.wrongAnswerText }}</text>
+			</view>
+			<view class="result-block result-right">
+				<text class="result-label">正确答案</text>
+				<text class="result-text">{{ result.answerText || "—" }}</text>
+			</view>
+			<view v-if="result.analysis" class="result-block">
+				<text class="result-label">解析</text>
+				<MdView :content="result.analysis" />
+			</view>
+			<view v-if="result.mistakeAnalysis" class="result-block">
+				<text class="result-label">错因分析</text>
+				<text class="result-text">{{ result.mistakeAnalysis }}</text>
+			</view>
+			<view v-if="result.knowledgePoints?.length" class="result-block">
+				<text class="result-label">知识点</text>
+				<view class="tag-row">
+					<text v-for="tag in result.knowledgePoints" :key="tag" class="tag">{{ tag }}</text>
+				</view>
+			</view>
+
+			<button class="btn-primary save-btn" :disabled="saving" hover-class="button-hover" @tap="handleSave">
+				{{ saving ? "保存中..." : "保存到错题本" }}
+			</button>
 		</view>
 	</view>
 </template>
@@ -115,7 +127,8 @@ const selectedNotebook = computed(() =>
 
 onShow(async () => {
 	try {
-		notebooks.value = await listNotebooks();
+		const list = await listNotebooks();
+		notebooks.value = Array.isArray(list) ? list : [];
 		if (notebooks.value.length > 0 && !selectedNotebookId.value) {
 			selectedNotebookId.value = notebooks.value[0].id;
 		}
@@ -223,17 +236,19 @@ async function handleSave() {
 </script>
 
 <style scoped>
+/* ---------- 步骤 ---------- */
 .step-head {
 	display: flex;
 	align-items: center;
 	margin-bottom: 24rpx;
 }
 .step-no {
-	width: 40rpx;
-	height: 40rpx;
-	border-radius: 12rpx;
-	background: linear-gradient(135deg, #fb923c, #f97316);
-	color: #ffffff;
+	width: 44rpx;
+	height: 44rpx;
+	border-radius: 14rpx;
+	background: var(--brand-50);
+	border: 1rpx solid var(--brand-100);
+	color: var(--brand-600);
 	font-size: 24rpx;
 	font-weight: 700;
 	display: flex;
@@ -244,54 +259,93 @@ async function handleSave() {
 .step-title {
 	font-size: 30rpx;
 	font-weight: 600;
-	color: #1f2937;
+	color: var(--ink-900);
+	letter-spacing: 1rpx;
 }
 
+/* ---------- 选择器 ---------- */
 .picker-value {
-	background: #f5f6fa;
-	border-radius: 14rpx;
-	padding: 24rpx 26rpx;
+	background: var(--bg-fill);
+	border-radius: 16rpx;
+	padding: 24rpx 28rpx;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 }
 .picker-text {
 	font-size: 28rpx;
-	color: #1f2937;
+	color: var(--ink-900);
 }
 .picker-placeholder {
 	font-size: 28rpx;
-	color: #c4c9d4;
+	color: var(--ink-300);
 }
 .picker-arrow {
-	color: #d1d5db;
+	color: var(--ink-300);
 	font-size: 36rpx;
 }
+.hv {
+	opacity: 0.85;
+}
 
+/* ---------- 上传区 ---------- */
 .upload-zone {
-	border: 2rpx dashed #fdba74;
-	background: #fffaf5;
+	border: 2rpx dashed var(--brand-100);
+	background: var(--brand-50);
 	border-radius: 20rpx;
-	padding: 56rpx 0;
+	padding: 60rpx 0;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 }
-.upload-icon {
-	font-size: 64rpx;
-	margin-bottom: 16rpx;
+.camera-glyph {
+	position: relative;
+	width: 112rpx;
+	height: 88rpx;
+	margin-bottom: 24rpx;
+}
+.camera-body {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 12rpx;
+	bottom: 0;
+	border: 4rpx solid var(--brand-600);
+	border-radius: 18rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.camera-lens {
+	width: 32rpx;
+	height: 32rpx;
+	border: 4rpx solid var(--brand-600);
+	border-radius: 50%;
+}
+.camera-hump {
+	position: absolute;
+	top: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 36rpx;
+	height: 14rpx;
+	border: 4rpx solid var(--brand-600);
+	border-bottom: none;
+	border-radius: 8rpx 8rpx 0 0;
+	background: var(--brand-50);
 }
 .upload-text {
 	font-size: 30rpx;
 	font-weight: 600;
-	color: #ea580c;
+	color: var(--brand-600);
 }
 .upload-hint {
 	font-size: 22rpx;
-	color: #c4c9d4;
-	margin-top: 8rpx;
+	color: var(--ink-400);
+	margin-top: 10rpx;
 }
 
+/* ---------- 预览 ---------- */
 .preview-wrap {
 	display: flex;
 	flex-direction: column;
@@ -300,7 +354,7 @@ async function handleSave() {
 	width: 100%;
 	height: 400rpx;
 	border-radius: 16rpx;
-	background: #f9fafb;
+	background: var(--bg-fill);
 }
 .preview-actions {
 	display: flex;
@@ -310,7 +364,9 @@ async function handleSave() {
 .small-btn {
 	flex: 1;
 	font-size: 26rpx;
-	padding: 8rpx 0;
+	padding: 0;
+	height: 72rpx;
+	line-height: 72rpx;
 }
 .alt-row {
 	margin-top: 16rpx;
@@ -318,51 +374,85 @@ async function handleSave() {
 }
 .alt-link {
 	font-size: 26rpx;
-	color: #f97316;
+	color: var(--brand-600);
 }
 
+/* ---------- 识别 ---------- */
 .analyze-btn {
 	margin-top: 8rpx;
 }
-.result {
-	margin-top: 32rpx;
-	border-top: 2rpx solid #f3f4f6;
-	padding-top: 28rpx;
+.analyze-error {
+	margin: 24rpx 0 0;
 }
+.analyzing-hint {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-top: 24rpx;
+}
+.pulse-dot {
+	width: 14rpx;
+	height: 14rpx;
+	border-radius: 50%;
+	background: var(--brand-600);
+	margin-right: 14rpx;
+	animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse {
+	0%,
+	100% {
+		opacity: 0.25;
+		transform: scale(0.8);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.15);
+	}
+}
+.analyzing-text {
+	font-size: 24rpx;
+	color: var(--ink-400);
+}
+
+/* ---------- 结果 ---------- */
 .result-block {
 	border-radius: 16rpx;
-	padding: 22rpx 24rpx;
+	padding: 24rpx 26rpx;
 	margin-bottom: 20rpx;
-	background: #f9fafb;
+	background: var(--bg-fill);
+	border-left: 6rpx solid var(--brand-500);
 }
 .result-q {
-	background: #f5f6fa;
+	background: var(--brand-50);
+	border-left-color: var(--brand-600);
 }
 .result-wrong {
-	background: #fef2f2;
+	background: var(--danger-50);
+	border-left-color: var(--danger-600);
 }
 .result-wrong .result-label {
-	color: #ef4444;
+	color: var(--danger-600);
 }
 .result-right {
-	background: #f0fdf4;
+	background: var(--success-50);
+	border-left-color: var(--success-600);
 }
 .result-right .result-label {
-	color: #16a34a;
+	color: var(--success-600);
 }
 .result-label {
 	display: block;
 	font-size: 22rpx;
-	color: #9ca3af;
+	color: var(--ink-500);
 	font-weight: 600;
-	margin-bottom: 10rpx;
-	letter-spacing: 1rpx;
+	margin-bottom: 12rpx;
+	letter-spacing: 2rpx;
 }
 .result-text {
 	font-size: 27rpx;
 	line-height: 1.7;
 	white-space: pre-wrap;
-	color: #374151;
+	color: var(--ink-700);
 }
 .tag-row {
 	display: flex;
@@ -371,8 +461,5 @@ async function handleSave() {
 }
 .save-btn {
 	margin-top: 12rpx;
-}
-.hv {
-	opacity: 0.85;
 }
 </style>

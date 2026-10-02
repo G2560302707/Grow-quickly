@@ -40,31 +40,34 @@ const blocks = computed(() => {
 .md-h {
 	font-size: 28rpx;
 	font-weight: 700;
-	color: #1f2937;
-	margin: 20rpx 0 8rpx;
+	color: var(--ink-900);
+	margin: 20rpx 0 10rpx;
 }
 .md-h:first-child {
 	margin-top: 0;
 }
 .md-p {
 	font-size: 27rpx;
-	color: #4b5563;
-	line-height: 1.7;
-	margin-bottom: 8rpx;
+	color: var(--ink-600);
+	line-height: 1.75;
+	margin-bottom: 10rpx;
 }
 .md-li {
 	font-size: 27rpx;
-	color: #4b5563;
-	line-height: 1.7;
-	margin-bottom: 6rpx;
-	padding-left: 24rpx;
+	color: var(--ink-600);
+	line-height: 1.75;
+	margin-bottom: 8rpx;
+	padding-left: 26rpx;
 	position: relative;
 }
 .md-li::before {
-	content: "·";
+	content: "";
 	position: absolute;
-	left: 4rpx;
-	color: #f97316;
-	font-weight: 700;
+	left: 2rpx;
+	top: 18rpx;
+	width: 10rpx;
+	height: 10rpx;
+	border-radius: 50%;
+	background: var(--brand-600);
 }
 </style>
