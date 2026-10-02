@@ -3,12 +3,16 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts";
-import { Loader2, TrendingUp, BookOpen, Target } from "lucide-react";
+import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, PieChart, Pie, Cell, Legend, Line } from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TrendingUp, BookOpen, Target } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { PracticeStatsData } from "@/types/api";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+// 图表配色走主题变量，深浅色自动适配
+const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
+const AXIS_COLOR = 'var(--muted-foreground)';
+const GRID_COLOR = 'var(--border)';
 const DIFFICULTY_COLORS: Record<string, string> = {
     'easy': '#4ade80',   // Green-400
     'medium': '#facc15', // Yellow-400
@@ -17,12 +21,19 @@ const DIFFICULTY_COLORS: Record<string, string> = {
     'Unknown': '#94a3b8' // Slate-400
 };
 
-const CustomTooltip = ({ active, payload, label, t }: any) => {
+interface CustomTooltipProps {
+    active?: boolean;
+    payload?: Array<{ value?: number | string; color?: string; name?: string }>;
+    label?: string;
+    t: { stats?: { total?: string } };
+}
+
+const CustomTooltip = ({ active, payload, label, t }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-background border rounded-lg shadow-lg p-3 text-sm">
                 <p className="font-medium mb-2">{label}</p>
-                {payload.map((entry: any, index: number) => (
+                {payload.map((entry, index: number) => (
                     <div key={index} className="flex items-center gap-2 mb-1 last:mb-0">
                         <div
                             className="w-3 h-3 rounded-full"
@@ -39,7 +50,7 @@ const CustomTooltip = ({ active, payload, label, t }: any) => {
                 <div className="mt-2 pt-2 border-t flex justify-between gap-4">
                     <span className="text-muted-foreground">{t.stats?.total || "Total"}:</span>
                     <span className="font-bold">
-                        {payload.reduce((acc: number, curr: any) => acc + (typeof curr.value === 'number' ? curr.value : 0), 0)}
+                        {payload.reduce((acc: number, curr) => acc + (typeof curr.value === 'number' ? curr.value : 0), 0)}
                     </span>
                 </div>
             </div>
@@ -49,7 +60,7 @@ const CustomTooltip = ({ active, payload, label, t }: any) => {
 };
 
 export function PracticeStats() {
-    const { t, language } = useLanguage();
+    const { t } = useLanguage();
     const [stats, setStats] = useState<PracticeStatsData | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -67,8 +78,17 @@ export function PracticeStats() {
 
     if (loading) {
         return (
-            <div className="flex justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="space-y-6 animate-in fade-in duration-500">
+                <Skeleton className="h-8 w-48" />
+                <div className="grid gap-4 md:grid-cols-3">
+                    <Skeleton className="h-28 rounded-xl" />
+                    <Skeleton className="h-28 rounded-xl" />
+                    <Skeleton className="h-28 rounded-xl" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Skeleton className="h-[360px] rounded-xl" />
+                    <Skeleton className="h-[360px] rounded-xl" />
+                </div>
             </div>
         );
     }
@@ -79,12 +99,18 @@ export function PracticeStats() {
 
     // Helper to translate difficulty
     const getDifficultyLabel = (key: string) => {
-        // @ts-ignore
-        return t.practice?.difficulty?.[key] || key;
+        const difficultyMap = t.practice?.difficulty as Record<string, string> | undefined;
+        return difficultyMap?.[key] || key;
     };
 
     // Get unique difficulties for the bar chart
     const difficulties = stats.difficultyStats.map(d => d.name);
+
+    // 月度正确率（%），供趋势折线使用
+    const monthlyWithRate = stats.activityStats.map(d => ({
+        ...d,
+        rate: d.total > 0 ? Math.round((d.correct / d.total) * 100) : 0,
+    }));
 
     return (
         <div className="space-y-6">
@@ -92,7 +118,7 @@ export function PracticeStats() {
 
             {/* Overview Cards */}
             <div className="grid gap-4 md:grid-cols-3">
-                <Card>
+                <Card className="transition-shadow hover:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
                             {t.stats?.totalPractices || "Total Practiced"}
@@ -103,7 +129,7 @@ export function PracticeStats() {
                         <div className="text-2xl font-bold">{stats.overallStats.total}</div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="transition-shadow hover:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
                             {t.stats?.correctRate || "Correct Rate"}
@@ -117,7 +143,7 @@ export function PracticeStats() {
                         </p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="transition-shadow hover:shadow-md">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
                             {t.stats?.activeDays || "Active Days (6m)"}
@@ -145,7 +171,6 @@ export function PracticeStats() {
                                     cy="50%"
                                     innerRadius={60}
                                     outerRadius={80}
-                                    fill="#8884d8"
                                     paddingAngle={5}
                                     dataKey="value"
                                     label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
@@ -160,27 +185,37 @@ export function PracticeStats() {
                     </CardContent>
                 </Card>
 
-                {/* Monthly Activity with Difficulty Stack */}
+                {/* Monthly Activity with Difficulty Stack + Correct Rate Line */}
                 <Card className="col-span-2 md:col-span-1">
                     <CardHeader>
                         <CardTitle>{t.stats?.weeklyTrend || "Monthly Trend"}</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={stats.activityStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                            <ComposedChart data={monthlyWithRate} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID_COLOR} />
                                 <XAxis
                                     dataKey="date"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                                    tick={{ fill: AXIS_COLOR, fontSize: 12 }}
                                     dy={10}
                                 />
                                 <YAxis
+                                    yAxisId="count"
                                     allowDecimals={false}
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                                    tick={{ fill: AXIS_COLOR, fontSize: 12 }}
+                                />
+                                <YAxis
+                                    yAxisId="rate"
+                                    orientation="right"
+                                    domain={[0, 100]}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: AXIS_COLOR, fontSize: 12 }}
+                                    tickFormatter={(v) => `${v}%`}
                                 />
                                 <Tooltip content={<CustomTooltip t={t} />} cursor={{ fill: 'transparent' }} />
                                 <Legend
@@ -191,6 +226,7 @@ export function PracticeStats() {
                                 {difficulties.map((diff, index) => (
                                     <Bar
                                         key={diff}
+                                        yAxisId="count"
                                         dataKey={diff}
                                         name={getDifficultyLabel(diff)}
                                         stackId="a"
@@ -199,7 +235,16 @@ export function PracticeStats() {
                                         barSize={32}
                                     />
                                 ))}
-                            </BarChart>
+                                <Line
+                                    yAxisId="rate"
+                                    type="monotone"
+                                    dataKey="rate"
+                                    name={t.stats?.correctRate || "Correct Rate"}
+                                    stroke="var(--chart-1)"
+                                    strokeWidth={2}
+                                    dot={{ r: 3, fill: 'var(--chart-1)' }}
+                                />
+                            </ComposedChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>

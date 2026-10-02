@@ -70,6 +70,7 @@ upload_test_output*.txt
 /data/
 .next-prebuilt/
 
+<<<<<<< HEAD
 # local verification & backups
 uniapp/.ui-shots/
 prisma/dev.db.backup-*
@@ -77,3 +78,12 @@ prisma/dev.db.backup-*
 
 # zcode workspace
 .zcode/
+=======
+# IDE & local backups
+.idea/
+prisma/dev.db.backup-*
+
+# zcode workspace & local screenshots
+.zcode/
+uniapp/.ui-shots/
+>>>>>>> feature/frontend-upgrade
