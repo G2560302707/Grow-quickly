@@ -25,13 +25,16 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { UserManagement } from "@/components/admin/user-management";
+import { AnnouncementManagement } from "@/components/admin/announcement-management";
+import { FeedbackManagement } from "@/components/admin/feedback-management";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { AppConfig, UserProfile, UpdateUserProfileRequest, OpenAIInstance } from "@/types/api";
 import { ModelSelector } from "@/components/ui/model-selector";
 import { PromptSettings } from "@/components/settings/prompt-settings";
+import { alertDialog, confirmDialog, promptDialog } from "@/components/ui/app-dialog";
 
-import { MessageSquareText, Info, ExternalLink, Github, ScrollText } from "lucide-react";
+import { MessageSquareText, Info, ExternalLink, Github, ScrollText, Megaphone } from "lucide-react";
 const MAX_OPENAI_INSTANCES = 10;
 
 // 生成唯一 ID
@@ -183,26 +186,26 @@ export function SettingsDialog() {
         // 验证 OpenAI 实例必填字段
         const openaiValidationError = validateOpenAIInstances();
         if (openaiValidationError) {
-            alert(openaiValidationError);
+            await alertDialog({ description: openaiValidationError });
             return;
         }
 
         // 验证 Azure 必填字段
         const azureValidationError = validateAzureConfig();
         if (azureValidationError) {
-            alert(azureValidationError);
+            await alertDialog({ description: azureValidationError });
             return;
         }
 
         setSaving(true);
         try {
             await apiClient.post("/api/settings", config);
-            alert(t.settings?.messages?.saved || "Settings saved");
+            await alertDialog({ description: t.settings?.messages?.saved || "Settings saved" });
             // 保存成功后滚动到顶部，方便关闭对话框
             dialogContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Failed to save settings', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.messages?.saveFailed || "Failed to save");
+            await alertDialog({ description: t.settings?.messages?.saveFailed || "Failed to save" });
         } finally {
             setSaving(false);
         }
@@ -213,7 +216,7 @@ export function SettingsDialog() {
         try {
             // 验证密码一致性（如果用户输入了密码）
             if (profile.password && profile.password !== confirmPassword) {
-                alert(t.settings?.messages?.passwordMismatch || 'Passwords do not match');
+                await alertDialog({ description: t.settings?.messages?.passwordMismatch || 'Passwords do not match' });
                 setProfileSaving(false);
                 return;
             }
@@ -234,7 +237,7 @@ export function SettingsDialog() {
 
             await apiClient.patch("/api/user", payload);
 
-            alert(t.settings?.messages?.profileUpdated || "Profile updated");
+            await alertDialog({ description: t.settings?.messages?.profileUpdated || "Profile updated" });
             setProfile(prev => ({ ...prev, password: "" })); // Clear password field
             setConfirmPassword(""); // Clear confirm password field
             setShowPassword(false);
@@ -243,45 +246,45 @@ export function SettingsDialog() {
         } catch (error: any) {
             frontendLogger.error('[SettingsDialog]', 'Failed to update profile', { error: error?.data?.message || error?.message || String(error) });
             const message = error.data?.message || (t.settings?.messages?.updateFailed || "Update failed");
-            alert(message);
+            await alertDialog({ description: message });
         } finally {
             setProfileSaving(false);
         }
     };
 
     const handleClearData = async () => {
-        if (!confirm(t.settings?.clearDataConfirm || "Are you sure?")) {
+        if (!(await confirmDialog({ description: t.settings?.clearDataConfirm || "Are you sure?", danger: true }))) {
             return;
         }
 
         setClearingPractice(true);
         try {
             await apiClient.delete("/api/stats/practice/clear");
-            alert(t.settings?.clearSuccess || "Success");
+            await alertDialog({ description: t.settings?.clearSuccess || "Success" });
             setOpen(false);
             window.location.reload();
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Failed to clear practice data', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.clearError || "Failed");
+            await alertDialog({ description: t.settings?.clearError || "Failed" });
         } finally {
             setClearingPractice(false);
         }
     };
 
     const handleClearErrorData = async () => {
-        if (!confirm(t.settings?.clearErrorDataConfirm || "Are you sure?")) {
+        if (!(await confirmDialog({ description: t.settings?.clearErrorDataConfirm || "Are you sure?", danger: true }))) {
             return;
         }
 
         setClearingError(true);
         try {
             await apiClient.delete("/api/error-items/clear");
-            alert(t.settings?.clearSuccess || "Success");
+            await alertDialog({ description: t.settings?.clearSuccess || "Success" });
             setOpen(false);
             window.location.reload();
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Failed to clear error data', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.clearError || "Failed");
+            await alertDialog({ description: t.settings?.clearError || "Failed" });
         } finally {
             setClearingError(false);
         }
@@ -289,26 +292,29 @@ export function SettingsDialog() {
 
     const handleSystemReset = async () => {
         // Double confirm
-        if (!confirm(t.settings?.systemResetConfirm || "WARNING: Deleting ALL data. Undoing is impossible. Are you sure?")) {
+        if (!(await confirmDialog({ description: t.settings?.systemResetConfirm || "WARNING: Deleting ALL data. Undoing is impossible. Are you sure?", danger: true }))) {
             return;
         }
 
         // Optional triple confirm?
-        const userInput = prompt(t.settings?.systemResetPrompt || "Type 'RESET' to confirm system initialization:", "");
+        const userInput = await promptDialog({
+            description: t.settings?.systemResetPrompt || "Type 'RESET' to confirm system initialization:",
+            defaultValue: "",
+        });
         if (userInput !== 'RESET') {
-            if (userInput !== null) alert(t.common?.error || "Confirmation failed");
+            if (userInput !== null) await alertDialog({ description: t.common?.error || "Confirmation failed" });
             return;
         }
 
         setSystemResetting(true);
         try {
             await apiClient.post("/api/admin/system-reset", {});
-            alert(t.settings?.clearSuccess || "Success - System Reset Complete");
+            await alertDialog({ description: t.settings?.clearSuccess || "Success - System Reset Complete" });
             setOpen(false);
             window.location.reload();
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'System reset failed', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.clearError || "Failed to reset system");
+            await alertDialog({ description: t.settings?.clearError || "Failed to reset system" });
         } finally {
             setSystemResetting(false);
         }
@@ -333,17 +339,17 @@ export function SettingsDialog() {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
-            alert(t.settings?.exportSuccess || "Export successful");
+            await alertDialog({ description: t.settings?.exportSuccess || "Export successful" });
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Export failed', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.exportFailed || "Export failed");
+            await alertDialog({ description: t.settings?.exportFailed || "Export failed" });
         } finally {
             setExporting(false);
         }
     };
 
     const handleExportAllData = async () => {
-        if (!confirm(t.settings?.exportAllConfirm || "Export all users' data? This may take a while.")) {
+        if (!(await confirmDialog({ description: t.settings?.exportAllConfirm || "Export all users' data? This may take a while.", danger: true }))) {
             return;
         }
         setExporting(true);
@@ -364,10 +370,10 @@ export function SettingsDialog() {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
-            alert(t.settings?.exportSuccess || "Export successful");
+            await alertDialog({ description: t.settings?.exportSuccess || "Export successful" });
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Export all failed', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.exportFailed || "Export failed");
+            await alertDialog({ description: t.settings?.exportFailed || "Export failed" });
         } finally {
             setExporting(false);
         }
@@ -384,7 +390,7 @@ export function SettingsDialog() {
     const handleImportData = async () => {
         if (!selectedFile) return;
 
-        if (!confirm(t.settings?.importConfirm || "Are you sure you want to import?")) {
+        if (!(await confirmDialog({ description: t.settings?.importConfirm || "Are you sure you want to import?", danger: true }))) {
             return;
         }
 
@@ -396,21 +402,19 @@ export function SettingsDialog() {
             const response = await apiClient.post('/api/import', data);
             const stats = (response as any).stats;
 
-            alert(
-                (t.settings?.importResultDesc || "Imported {subjects} notebooks, {tags} tags, {items} error items, {schedules} review schedules, {records} practice records.")
+            await alertDialog({ description: (t.settings?.importResultDesc || "Imported {subjects} notebooks, {tags} tags, {items} error items, {schedules} review schedules, {records} practice records.")
                     .replace('{subjects}', String(stats.subjectsCreated))
                     .replace('{tags}', String(stats.tagsCreated))
                     .replace('{items}', String(stats.errorItemsCreated))
                     .replace('{schedules}', String(stats.reviewSchedulesCreated))
-                    .replace('{records}', String(stats.practiceRecordsCreated))
-            );
+                    .replace('{records}', String(stats.practiceRecordsCreated)) });
 
             setSelectedFile(null);
             setSelectedFileName("");
             window.location.reload();
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Import failed', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.importFailed || "Import failed");
+            await alertDialog({ description: t.settings?.importFailed || "Import failed" });
         } finally {
             setImporting(false);
         }
@@ -419,7 +423,7 @@ export function SettingsDialog() {
     const handleImportAllData = async () => {
         if (!selectedFile) return;
 
-        if (!confirm(t.settings?.importAllConfirm || "Import all users' data? This will restore data for all users from the export file.")) {
+        if (!(await confirmDialog({ description: t.settings?.importAllConfirm || "Import all users' data? This will restore data for all users from the export file.", danger: true }))) {
             return;
         }
 
@@ -435,14 +439,12 @@ export function SettingsDialog() {
             const result = await res.json();
             if (result.success) {
                 const s = result.stats;
-                alert(
-                    (t.settings?.importResultDesc || "Imported {subjects} notebooks, {tags} tags, {items} error items, {schedules} review schedules, {records} practice records.")
+                await alertDialog({ description: (t.settings?.importResultDesc || "Imported {subjects} notebooks, {tags} tags, {items} error items, {schedules} review schedules, {records} practice records.")
                         .replace('{subjects}', String(s.subjectsCreated))
                         .replace('{tags}', String(s.tagsCreated))
                         .replace('{items}', String(s.errorItemsCreated))
                         .replace('{schedules}', String(s.reviewSchedulesCreated))
-                        .replace('{records}', String(s.practiceRecordsCreated))
-                );
+                        .replace('{records}', String(s.practiceRecordsCreated)) });
                 setSelectedFile(null);
                 setSelectedFileName("");
                 window.location.reload();
@@ -451,25 +453,25 @@ export function SettingsDialog() {
             }
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Import all failed', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.importFailed || "Import failed");
+            await alertDialog({ description: t.settings?.importFailed || "Import failed" });
         } finally {
             setImporting(false);
         }
     };
 
     const handleMigrateTags = async () => {
-        if (!confirm(t.settings?.migrateTagsConfirm || "This will reset system tags. Confirm?")) {
+        if (!(await confirmDialog({ description: t.settings?.migrateTagsConfirm || "This will reset system tags. Confirm?", danger: true }))) {
             return;
         }
 
         setMigratingTags(true);
         try {
             const res = await apiClient.post("/api/admin/migrate-tags", {});
-            alert(`${t.settings?.clearSuccess || "Success"}: ${(res as any).count || 0} tags migrated.`);
+            await alertDialog({ description: `${t.settings?.clearSuccess || "Success"}: ${(res as any).count || 0} tags migrated.` });
             // No reload needed necessarily, but good to refresh if user is viewing tags.
         } catch (error) {
             frontendLogger.error('[SettingsDialog]', 'Tag migration failed', { error: error instanceof Error ? error.message : String(error) });
-            alert(t.settings?.clearError || "Failed to migrate tags");
+            await alertDialog({ description: t.settings?.clearError || "Failed to migrate tags" });
         } finally {
             setMigratingTags(false);
         }
@@ -673,7 +675,7 @@ export function SettingsDialog() {
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className={`grid w-full grid-cols-4 ${(session?.user as any)?.role === 'admin' ? 'sm:grid-cols-7' : 'sm:grid-cols-4'} gap-1 h-auto`}>
+                    <TabsList className={`grid w-full grid-cols-4 ${(session?.user as any)?.role === 'admin' ? 'sm:grid-cols-9' : 'sm:grid-cols-4'} gap-1 h-auto`}>
                         <TabsTrigger value="general" className="px-2 sm:px-3">
                             <Languages className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">{t.settings?.tabs?.general || "General"}</span>
@@ -695,6 +697,14 @@ export function SettingsDialog() {
                                 <TabsTrigger value="admin" className="px-2 sm:px-3">
                                     <Shield className="h-4 w-4 sm:mr-2" />
                                     <span className="hidden sm:inline">{t.settings?.tabs?.admin || "User Management"}</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="announcements" className="px-2 sm:px-3">
+                                    <Megaphone className="h-4 w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">{t.broadcast?.title || "Announcements"}</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="feedback" className="px-2 sm:px-3">
+                                    <MessageSquareText className="h-4 w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">反馈管理</span>
                                 </TabsTrigger>
                             </>
                         )}
@@ -961,9 +971,9 @@ export function SettingsDialog() {
                                                             type="button"
                                                             variant="outline"
                                                             size="icon"
-                                                            onClick={() => {
+                                                            onClick={async () => {
                                                                 const activeId = selectedInstanceId || config.openai?.activeInstanceId;
-                                                                if (activeId && confirm(t.settings?.ai?.confirmDelete || 'Delete this instance?')) {
+                                                                if (activeId && await confirmDialog({ description: t.settings?.ai?.confirmDelete || 'Delete this instance?', danger: true })) {
                                                                     deleteOpenAIInstance(activeId);
                                                                 }
                                                             }}
@@ -1252,6 +1262,23 @@ export function SettingsDialog() {
                                 <div className="border-t pt-4">
                                     <UserManagement />
                                 </div>
+                            </TabsContent>
+                        )
+                    }
+
+                    {
+                        (session?.user as any)?.role === 'admin' && (
+                            <TabsContent value="announcements" className="py-4">
+                                <AnnouncementManagement />
+                            </TabsContent>
+                        )
+                    }
+
+                    {/* Feedback Management Tab (admin) */}
+                    {
+                        (session?.user as any)?.role === 'admin' && (
+                            <TabsContent value="feedback" className="py-4">
+                                <FeedbackManagement />
                             </TabsContent>
                         )
                     }
