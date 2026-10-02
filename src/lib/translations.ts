@@ -642,6 +642,7 @@ export const translations = {
             last: "Last page",
         },
         broadcast: {
+            empty: "No announcements",
             title: "Announcements",
             profileReminder: "Please make sure to correctly fill in your education stage and enrollment year to ensure tags are associated correctly.",
             settingsPath: "Setting path: Settings → Account",
@@ -1289,6 +1290,7 @@ export const translations = {
             last: "末页",
         },
         broadcast: {
+            empty: "暂无公告",
             title: "公告通知",
             profileReminder: "请务必正确填写用户教育阶段和入学年份，保障标签正确关联。",
             settingsPath: "设置路径：设置 → 账户",
