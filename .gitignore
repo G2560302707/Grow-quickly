@@ -73,3 +73,7 @@ upload_test_output*.txt
 # IDE & local backups
 .idea/
 prisma/dev.db.backup-*
+
+# zcode workspace & local screenshots
+.zcode/
+uniapp/.ui-shots/
