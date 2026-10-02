@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { getAIService } from "@/lib/ai";
 import { notFound, internalError, unauthorized } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { AI_SUBJECT_OPTIONS } from "@/lib/subjects";
 
 const logger = createLogger('api:practice:generate');
 
@@ -18,8 +19,19 @@ export async function POST(req: Request) {
     try {
         const { errorItemId, language, difficulty } = await req.json();
 
-        const errorItemWithSubject = await prisma.errorItem.findUnique({
-            where: { id: errorItemId },
+        // 属主校验：防止用他人错题 ID 借 AI 生成套出题目内容
+        let user;
+        if (session.user?.email) {
+            user = await prisma.user.findUnique({
+                where: { email: session.user.email },
+            });
+        }
+        if (!user) {
+            return unauthorized("Authentication required");
+        }
+
+        const errorItemWithSubject = await prisma.errorItem.findFirst({
+            where: { id: errorItemId, userId: user.id },
             include: { subject: true }
         });
 
@@ -44,14 +56,15 @@ export async function POST(req: Request) {
         );
 
         // Inject the subject from the database with type safety
-        const validSubjects = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"] as const;
         const subjectName = errorItemWithSubject.subject?.name || "其他";
-        similarQuestion.subject = validSubjects.includes(subjectName as any) ? subjectName as typeof validSubjects[number] : "其他";
+        similarQuestion.subject = (AI_SUBJECT_OPTIONS as readonly string[]).includes(subjectName)
+            ? subjectName as typeof AI_SUBJECT_OPTIONS[number]
+            : "其他";
 
         return NextResponse.json(similarQuestion);
     } catch (error) {
         logger.error({ error }, 'Error generating practice');
-        const errorMessage = error instanceof Error ? error.message : "Failed to generate practice question";
-        return internalError(errorMessage);
+        // 不把 AI provider 的原始错误信息回传前端，避免泄漏内部细节
+        return internalError("Failed to generate practice question");
     }
 }

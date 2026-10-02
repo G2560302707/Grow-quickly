@@ -6,6 +6,8 @@ import { safeParseParsedQuestion } from './schema';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
 import { createLogger } from '../logger';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
+import { AI_SUBJECT_OPTIONS } from '../subjects';
+import { retryOperation } from './retry';
 
 const logger = createLogger('ai:openai');
 
@@ -20,6 +22,7 @@ export class OpenAIProvider implements AIService {
     private baseURL: string;
     private apiKey: string;
     private isLongCat: boolean;
+    private timeoutMs: number;
 
     constructor(config?: AIConfig) {
         const apiKey = config?.apiKey;
@@ -29,9 +32,14 @@ export class OpenAIProvider implements AIService {
             throw new Error("AI_AUTH_ERROR: OPENAI_API_KEY is required for OpenAI provider");
         }
 
+        // 单次请求超时（默认 180s），防止请求无限挂起；
+        // maxRetries: 2 为 SDK 内置的瞬时错误（429/5xx/网络）重试
+        this.timeoutMs = config?.timeoutMs ?? 180_000;
         this.openai = new OpenAI({
             apiKey: apiKey,
             baseURL: baseURL || undefined,
+            timeout: this.timeoutMs,
+            maxRetries: 2,
             defaultHeaders: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             },
@@ -119,7 +127,7 @@ export class OpenAIProvider implements AIService {
 
         // Process Subject
         let subject: ParsedQuestion['subject'] = '其他';
-        const validSubjects: ParsedQuestion['subject'][] = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
+        const validSubjects: ParsedQuestion['subject'][] = [...AI_SUBJECT_OPTIONS];
         if (subjectRaw && (validSubjects as string[]).includes(subjectRaw)) {
             subject = subjectRaw as ParsedQuestion['subject'];
         }
@@ -218,6 +226,7 @@ export class OpenAIProvider implements AIService {
 
             logger.box('📤 API Request (发送给 AI 的原始请求)', JSON.stringify(requestParamsForLog, null, 2));
 
+            const startTime = Date.now();
             let response: any;
 
             if (this.isLongCat) {
@@ -237,18 +246,20 @@ export class OpenAIProvider implements AIService {
                     },
                 ]);
 
-                const res = await fetch(`${this.baseURL}/chat/completions`, {
+                // LongCat 走裸 fetch，没有 SDK 内置重试/超时，这里显式补上
+                const res = await retryOperation(() => fetch(`${this.baseURL}/chat/completions`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${this.apiKey}`,
                         'Content-Type': 'application/json',
                     },
+                    signal: AbortSignal.timeout(this.timeoutMs),
                     body: JSON.stringify({
                         model: this.model,
                         messages,
                         max_tokens: 8192,
                     }),
-                });
+                }), { label: 'openai:longcat:analyzeImage' });
 
                 if (!res.ok) {
                     const errBody = await res.text();
@@ -281,6 +292,15 @@ export class OpenAIProvider implements AIService {
                     max_tokens: 8192,
                 });
             }
+
+            logger.info({
+                provider: 'OpenAI',
+                model: this.model,
+                durationMs: Date.now() - startTime,
+                promptTokens: response.usage?.prompt_tokens,
+                completionTokens: response.usage?.completion_tokens,
+                totalTokens: response.usage?.total_tokens,
+            }, 'OpenAI analyzeImage completed');
 
             logger.box('📦 Full API Response', JSON.stringify(response, null, 2));
 
@@ -331,6 +351,7 @@ export class OpenAIProvider implements AIService {
         logger.box('📝 User Prompt', userPrompt);
 
         try {
+            const startTime = Date.now();
             const response = await this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
@@ -340,6 +361,15 @@ export class OpenAIProvider implements AIService {
                 // response_format: { type: "json_object" }, // Removing to improve compatibility with 3rd party providers
                 max_tokens: 8192,
             });
+
+            logger.info({
+                provider: 'OpenAI',
+                model: this.model,
+                durationMs: Date.now() - startTime,
+                promptTokens: response.usage?.prompt_tokens,
+                completionTokens: response.usage?.completion_tokens,
+                totalTokens: response.usage?.total_tokens,
+            }, 'OpenAI generateSimilarQuestion completed');
 
             const text = response.choices[0]?.message?.content || "";
 
@@ -402,6 +432,7 @@ export class OpenAIProvider implements AIService {
             };
             logger.debug({ requestParams }, 'Request parameters');
 
+            const startTime = Date.now();
             const response = await this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
@@ -410,6 +441,13 @@ export class OpenAIProvider implements AIService {
                 ],
                 max_tokens: 8192,
             });
+
+            logger.info({
+                provider: 'OpenAI',
+                model: this.model,
+                durationMs: Date.now() - startTime,
+                totalTokens: response.usage?.total_tokens,
+            }, 'OpenAI reanswerQuestion completed');
 
             logger.debug({ response: JSON.stringify(response) }, 'Full API response');
 
@@ -458,6 +496,7 @@ export class OpenAIProvider implements AIService {
         }, 'GeoGebra Analysis Request');
 
         try {
+            const startTime = Date.now();
             const response = await this.openai.chat.completions.create({
                 model: this.model,
                 messages: [
@@ -466,6 +505,13 @@ export class OpenAIProvider implements AIService {
                 ],
                 max_tokens: 4096,
             });
+
+            logger.info({
+                provider: 'OpenAI',
+                model: this.model,
+                durationMs: Date.now() - startTime,
+                totalTokens: response.usage?.total_tokens,
+            }, 'OpenAI analyzeForGeogebra completed');
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');

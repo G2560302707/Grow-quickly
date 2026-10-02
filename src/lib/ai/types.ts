@@ -34,6 +34,8 @@ export interface AIConfig {
     apiKey?: string;
     baseUrl?: string;
     model?: string;
+    // 单次 AI 请求超时（毫秒），来自 app 配置的 timeouts.analyze
+    timeoutMs?: number;
     // Azure OpenAI 特有字段
     azureDeployment?: string;   // Azure 部署名称
     azureApiVersion?: string;   // API 版本 (如 2024-02-15-preview)

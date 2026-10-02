@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@/lib/logger';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { requireAdmin } from '@/lib/auth-utils';
+import { unauthorized, forbidden } from '@/lib/api-errors';
 
 const logger = createLogger('api:ai:models');
 
@@ -7,6 +11,12 @@ interface ModelInfo {
     id: string;
     name: string;
     owned_by?: string;
+}
+
+interface ModelsRequestBody {
+    provider?: string;
+    apiKey?: string;
+    baseUrl?: string;
 }
 
 // 从模型 ID 中提取短名称
@@ -29,9 +39,9 @@ async function fetchGeminiModels(apiKey: string, baseUrl: string): Promise<Model
     }
 
     const data = await response.json();
-    return (data.models || [])
-        .map((m: any) => {
-            const id = extractModelName(m.name);
+    return ((data.models || []) as Array<{ name?: string }>)
+        .map((m) => {
+            const id = extractModelName(m.name || '');
             return {
                 id,
                 name: id,
@@ -57,20 +67,30 @@ async function fetchOpenAIModels(apiKey: string, baseUrl: string): Promise<Model
 
     const data = await response.json();
 
-    return (data.data || [])
-        .map((model: any) => ({
-            id: model.id,
-            name: model.id,
+    return ((data.data || []) as Array<{ id?: string; owned_by?: string }>)
+        .map((model) => ({
+            id: model.id || '',
+            name: model.id || '',
             owned_by: model.owned_by,
         }));
 }
 
-export async function GET(req: NextRequest) {
+// 仅 admin 可用：该接口会以用户提供的 baseUrl 发起出站请求（SSRF 面），
+// 且用于设置页校验刚输入的 apiKey（改走 body，避免 key 进 URL/访问日志）。
+export async function POST(req: NextRequest) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+        return unauthorized("Authentication required");
+    }
+    if (!requireAdmin(session)) {
+        return forbidden("Admin access required");
+    }
+
     try {
-        const { searchParams } = new URL(req.url);
-        const provider = searchParams.get('provider');
-        const apiKey = searchParams.get('apiKey');
-        const baseUrl = searchParams.get('baseUrl');
+        const body: ModelsRequestBody = await req.json();
+        const provider = body.provider;
+        const apiKey = body.apiKey;
+        const baseUrl = body.baseUrl;
 
         if (!apiKey) {
             return NextResponse.json(
@@ -92,10 +112,10 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({ models });
 
-    } catch (error: any) {
+    } catch (error) {
         logger.error({ error }, 'Error fetching models');
         return NextResponse.json(
-            { error: error.message || 'Internal server error', models: [] },
+            { error: error instanceof Error ? error.message : 'Internal server error', models: [] },
             { status: 200 } // Return 200 with empty models to allow manual input
         );
     }

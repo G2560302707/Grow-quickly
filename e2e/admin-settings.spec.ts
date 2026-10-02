@@ -53,13 +53,12 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
     await page.locator('input[placeholder="gpt-4o"]').fill(modelName);
 
     // 7. Save Settings
-    page.once('dialog', async dialog => {
-        console.log(`Dialog message: ${dialog.message()}`);
-        expect(dialog.message()).toMatch(/设置已保存|Settings saved/);
-        await dialog.accept();
-    });
-
     await page.getByRole('button', { name: /保存 AI 设置|Save AI Settings/ }).click();
+
+    // 保存成功提示改为应用内弹窗（替代原生 alert），点击确认关闭
+    const savedDialog = page.getByRole('dialog').filter({ hasText: /设置已保存|Settings saved/ }).last();
+    await expect(savedDialog).toBeVisible({ timeout: 5000 });
+    await savedDialog.getByRole('button', { name: /确认|Confirm/ }).click();
 
     // 等待保存完成
     await page.waitForTimeout(1000);

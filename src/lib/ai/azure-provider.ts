@@ -6,6 +6,7 @@ import { safeParseParsedQuestion } from './schema';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
 import { createLogger } from '../logger';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
+import { AI_SUBJECT_OPTIONS } from '../subjects';
 
 const logger = createLogger('ai:azure');
 
@@ -21,6 +22,7 @@ export interface AzureConfig {
     deploymentName?: string; // 部署名称
     apiVersion?: string;     // API 版本
     model?: string;          // 显示用模型名
+    timeoutMs?: number;      // 单次请求超时（毫秒）
 }
 
 export class AzureOpenAIProvider implements AIService {
@@ -46,11 +48,15 @@ export class AzureOpenAIProvider implements AIService {
             throw new Error("AI_AUTH_ERROR: AZURE_OPENAI_DEPLOYMENT is required for Azure OpenAI provider");
         }
 
+        // 单次请求超时（默认 180s），防止请求无限挂起；
+        // maxRetries: 2 为 SDK 内置的瞬时错误（429/5xx/网络）重试
         this.client = new AzureOpenAI({
             apiKey: apiKey,
             endpoint: endpoint,
             deployment: deployment,
             apiVersion: config?.apiVersion || '2024-02-15-preview',
+            timeout: config?.timeoutMs ?? 180_000,
+            maxRetries: 2,
         });
 
         this.model = config?.model || deployment;
@@ -64,6 +70,18 @@ export class AzureOpenAIProvider implements AIService {
             endpoint: endpoint,
             apiKeyPrefix: apiKey.substring(0, 8) + '...'
         }, 'Azure AI Provider initialized');
+    }
+
+    private logCompletion(method: string, startTime: number, usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null) {
+        logger.info({
+            provider: 'Azure OpenAI',
+            model: this.model,
+            method,
+            durationMs: Date.now() - startTime,
+            promptTokens: usage?.prompt_tokens,
+            completionTokens: usage?.completion_tokens,
+            totalTokens: usage?.total_tokens,
+        }, 'Azure request completed');
     }
 
     private extractTag(text: string, tagName: string): string | null {
@@ -100,7 +118,7 @@ export class AzureOpenAIProvider implements AIService {
 
         // Process Subject
         let subject: ParsedQuestion['subject'] = '其他';
-        const validSubjects: ParsedQuestion['subject'][] = ["数学", "物理", "化学", "生物", "英语", "语文", "历史", "地理", "政治", "其他"];
+        const validSubjects: ParsedQuestion['subject'][] = [...AI_SUBJECT_OPTIONS];
         if (subjectRaw && (validSubjects as string[]).includes(subjectRaw)) {
             subject = subjectRaw as ParsedQuestion['subject'];
         }
@@ -179,6 +197,7 @@ export class AzureOpenAIProvider implements AIService {
         logger.box('📝 Full System Prompt', systemPrompt);
 
         try {
+            const startTime = Date.now();
             const response = await this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
@@ -200,6 +219,8 @@ export class AzureOpenAIProvider implements AIService {
                 ],
                 max_tokens: 8192,
             });
+
+            this.logCompletion('analyzeImage', startTime, response.usage);
 
             logger.box('📦 Full API Response', JSON.stringify(response, null, 2));
 
@@ -260,6 +281,7 @@ Knowledge Points: ${knowledgePoints.join(", ")}
         logger.box('📝 User Prompt', userPrompt);
 
         try {
+            const startTime = Date.now();
             const response = await this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
@@ -274,6 +296,8 @@ Knowledge Points: ${knowledgePoints.join(", ")}
                 ],
                 max_tokens: 8192,
             });
+
+            this.logCompletion('generateSimilarQuestion', startTime, response.usage);
 
             const text = response.choices[0]?.message?.content || "";
 
@@ -331,6 +355,7 @@ Knowledge Points: ${knowledgePoints.join(", ")}
                 logger.debug({ imageBase64Type: typeof imageBase64, hasValue: !!imageBase64 }, 'No image data');
             }
 
+            const startTime = Date.now();
             const response = await this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
@@ -339,6 +364,8 @@ Knowledge Points: ${knowledgePoints.join(", ")}
                 ],
                 max_tokens: 8192,
             });
+
+            this.logCompletion('reanswerQuestion', startTime, response.usage);
 
             logger.debug({ response: JSON.stringify(response) }, 'Full API response');
 
@@ -388,6 +415,7 @@ Knowledge Points: ${knowledgePoints.join(", ")}
         }, 'GeoGebra Analysis Request');
 
         try {
+            const startTime = Date.now();
             const response = await this.client.chat.completions.create({
                 model: this.deployment,
                 messages: [
@@ -396,6 +424,8 @@ Knowledge Points: ${knowledgePoints.join(", ")}
                 ],
                 max_tokens: 4096,
             });
+
+            this.logCompletion('analyzeForGeogebra', startTime, response.usage);
 
             const text = response.choices[0]?.message?.content || '';
             logger.debug({ rawResponse: text }, 'GeoGebra AI raw response');

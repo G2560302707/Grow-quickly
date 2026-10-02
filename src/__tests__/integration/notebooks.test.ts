@@ -3,6 +3,7 @@
  * 测试错题本创建、获取、更新、删除等接口
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GONGKAO_NOTEBOOKS } from '@/lib/subjects';
 
 // Use vi.hoisted to ensure mocks are initialized before module imports
 const mocks = vi.hoisted(() => ({
@@ -84,19 +85,21 @@ describe('/api/notebooks', () => {
             // 第一次查询返回空数组，创建后第二次查询返回默认错题本
             mocks.mockPrismaSubject.findMany
                 .mockResolvedValueOnce([])
-                .mockResolvedValueOnce([
-                    { id: 'nb-1', name: '数学', userId: 'user-123', _count: { errorItems: 0 } },
-                    { id: 'nb-2', name: '英语', userId: 'user-123', _count: { errorItems: 0 } },
-                ]);
+                .mockResolvedValueOnce(GONGKAO_NOTEBOOKS.map((name, i) => ({
+                    id: `nb-${i + 1}`,
+                    name,
+                    userId: 'user-123',
+                    _count: { errorItems: 0 },
+                })));
             mocks.mockPrismaSubject.create.mockResolvedValue({});
 
             const response = await GET();
             const data = await response.json();
 
             expect(response.status).toBe(200);
-            expect(data).toHaveLength(2);
-            // 验证创建了默认错题本
-            expect(mocks.mockPrismaSubject.create).toHaveBeenCalledTimes(2);
+            expect(data).toHaveLength(GONGKAO_NOTEBOOKS.length);
+            // 验证创建了行测五大模块默认错题本
+            expect(mocks.mockPrismaSubject.create).toHaveBeenCalledTimes(GONGKAO_NOTEBOOKS.length);
         });
     });
 

@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiClient } from "@/lib/api-client";
 import { TagStats, TagStatsResponse } from "@/types/api";
 
+import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
+
 // 标签树节点类型
 interface TagTreeNode {
     id: string;
@@ -82,16 +84,16 @@ export default function TagsPage() {
     // 获取自定义标签
     const fetchCustomTags = useCallback(async () => {
         try {
-            // 获取所有学科的扁平标签，过滤非系统标签
-            const allCustom: Array<{ id: string; name: string; subject: string; parentName?: string }> = [];
-            for (const { key } of SUBJECTS) {
-                const data = await apiClient.get<{ tags: Array<{ id: string; name: string; isSystem: boolean; parentName?: string }> }>(
-                    `/api/tags?subject=${key}&flat=true`
-                );
-                const custom = data.tags.filter(t => !t.isSystem).map(t => ({ ...t, subject: key }));
-                allCustom.push(...custom);
-            }
-            setCustomTags(allCustom);
+            // 并行获取所有学科的扁平标签，过滤非系统标签
+            const results = await Promise.all(
+                SUBJECTS.map(async ({ key }) => {
+                    const data = await apiClient.get<{ tags: Array<{ id: string; name: string; isSystem: boolean; parentName?: string }> }>(
+                        `/api/tags?subject=${key}&flat=true`
+                    );
+                    return data.tags.filter(t => !t.isSystem).map(t => ({ ...t, subject: key }));
+                })
+            );
+            setCustomTags(results.flat());
         } catch (error) {
             console.error("Failed to fetch custom tags:", error);
         }
@@ -139,7 +141,7 @@ export default function TagsPage() {
     // 添加自定义标签
     const handleAddCustomTag = async () => {
         if (!newTagName.trim()) {
-            alert(t.tags?.custom?.enterName || "Please enter tag name");
+            await alertDialog({ description: t.tags?.custom?.enterName || "Please enter tag name" });
             return;
         }
 
@@ -154,12 +156,12 @@ export default function TagsPage() {
             // 刷新
             await fetchCustomTags();
             await fetchTags(newTagSubject);
-            alert(t.tags?.custom?.success || "Tag added successfully!");
+            await alertDialog({ description: t.tags?.custom?.success || "Tag added successfully!" });
         } catch (error: any) {
             if (error?.message?.includes('409')) {
-                alert(t.tags?.custom?.exists || "Tag already exists");
+                await alertDialog({ description: t.tags?.custom?.exists || "Tag already exists" });
             } else {
-                alert("Failed to add tag");
+                await alertDialog({ description: "Failed to add tag" });
             }
         } finally {
             setSubmitting(false);
@@ -168,7 +170,7 @@ export default function TagsPage() {
 
     // 删除自定义标签
     const handleRemoveCustomTag = async (tagId: string, tagName: string, subject: SubjectKey) => {
-        if (!confirm((t.tags?.custom?.deleteConfirm || "Are you sure you want to delete tag \"{tag}\"?").replace("{tag}", tagName))) {
+        if (!(await confirmDialog({ description: (t.tags?.custom?.deleteConfirm || "Are you sure you want to delete tag \"{tag}\"?").replace("{tag}", tagName) }))) {
             return;
         }
 
@@ -178,7 +180,7 @@ export default function TagsPage() {
             await fetchTags(subject);
         } catch (error) {
             console.error("Failed to delete tag:", error);
-            alert("Failed to delete tag");
+            await alertDialog({ description: "Failed to delete tag" });
         }
     };
 

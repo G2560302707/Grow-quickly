@@ -1,7 +1,7 @@
 /**
  * Models Route 单元测试
  *
- * 测试 /api/ai/models 端点的 Gemini 和 OpenAI 模型列表功能
+ * 测试 /api/ai/models 端点的鉴权与 Gemini/OpenAI 模型列表功能
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -18,22 +18,68 @@ vi.mock('@/lib/logger', () => ({
     })),
 }));
 
+// Mock next-auth
+const mockSession = {
+    user: { id: 'admin-123', email: 'admin@example.com', name: 'Admin', role: 'admin' },
+    expires: '2025-12-31',
+};
+
+vi.mock('next-auth', () => ({
+    getServerSession: vi.fn(() => Promise.resolve(mockSession)),
+}));
+
+vi.mock('@/lib/auth', () => ({
+    authOptions: {},
+}));
+
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
-import { GET } from '@/app/api/ai/models/route';
+import { POST } from '@/app/api/ai/models/route';
+import { getServerSession } from 'next-auth';
 
-function makeRequest(params: Record<string, string>): NextRequest {
-    const url = new URL('http://localhost/api/ai/models');
-    for (const [k, v] of Object.entries(params)) {
-        url.searchParams.set(k, v);
-    }
-    return new NextRequest(url);
+function makeRequest(body: Record<string, string>): NextRequest {
+    return new NextRequest('http://localhost/api/ai/models', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+    });
 }
 
-describe('GET /api/ai/models - Gemini provider', () => {
+describe('/api/ai/models - 鉴权', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(getServerSession).mockResolvedValue(mockSession);
+    });
+
+    it('未登录应返回 401', async () => {
+        vi.mocked(getServerSession).mockResolvedValueOnce(null as any);
+
+        const req = makeRequest({ provider: 'gemini', apiKey: 'test-key' });
+        const res = await POST(req);
+
+        expect(res.status).toBe(401);
+        expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('非管理员应返回 403', async () => {
+        vi.mocked(getServerSession).mockResolvedValueOnce({
+            user: { id: 'user-123', email: 'user@example.com', name: 'User', role: 'user' },
+            expires: '2025-12-31',
+        } as any);
+
+        const req = makeRequest({ provider: 'gemini', apiKey: 'test-key' });
+        const res = await POST(req);
+
+        expect(res.status).toBe(403);
+        expect(mockFetch).not.toHaveBeenCalled();
+    });
+});
+
+describe('POST /api/ai/models - Gemini provider', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(getServerSession).mockResolvedValue(mockSession);
     });
 
     it('应该正确获取并返回 Gemini 视觉模型列表', async () => {
@@ -49,7 +95,7 @@ describe('GET /api/ai/models - Gemini provider', () => {
         });
 
         const req = makeRequest({ provider: 'gemini', apiKey: 'test-key' });
-        const res = await GET(req);
+        const res = await POST(req);
         const body = await res.json();
 
         expect(res.status).toBe(200);
@@ -74,7 +120,7 @@ describe('GET /api/ai/models - Gemini provider', () => {
             apiKey: 'my-key',
             baseUrl: 'https://custom.google.com',
         });
-        await GET(req);
+        await POST(req);
 
         expect(mockFetch).toHaveBeenCalledWith(
             'https://custom.google.com/v1beta/models?key=my-key',
@@ -96,7 +142,7 @@ describe('GET /api/ai/models - Gemini provider', () => {
         });
 
         const req = makeRequest({ provider: 'gemini', apiKey: 'test-key' });
-        const res = await GET(req);
+        const res = await POST(req);
         const body = await res.json();
 
         expect(body.models).toHaveLength(4);
@@ -115,7 +161,7 @@ describe('GET /api/ai/models - Gemini provider', () => {
         });
 
         const req = makeRequest({ provider: 'gemini', apiKey: 'test-key' });
-        const res = await GET(req);
+        const res = await POST(req);
         const body = await res.json();
 
         expect(res.status).toBe(200);
@@ -129,7 +175,7 @@ describe('GET /api/ai/models - Gemini provider', () => {
         });
 
         const req = makeRequest({ provider: 'gemini', apiKey: 'test-key' });
-        const res = await GET(req);
+        const res = await POST(req);
         const body = await res.json();
 
         expect(res.status).toBe(200);
@@ -144,7 +190,7 @@ describe('GET /api/ai/models - Gemini provider', () => {
         });
 
         const req = makeRequest({ provider: 'gemini', apiKey: 'bad-key' });
-        const res = await GET(req);
+        const res = await POST(req);
         const body = await res.json();
 
         expect(res.status).toBe(200);
@@ -154,7 +200,7 @@ describe('GET /api/ai/models - Gemini provider', () => {
 
     it('缺少 apiKey 时应返回 400', async () => {
         const req = makeRequest({ provider: 'gemini' });
-        const res = await GET(req);
+        const res = await POST(req);
         const body = await res.json();
 
         expect(res.status).toBe(400);
@@ -162,9 +208,10 @@ describe('GET /api/ai/models - Gemini provider', () => {
     });
 });
 
-describe('GET /api/ai/models - OpenAI provider', () => {
+describe('POST /api/ai/models - OpenAI provider', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(getServerSession).mockResolvedValue(mockSession);
     });
 
     it('应该正确获取并返回 OpenAI 视觉模型列表', async () => {
@@ -180,7 +227,7 @@ describe('GET /api/ai/models - OpenAI provider', () => {
         });
 
         const req = makeRequest({ apiKey: 'test-key' });
-        const res = await GET(req);
+        const res = await POST(req);
         const body = await res.json();
 
         expect(res.status).toBe(200);
@@ -198,7 +245,7 @@ describe('GET /api/ai/models - OpenAI provider', () => {
         });
 
         const req = makeRequest({ apiKey: 'bad-key' });
-        const res = await GET(req);
+        const res = await POST(req);
         const body = await res.json();
 
         expect(res.status).toBe(200);

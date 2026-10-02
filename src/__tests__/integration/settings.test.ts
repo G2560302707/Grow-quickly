@@ -1,11 +1,20 @@
 /**
  * /api/settings API 集成测试
- * 测试应用配置获取和更新接口
+ * 测试应用配置获取和更新接口（含鉴权与 API Key 掩码）
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Use vi.hoisted to ensure mocks are initialized before module imports
 const mocks = vi.hoisted(() => ({
+    mockSession: {
+        user: {
+            id: 'admin-123',
+            email: 'admin@example.com',
+            name: 'Admin User',
+            role: 'admin',
+        },
+        expires: '2025-12-31',
+    },
     mockGetAppConfig: vi.fn(() => ({
         aiProvider: 'gemini',
         allowRegistration: true,
@@ -24,9 +33,17 @@ const mocks = vi.hoisted(() => ({
             baseUrl: '',
             model: 'gemini-2.5-flash',
         },
+        azure: {
+            apiKey: 'azure-test-key',
+            endpoint: 'https://test.openai.azure.com',
+            deploymentName: 'gpt-4o',
+        },
         prompts: {
             analyze: '',
             similar: '',
+        },
+        timeouts: {
+            analyze: 180000,
         },
     })),
     mockUpdateAppConfig: vi.fn((config: any) => ({
@@ -41,15 +58,115 @@ vi.mock('@/lib/config', () => ({
     updateAppConfig: mocks.mockUpdateAppConfig,
 }));
 
+// Mock next-auth
+vi.mock('next-auth', () => ({
+    getServerSession: vi.fn(() => Promise.resolve(mocks.mockSession)),
+}));
+
+vi.mock('@/lib/auth', () => ({
+    authOptions: {},
+}));
+
 // Import after mocks
 import { GET, POST } from '@/app/api/settings/route';
+import { getServerSession } from 'next-auth';
 
 describe('/api/settings', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
     });
 
-    describe('GET /api/settings', () => {
+    describe('鉴权', () => {
+        it('未登录 GET 应返回 401', async () => {
+            vi.mocked(getServerSession).mockResolvedValueOnce(null as any);
+
+            const response = await GET();
+            expect(response.status).toBe(401);
+        });
+
+        it('未登录 POST 应返回 401', async () => {
+            vi.mocked(getServerSession).mockResolvedValueOnce(null as any);
+
+            const request = new Request('http://localhost/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({ aiProvider: 'openai' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(401);
+            expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
+        });
+
+        it('非管理员 POST 应返回 403', async () => {
+            vi.mocked(getServerSession).mockResolvedValueOnce({
+                user: { id: 'user-123', email: 'user@example.com', name: 'User', role: 'user' },
+                expires: '2025-12-31',
+            } as any);
+
+            const request = new Request('http://localhost/api/settings', {
+                method: 'POST',
+                body: JSON.stringify({ aiProvider: 'openai' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(403);
+            expect(mocks.mockUpdateAppConfig).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('API Key 掩码', () => {
+        it('管理员 GET 应返回完整配置（含明文 API Key）', async () => {
+            const response = await GET();
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.openai.instances[0].apiKey).toBe('sk-test-key');
+            expect(data.gemini.apiKey).toBe('AIza-test-key');
+            expect(data.azure.apiKey).toBe('azure-test-key');
+        });
+
+        it('非管理员 GET 应返回掩码后的 API Key', async () => {
+            vi.mocked(getServerSession).mockResolvedValueOnce({
+                user: { id: 'user-123', email: 'user@example.com', name: 'User', role: 'user' },
+                expires: '2025-12-31',
+            } as any);
+
+            const response = await GET();
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.openai.instances[0].apiKey).toBe('********');
+            expect(data.gemini.apiKey).toBe('********');
+            expect(data.azure.apiKey).toBe('********');
+            // 非敏感字段不受影响
+            expect(data.aiProvider).toBe('gemini');
+            expect(data.timeouts.analyze).toBe(180000);
+        });
+
+        it('非管理员 GET 不应泄漏空值 Key 以外的信息', async () => {
+            mocks.mockGetAppConfig.mockImplementationOnce(() => ({
+                aiProvider: 'gemini',
+                gemini: { apiKey: '', model: 'gemini-2.5-flash' },
+                azure: {},
+            }));
+
+            vi.mocked(getServerSession).mockResolvedValueOnce({
+                user: { id: 'user-123', email: 'user@example.com', name: 'User', role: 'user' },
+                expires: '2025-12-31',
+            } as any);
+
+            const response = await GET();
+            const data = await response.json();
+
+            expect(data.gemini.apiKey).toBe('');
+            expect(data.openai.instances).toEqual([]);
+        });
+    });
+
+    describe('GET /api/settings（管理员）', () => {
         it('应该返回完整的应用配置', async () => {
             const response = await GET();
             const data = await response.json();
@@ -66,7 +183,6 @@ describe('/api/settings', () => {
             const data = await response.json();
 
             expect(data.openai.instances[0].apiKey).toBe('sk-test-key');
-            expect(data.gemini.apiKey).toBe('AIza-test-key');
             expect(data.gemini.model).toBe('gemini-2.5-flash');
         });
 

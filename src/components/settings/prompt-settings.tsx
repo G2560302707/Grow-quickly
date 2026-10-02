@@ -10,6 +10,8 @@ import { DEFAULT_ANALYZE_TEMPLATE, DEFAULT_SIMILAR_TEMPLATE } from "@/lib/ai/pro
 import { RotateCcw, AlertTriangle, Info } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+import { confirmDialog } from "@/components/ui/app-dialog";
+
 interface PromptSettingsProps {
     config: AppConfig;
     onUpdate: (type: 'analyze' | 'similar', value: string) => void;
@@ -39,8 +41,8 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
         setSimilarTemplate(config.prompts?.similar || DEFAULT_SIMILAR_TEMPLATE);
     }, [config.prompts]);
 
-    const handleReset = (type: 'analyze' | 'similar') => {
-        if (!confirm(t.settings?.prompts?.resetConfirm || "Are you sure you want to reset to default?")) return;
+    const handleReset = async (type: 'analyze' | 'similar') => {
+        if (!(await confirmDialog({ description: t.settings?.prompts?.resetConfirm || "Are you sure you want to reset to default?" }))) return;
 
         const defaultValue = type === 'analyze' ? DEFAULT_ANALYZE_TEMPLATE : DEFAULT_SIMILAR_TEMPLATE;
         if (type === 'analyze') {

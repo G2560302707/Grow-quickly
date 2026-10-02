@@ -20,6 +20,8 @@ import { getMistakeStatusLabel, normalizeMistakeStatusForSave } from "@/lib/mist
 import { NotebookSelector } from "@/components/notebook-selector";
 import { GeogebraDemo } from "@/components/geogebra-demo";
 
+import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
+
 interface KnowledgeTag {
     id: string;
     name: string;
@@ -97,7 +99,7 @@ export default function ErrorDetailPage() {
             setItem(data);
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.loadFailed || 'Failed to load item');
+            await alertDialog({ description: t.common?.messages?.loadFailed || 'Failed to load item' });
             router.push("/notebooks");
         } finally {
             setLoading(false);
@@ -149,10 +151,10 @@ export default function ErrorDetailPage() {
         try {
             await apiClient.patch(`/api/error-items/${item.id}/mastery`, { masteryLevel: newLevel });
             setItem({ ...item, masteryLevel: newLevel });
-            alert(newLevel > 0 ? (t.common?.messages?.markMastered || 'Marked as mastered') : (t.common?.messages?.unmarkMastered || 'Unmarked'));
+            await alertDialog({ description: newLevel > 0 ? (t.common?.messages?.markMastered || 'Marked as mastered') : (t.common?.messages?.unmarkMastered || 'Unmarked') });
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.updateFailed || 'Update failed');
+            await alertDialog({ description: t.common?.messages?.updateFailed || 'Update failed' });
         }
     };
 
@@ -160,11 +162,11 @@ export default function ErrorDetailPage() {
         if (!item) return;
 
         const confirmMessage = t.common?.messages?.confirmDelete || 'Are you sure you want to delete this error item?';
-        if (!confirm(confirmMessage)) return;
+        if (!(await confirmDialog({ description: confirmMessage }))) return;
 
         try {
             await apiClient.delete(`/api/error-items/${item.id}/delete`);
-            alert(t.common?.messages?.deleteSuccess || 'Deleted successfully');
+            await alertDialog({ description: t.common?.messages?.deleteSuccess || 'Deleted successfully' });
             if (item.subjectId) {
                 router.push(`/notebooks/${item.subjectId}`);
             } else {
@@ -172,7 +174,7 @@ export default function ErrorDetailPage() {
             }
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.deleteFailed || 'Delete failed');
+            await alertDialog({ description: t.common?.messages?.deleteFailed || 'Delete failed' });
         }
     };
 
@@ -215,10 +217,10 @@ export default function ErrorDetailPage() {
 
             setIsEditingTags(false);
             await fetchItem(params.id as string);
-            alert(t.common?.messages?.tagUpdateSuccess || 'Tags updated successfully!');
+            await alertDialog({ description: t.common?.messages?.tagUpdateSuccess || 'Tags updated successfully!' });
         } catch (error) {
             console.error("[Frontend] Error updating:", error);
-            alert(t.common?.messages?.updateFailed || 'Update failed');
+            await alertDialog({ description: t.common?.messages?.updateFailed || 'Update failed' });
         }
     };
 
@@ -246,10 +248,10 @@ export default function ErrorDetailPage() {
 
             setIsEditingMetadata(false);
             fetchItem(params.id as string);
-            alert(t.common?.messages?.metaUpdateSuccess || 'Metadata updated successfully!');
+            await alertDialog({ description: t.common?.messages?.metaUpdateSuccess || 'Metadata updated successfully!' });
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.updateFailed || 'Update failed');
+            await alertDialog({ description: t.common?.messages?.updateFailed || 'Update failed' });
         }
     };
 
@@ -287,10 +289,10 @@ export default function ErrorDetailPage() {
             await apiClient.put(`/api/error-items/${item?.id}`, { questionText: questionInput });
             setIsEditingQuestion(false);
             if (item) setItem({ ...item, questionText: questionInput });
-            alert(t.common?.messages?.saveSuccess || 'Saved successfully');
+            await alertDialog({ description: t.common?.messages?.saveSuccess || 'Saved successfully' });
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.saveFailed || 'Save failed');
+            await alertDialog({ description: t.common?.messages?.saveFailed || 'Save failed' });
         }
     };
 
@@ -312,10 +314,10 @@ export default function ErrorDetailPage() {
             await apiClient.put(`/api/error-items/${item?.id}`, { answerText: answerInput });
             setIsEditingAnswer(false);
             if (item) setItem({ ...item, answerText: answerInput });
-            alert(t.common?.messages?.saveSuccess || 'Saved successfully');
+            await alertDialog({ description: t.common?.messages?.saveSuccess || 'Saved successfully' });
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.saveFailed || 'Save failed');
+            await alertDialog({ description: t.common?.messages?.saveFailed || 'Save failed' });
         }
     };
 
@@ -337,10 +339,10 @@ export default function ErrorDetailPage() {
             await apiClient.put(`/api/error-items/${item?.id}`, { analysis: analysisInput });
             setIsEditingAnalysis(false);
             if (item) setItem({ ...item, analysis: analysisInput });
-            alert(t.common?.messages?.saveSuccess || 'Saved successfully');
+            await alertDialog({ description: t.common?.messages?.saveSuccess || 'Saved successfully' });
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.saveFailed || 'Save failed');
+            await alertDialog({ description: t.common?.messages?.saveFailed || 'Save failed' });
         }
     };
 
@@ -379,10 +381,10 @@ export default function ErrorDetailPage() {
                     mistakeStatus: normalizedStatus,
                 });
             }
-            alert(t.common?.messages?.saveSuccess || 'Saved successfully');
+            await alertDialog({ description: t.common?.messages?.saveSuccess || 'Saved successfully' });
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.saveFailed || 'Save failed');
+            await alertDialog({ description: t.common?.messages?.saveFailed || 'Save failed' });
         }
     };
 
@@ -400,10 +402,10 @@ export default function ErrorDetailPage() {
             await apiClient.patch(`/api/error-items/${item.id}/notes`, { userNotes: notesInput });
             setItem({ ...item, userNotes: notesInput });
             setIsEditingNotes(false);
-            alert(t.common?.messages?.noteSaveSuccess || 'Notes saved successfully');
+            await alertDialog({ description: t.common?.messages?.noteSaveSuccess || 'Notes saved successfully' });
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.saveFailed || 'Save failed');
+            await alertDialog({ description: t.common?.messages?.saveFailed || 'Save failed' });
         }
     };
 

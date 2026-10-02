@@ -17,6 +17,8 @@ import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedb
 import { frontendLogger } from "@/lib/frontend-logger";
 import { TextInputZone } from "@/components/text-input-zone";
 
+import { alertDialog } from "@/components/ui/app-dialog";
+
 export default function AddErrorPage() {
     const params = useParams();
     const router = useRouter();
@@ -221,13 +223,13 @@ export default function AddErrorPage() {
                     }
                 }
 
-                alert(errorMessage);
+                await alertDialog({ description: errorMessage });
             } catch (innerError) {
                 frontendLogger.error('[AddError]', 'Failed to process error message', {
                     innerError: String(innerError)
                 });
                 // 确保至少弹出一个提示
-                alert('Analysis failed. Please try again.');
+                await alertDialog({ description: 'Analysis failed. Please try again.' });
             }
         } finally {
             // Always reset analysis state, even if setState throws
@@ -268,7 +270,7 @@ export default function AddErrorPage() {
                 wrongAnswerText: result.wrongAnswerText || "",
                 mistakeAnalysis: result.mistakeAnalysis || "",
                 mistakeStatus: (result.mistakeStatus as any) || "unknown",
-                subject: "数学",
+                subject: "判断推理",
                 requiresImage: false,
             };
 
@@ -296,9 +298,9 @@ export default function AddErrorPage() {
                         errorMessage = backendErrorType;
                     }
                 }
-                alert(errorMessage);
+                await alertDialog({ description: errorMessage });
             } catch {
-                alert('Analysis failed. Please try again.');
+                await alertDialog({ description: 'Analysis failed. Please try again.' });
             }
         } finally {
             setAnalysisStep('idle');
@@ -318,11 +320,11 @@ export default function AddErrorPage() {
                 frontendLogger.info('[AddSave]', 'Duplicate submission detected, using existing record');
             }
 
-            alert(t.common.messages?.saveSuccess || 'Saved!');
+            await alertDialog({ description: t.common.messages?.saveSuccess || 'Saved!' });
             router.push(`/notebooks/${notebookId}`);
         } catch (error) {
             console.error(error);
-            alert(t.common.messages?.saveFailed || 'Save failed');
+            await alertDialog({ description: t.common.messages?.saveFailed || 'Save failed' });
         }
     };
 

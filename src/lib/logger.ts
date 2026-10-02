@@ -221,12 +221,17 @@ function createLoggerInstance(baseContext: LogContext = {}): Logger {
     fatal: createLogFunction('fatal', baseContext),
     child: (bindings: LogContext) => createLoggerInstance({ ...baseContext, ...bindings }),
 
-    // Decorative box logging (only in development)
+    // Decorative box logging (debug 级别，受 LOG_LEVEL 约束：
+    // 仅在 LOG_LEVEL=debug（或非生产环境默认值）时输出，避免把完整请求/响应体打进生产日志）
     box: (title: string, content?: string | LogContext, emoji: string = '📋') => {
+      if (LOG_LEVELS.debug < getLogLevel()) {
+        return;
+      }
+
       if (!isPrettyMode) {
         // In production, just log as JSON
         const ctx = typeof content === 'string' ? { content } : (content || {});
-        console.log(JSON.stringify({ level: 'info', time: new Date().toISOString(), ...baseContext, title, ...ctx, msg: title }));
+        console.log(JSON.stringify({ level: 'debug', time: new Date().toISOString(), ...baseContext, title, ...ctx, msg: title }));
         return;
       }
 

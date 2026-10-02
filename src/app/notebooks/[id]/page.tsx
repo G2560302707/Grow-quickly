@@ -14,6 +14,8 @@ import { apiClient } from "@/lib/api-client";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 
+import { alertDialog } from "@/components/ui/app-dialog";
+
 // ... imports
 
 export default function NotebookDetailPage() {
@@ -36,7 +38,7 @@ export default function NotebookDetailPage() {
             setNotebook(data);
         } catch (error) {
             console.error("Failed to fetch notebook:", error);
-            alert(t.notebooks?.notFound || "Notebook not found");
+            await alertDialog({ description: t.notebooks?.notFound || "Notebook not found" });
             router.push("/notebooks");
         } finally {
             setLoading(false);

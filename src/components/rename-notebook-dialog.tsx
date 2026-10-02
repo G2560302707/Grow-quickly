@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 
+import { alertDialog } from "@/components/ui/app-dialog";
+
 interface RenameNotebookDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -32,7 +34,7 @@ export function RenameNotebookDialog({ open, onOpenChange, currentName, onRename
 
     const handleRename = async () => {
         if (!name.trim()) {
-            alert(t.notebooks?.renameDialog?.enterName || "Please enter notebook name");
+            await alertDialog({ description: t.notebooks?.renameDialog?.enterName || "Please enter notebook name" });
             return;
         }
 

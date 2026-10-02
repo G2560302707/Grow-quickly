@@ -23,6 +23,8 @@ import type { ReanswerQuestionResult } from "@/lib/ai/types";
 import { buildReanswerRequestBody } from "@/lib/reanswer-request";
 import { GeogebraDemo } from "@/components/geogebra-demo";
 
+import { alertDialog } from "@/components/ui/app-dialog";
+
 interface ParsedQuestionWithSubject extends ParsedQuestion {
     subjectId?: string;
     gradeSemester?: string;
@@ -88,7 +90,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
     // 重新解题函数
     const handleReanswer = async () => {
         if (!data.questionText.trim()) {
-            alert(t.editor.enterQuestionFirst || 'Please enter question text first');
+            await alertDialog({ description: t.editor.enterQuestionFirst || 'Please enter question text first' });
             return;
         }
 
@@ -125,7 +127,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 ),
             }));
 
-            alert(t.editor.reanswerSuccess || '✅ Answer and analysis updated!');
+            await alertDialog({ description: t.editor.reanswerSuccess || '✅ Answer and analysis updated!' });
         } catch (error: unknown) {
             console.error("Reanswer failed:", error);
             const apiError = error as { data?: { message?: string } };
@@ -142,7 +144,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 errorText = reanswerErrors.responseError || t.errors?.AI_RESPONSE_ERROR || errorText;
             }
 
-            alert(errorText);
+            await alertDialog({ description: errorText });
 
         } finally {
             setIsReanswering(false);
@@ -151,11 +153,11 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
 
     const handleAnalyzeGeogebra = async () => {
         if (!data.questionText.trim()) {
-            alert(t.editor.enterQuestionFirst || '请先输入题目文本');
+            await alertDialog({ description: t.editor.enterQuestionFirst || '请先输入题目文本' });
             return;
         }
         if (!data.answerText.trim()) {
-            alert('请先生成或输入答案');
+            await alertDialog({ description: '请先生成或输入答案' });
             return;
         }
 
@@ -205,7 +207,7 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                     <Button
                         onClick={async () => {
                             if (!data.subjectId) {
-                                alert(t.editor.messages?.selectNotebook || "Please select a notebook");
+                                await alertDialog({ description: t.editor.messages?.selectNotebook || "Please select a notebook" });
                                 return;
                             }
                             if (isSaving) return; // 防止重复点击

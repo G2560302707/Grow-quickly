@@ -581,6 +581,16 @@ describe('/api/error-items', () => {
     });
 
     describe('PATCH /api/error-items/[id]/notes (更新笔记)', () => {
+        beforeEach(() => {
+            // 默认：属主校验通过（错题属于当前登录用户 user-123）
+            mocks.mockPrismaErrorItem.findFirst.mockImplementation(async (args: any) => {
+                if (args?.where?.id === 'error-item-1' && args?.where?.userId === 'user-123') {
+                    return { id: 'error-item-1', userId: 'user-123', userNotes: '' };
+                }
+                return null;
+            });
+        });
+
         it('应该成功更新用户笔记', async () => {
             const existingItem = {
                 id: 'error-item-1',
@@ -663,6 +673,22 @@ describe('/api/error-items', () => {
 
             expect(response.status).toBe(401);
             expect(data.message).toBeDefined();
+        });
+
+        it('应该拒绝修改他人的错题笔记（越权返回 404）', async () => {
+            // 属主校验失败：错题不属于当前用户
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null);
+
+            const request = new Request('http://localhost/api/error-items/error-item-other/notes', {
+                method: 'PATCH',
+                body: JSON.stringify({ userNotes: '越权笔记' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await PATCH_NOTES(request, { params: Promise.resolve({ id: 'error-item-other' }) });
+
+            expect(response.status).toBe(404);
+            expect(mocks.mockPrismaErrorItem.update).not.toHaveBeenCalled();
         });
 
         it('应该处理数据库错误', async () => {

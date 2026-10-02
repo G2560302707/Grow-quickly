@@ -244,3 +244,16 @@ export interface RegisterRequest {
     educationStage: string;
     enrollmentYear: number;
 }
+
+export interface AnnouncementItem {
+    id: string;
+    title: string;
+    content: string;
+    createdAt: string;
+    read?: boolean;
+}
+
+export interface AdminAnnouncement extends AnnouncementItem {
+    isActive: boolean;
+    readCount: number;
+}

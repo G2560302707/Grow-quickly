@@ -62,15 +62,15 @@ export function inferSubjectFromName(subjectName: string | null): 'math' | 'phys
 
     const lowerName = subjectName.toLowerCase();
 
-    if (lowerName.includes('math') || lowerName.includes('数学')) return 'math';
+    if (lowerName.includes('math') || lowerName.includes('数学') || lowerName.includes('数量')) return 'math';
     if (lowerName.includes('physics') || lowerName.includes('物理')) return 'physics';
     if (lowerName.includes('chemistry') || lowerName.includes('化学')) return 'chemistry';
     if (lowerName.includes('biology') || lowerName.includes('生物')) return 'biology';
     if (lowerName.includes('english') || lowerName.includes('英语')) return 'english';
-    if (lowerName.includes('chinese') || lowerName.includes('语文')) return 'chinese';
-    if (lowerName.includes('history') || lowerName.includes('历史')) return 'history';
-    if (lowerName.includes('geography') || lowerName.includes('地理')) return 'geography';
-    if (lowerName.includes('politics') || lowerName.includes('政治')) return 'politics';
+    if (lowerName.includes('chinese') || lowerName.includes('语文') || lowerName.includes('言语') || lowerName.includes('申论')) return 'chinese';
+    if (lowerName.includes('history') || lowerName.includes('历史') || lowerName.includes('常识')) return 'history';
+    if (lowerName.includes('geography') || lowerName.includes('地理') || lowerName.includes('资料')) return 'geography';
+    if (lowerName.includes('politics') || lowerName.includes('政治') || lowerName.includes('判断')) return 'politics';
 
     return null;
 }

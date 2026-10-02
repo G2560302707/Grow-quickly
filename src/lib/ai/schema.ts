@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AI_SUBJECT_OPTIONS } from '@/lib/subjects';
 
 /**
  * Zod schema for validating AI-parsed questions
@@ -11,11 +12,7 @@ export const ParsedQuestionSchema = z.object({
     wrongAnswerText: z.string().optional().default(""),
     mistakeAnalysis: z.string().optional().default(""),
     mistakeStatus: z.enum(["not_attempted", "wrong_attempt", "unknown"]).optional().default("unknown"),
-    subject: z.enum([
-        "数学", "物理", "化学", "生物",
-        "英语", "语文", "历史", "地理",
-        "政治", "其他"
-    ]),
+    subject: z.enum(AI_SUBJECT_OPTIONS),
     knowledgePoints: z.array(z.string()).max(5, "知识点最多 5 个"),
     requiresImage: z.boolean().optional().default(false), // 题目是否依赖图片（如几何题）
 });

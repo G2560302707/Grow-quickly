@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, badRequest, conflict, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { GONGKAO_NOTEBOOKS } from "@/lib/subjects";
 
 const logger = createLogger('api:notebooks');
 
@@ -42,9 +43,9 @@ export async function GET() {
             },
         });
 
-        // If no notebooks exist, create default ones
+        // If no notebooks exist, create default 考公/行测 modules
         if (notebooks.length === 0) {
-            const defaultSubjects = ["数学", "英语"];
+            const defaultSubjects = [...GONGKAO_NOTEBOOKS];
 
             await Promise.all(defaultSubjects.map(name =>
                 prisma.subject.create({

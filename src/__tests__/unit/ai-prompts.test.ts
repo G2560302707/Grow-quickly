@@ -353,43 +353,41 @@ describe('AI Prompts', () => {
             expect(prompt).toContain('Markdown 表格语法');
         });
 
-        it('表格处理规则应包含标准表格示例', () => {
+        it('表格处理规则应覆盖资料分析场景', () => {
             const prompt = generateAnalyzePrompt('zh');
-            expect(prompt).toContain('| 列标题1 | 列标题2 | 列标题3 |');
-            expect(prompt).toContain('|---------|---------|---------|');
+            expect(prompt).toContain('资料分析');
+            expect(prompt).toContain('全部单元格');
         });
 
-        it('表格处理规则应包含复杂表格处理说明', () => {
+        it('表格处理规则应包含复杂表头说明', () => {
             const prompt = generateAnalyzePrompt('zh');
-            expect(prompt).toContain('复杂表格');
-            expect(prompt).toContain('合并单元格');
-            expect(prompt).toContain('多级表头');
+            expect(prompt).toContain('复杂表头');
+            expect(prompt).toContain('简化表格');
         });
 
-        it('表格处理规则应要求完整性', () => {
+        it('表格处理规则应要求完整性与模糊标注', () => {
             const prompt = generateAnalyzePrompt('zh');
-            expect(prompt).toContain('表格完整性要求');
-            expect(prompt).toContain('必须转录所有单元格内容');
-            expect(prompt).toContain('保留表格标题、单位、注释');
+            expect(prompt).toContain('标题、单位、注释');
+            expect(prompt).toContain('表格内容可能不完整');
         });
 
-        it('表格处理规则应包含特殊情况处理', () => {
+        it('解析应要求考公四段结构', () => {
             const prompt = generateAnalyzePrompt('zh');
-            expect(prompt).toContain('特殊情况处理');
-            expect(prompt).toContain('手写表格');
-            expect(prompt).toContain('模糊表格');
+            expect(prompt).toContain('考点');
+            expect(prompt).toContain('选项排除');
+            expect(prompt).toContain('易错点');
         });
 
-        it('answer_text 应引用表格处理规则', () => {
+        it('question_text 应包含表格处理规则', () => {
             const prompt = generateAnalyzePrompt('zh');
-            expect(prompt).toContain('<answer_text>');
-            expect(prompt).toMatch(/<answer_text>[\s\S]*表格处理规则[\s\S]*<\/answer_text>/);
+            expect(prompt).toContain('<question_text>');
+            expect(prompt).toMatch(/<question_text>[\s\S]*表格处理规则[\s\S]*<\/question_text>/);
         });
 
-        it('analysis 应引用表格处理规则', () => {
+        it('analysis 应引用表格规则', () => {
             const prompt = generateAnalyzePrompt('zh');
             expect(prompt).toContain('<analysis>');
-            expect(prompt).toMatch(/<analysis>[\s\S]*表格处理规则[\s\S]*<\/analysis>/);
+            expect(prompt).toMatch(/<analysis>[\s\S]*表格规则[\s\S]*<\/analysis>/);
         });
     });
 });

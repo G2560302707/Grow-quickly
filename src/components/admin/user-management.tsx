@@ -19,6 +19,8 @@ import { Trash2, Ban, CheckCircle, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { AdminUser, AppConfig } from "@/types/api";
 
+import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
+
 export function UserManagement() {
     const { data: session } = useSession();
     const { t, language } = useLanguage();
@@ -48,7 +50,7 @@ export function UserManagement() {
             setAllowRegistration(checked);
         } catch (error) {
             console.error("Failed to update registration setting", error);
-            alert(t.common.error);
+            await alertDialog({ description: t.common.error });
         } finally {
             setSavingRegistration(false);
         }
@@ -71,19 +73,19 @@ export function UserManagement() {
             ? t.admin.confirmDisable
             : t.admin.confirmEnable;
 
-        if (!confirm(confirmMsg)) return;
+        if (!(await confirmDialog({ description: confirmMsg }))) return;
 
         try {
             await apiClient.patch(`/api/admin/users/${user.id}`, { isActive: !user.isActive });
             fetchUsers();
         } catch (error) {
             console.error("Failed to update user status", error);
-            alert(t.common.error);
+            await alertDialog({ description: t.common.error });
         }
     };
 
     const handleDelete = async (user: AdminUser) => {
-        if (!confirm(t.admin.confirmDelete)) return;
+        if (!(await confirmDialog({ description: t.admin.confirmDelete }))) return;
 
         try {
             await apiClient.delete(`/api/admin/users/${user.id}`);
@@ -91,7 +93,7 @@ export function UserManagement() {
         } catch (error: any) {
             console.error("Failed to delete user", error);
             const text = error.data?.message || t.common.error;
-            alert(text);
+            await alertDialog({ description: text });
         }
     };
 

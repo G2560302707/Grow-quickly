@@ -11,6 +11,8 @@ import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { RegisterRequest } from "@/types/api";
 
+import { alertDialog } from "@/components/ui/app-dialog";
+
 export default function RegisterPage() {
     const router = useRouter();
     const { t, language } = useLanguage();
@@ -62,7 +64,7 @@ export default function RegisterPage() {
                 enrollmentYear: parseInt(enrollmentYear)
             });
 
-            alert(t.auth?.register?.success || 'Registration successful! Please login');
+            await alertDialog({ description: t.auth?.register?.success || 'Registration successful! Please login' });
             router.push("/login");
         } catch (error: any) {
             let errorMsg = error.data?.message;

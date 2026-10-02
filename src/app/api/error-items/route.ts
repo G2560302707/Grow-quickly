@@ -3,13 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { calculateGrade } from "@/lib/grade-calculator";
-import { unauthorized, internalError } from "@/lib/api-errors";
+import { unauthorized, internalError, validationError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
 
 const logger = createLogger('api:error-items');
+
+// base64 图片数据上限（约 10MB 解码后大小），防止超大 payload 撑爆 SQLite
+const MAX_IMAGE_DATA_LENGTH = 14_000_000;
 
 export async function POST(req: Request) {
     logger.info('POST /api/error-items called');
@@ -32,6 +35,12 @@ export async function POST(req: Request) {
             paperLevel,
             geogebraCommands,
         } = body;
+
+        // 图片大小校验：base64 数据超限直接拒绝
+        if (typeof originalImageUrl === 'string' && originalImageUrl.length > MAX_IMAGE_DATA_LENGTH) {
+            logger.warn({ size: originalImageUrl.length }, 'Image data exceeds size limit');
+            return validationError("Image is too large. Please compress or crop the image before uploading.");
+        }
 
         // 记录请求参数（不记录完整图片数据）
         logger.debug({

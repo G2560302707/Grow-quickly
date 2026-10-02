@@ -47,13 +47,14 @@ export function ModelSelector({ provider, apiKey, baseUrl, currentModel, onModel
         setError(null);
 
         try {
-            const params = new URLSearchParams({
-                provider,
-                apiKey,
-                ...(baseUrl && { baseUrl }),
-            });
-
-            const data = await apiClient.get<ModelsResponse>(`/api/ai/models?${params}`);
+            const data = await apiClient.post<ModelsResponse, { provider: string; apiKey: string; baseUrl?: string }>(
+                '/api/ai/models',
+                {
+                    provider,
+                    apiKey,
+                    ...(baseUrl && { baseUrl }),
+                }
+            );
 
             // Check if there's an error message in the response
             if ('error' in data && typeof data.error === 'string') {

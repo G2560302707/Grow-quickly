@@ -21,11 +21,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { KnowledgeFilter } from "@/components/knowledge-filter";
 import { ErrorItem, PaginatedResponse } from "@/types/api";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, ApiError } from "@/lib/api-client";
 import { cleanMarkdown } from "@/lib/markdown-utils";
 import { Pagination } from "@/components/ui/pagination";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination";
 import { getMistakeStatusLabel } from "@/lib/mistake-status";
+
+import { confirmDialog, alertDialog } from "@/components/ui/app-dialog";
 
 interface ErrorListProps {
     subjectId?: string;
@@ -42,6 +44,10 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
     const [items, setItems] = useState<ErrorItem[]>([]);
     const [, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    // 搜索防抖：输入停止 300ms 后才触发请求
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    // 当前列表请求的中断控制器
+    const abortRef = useRef<AbortController | null>(null);
     const [masteryFilter, setMasteryFilter] = useState<"all" | "mastered" | "unmastered">("all");
     const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month">("all");
     const [gradeFilter, setGradeFilter] = useState("");
@@ -148,32 +154,38 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
 
         const confirmMsg = (t.notebook?.confirmBatchDelete || "Delete {count} items?")
             .replace("{count}", selectedIds.size.toString());
-        if (!confirm(confirmMsg)) return;
+        if (!(await confirmDialog({ description: confirmMsg }))) return;
 
         setIsDeleting(true);
         try {
             await apiClient.post("/api/error-items/batch-delete", {
                 ids: Array.from(selectedIds),
             });
-            alert(t.notebook?.batchDeleteSuccess || "Deleted successfully");
+            await alertDialog({ description: t.notebook?.batchDeleteSuccess || "Deleted successfully" });
             setIsSelectMode(false);
             setSelectedIds(new Set());
             fetchItems();
         } catch (error) {
             console.error(error);
-            alert(t.common?.messages?.deleteFailed || "Delete failed");
+            await alertDialog({ description: t.common?.messages?.deleteFailed || "Delete failed" });
         } finally {
             setIsDeleting(false);
         }
     };
 
+    // 搜索输入防抖
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search), 300);
+        return () => clearTimeout(timer);
+    }, [search]);
+
     // 追踪筛选条件是否变化（用于判断是否需要重置页码）
-    const prevFiltersRef = useRef({ search, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter });
+    const prevFiltersRef = useRef({ search: debouncedSearch, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter });
 
     useEffect(() => {
         const prevFilters = prevFiltersRef.current;
         const filtersChanged =
-            prevFilters.search !== search ||
+            prevFilters.search !== debouncedSearch ||
             prevFilters.masteryFilter !== masteryFilter ||
             prevFilters.timeFilter !== timeFilter ||
             prevFilters.selectedTag !== selectedTag ||
@@ -183,7 +195,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             prevFilters.paperLevelFilter !== paperLevelFilter;
 
         // 更新 ref
-        prevFiltersRef.current = { search, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter };
+        prevFiltersRef.current = { search: debouncedSearch, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter };
 
         if (filtersChanged && page !== 1) {
             // 筛选条件变化且不在第一页，重置到第一页（会再次触发此 effect）
@@ -193,14 +205,20 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
 
         // 正常请求数据
         fetchItems();
-    }, [page, search, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, debouncedSearch, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter]);
 
     const fetchItems = async () => {
+        // 中断上一次未完成的请求，避免过期响应覆盖新数据
+        abortRef.current?.abort();
+        const controller = new AbortController();
+        abortRef.current = controller;
+
         setLoading(true);
         try {
             const params = new URLSearchParams();
             if (subjectId) params.append("subjectId", subjectId);
-            if (search) params.append("query", search);
+            if (debouncedSearch) params.append("query", debouncedSearch);
             if (masteryFilter !== "all") {
                 params.append("mastery", masteryFilter === "mastered" ? "1" : "0");
             }
@@ -217,14 +235,22 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             params.append("page", page.toString());
             params.append("pageSize", pageSize.toString());
 
-            const response = await apiClient.get<PaginatedResponse<ErrorItem>>(`/api/error-items/list?${params.toString()}`);
+            const response = await apiClient.get<PaginatedResponse<ErrorItem>>(`/api/error-items/list?${params.toString()}`, { signal: controller.signal });
+            if (controller.signal.aborted) return;
             setItems(response.items);
             setTotal(response.total);
             setTotalPages(response.totalPages);
         } catch (error) {
+            // 请求被新请求取代或组件卸载时忽略
+            if (
+                (error instanceof Error && error.name === 'AbortError') ||
+                (error instanceof ApiError && error.status === 408)
+            ) return;
             console.error(error);
         } finally {
-            setLoading(false);
+            if (!controller.signal.aborted) {
+                setLoading(false);
+            }
         }
     };
 

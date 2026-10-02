@@ -8,6 +8,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
     mockPrismaErrorItem: {
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
+    },
+    mockPrismaUser: {
+        findUnique: vi.fn(),
     },
     mockPrismaPracticeRecord: {
         create: vi.fn(),
@@ -29,6 +33,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/prisma', () => ({
     prisma: {
         errorItem: mocks.mockPrismaErrorItem,
+        user: mocks.mockPrismaUser,
         practiceRecord: mocks.mockPrismaPracticeRecord,
     },
 }));
@@ -61,10 +66,26 @@ describe('/api/practice', () => {
     describe('POST /api/practice/generate (生成类似题目)', () => {
         const mockErrorItem = {
             id: 'error-item-1',
+            userId: 'user-123',
             questionText: '求解 x + 2 = 5',
             knowledgePoints: '["一元一次方程", "移项"]',
             subject: { id: 'math', name: '数学' },
         };
+
+        beforeEach(() => {
+            // 属主校验：当前用户可查到自己的错题
+            mocks.mockPrismaUser.findUnique.mockResolvedValue({
+                id: 'user-123',
+                email: 'user@example.com',
+            });
+            mocks.mockPrismaErrorItem.findFirst.mockImplementation(async (args: any) => {
+                const item = await mocks.mockPrismaErrorItem.findUnique({ where: { id: args?.where?.id } });
+                if (item && item.userId === args?.where?.userId) {
+                    return item;
+                }
+                return null;
+            });
+        });
 
         it('应该成功生成类似题目', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
@@ -172,6 +193,28 @@ describe('/api/practice', () => {
 
             expect(response.status).toBe(404);
             expect(data.message).toBe('Item not found');
+        });
+
+        it('应该拒绝为他人错题生成练习（越权返回 404）', async () => {
+            // 错题存在但属于其他用户
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({
+                ...mockErrorItem,
+                userId: 'someone-else',
+            });
+
+            const request = new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({
+                    errorItemId: 'error-item-1',
+                    language: 'zh',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await GENERATE_POST(request);
+
+            expect(response.status).toBe(404);
+            expect(mocks.mockAIService.generateSimilarQuestion).not.toHaveBeenCalled();
         });
 
         it('应该正确解析知识点标签', async () => {
@@ -372,7 +415,9 @@ describe('/api/practice', () => {
             const data = await response.json();
 
             expect(response.status).toBe(500);
-            expect(data.message).toBe('AI service unavailable');
+            // 不把 AI provider 的原始错误信息回传前端
+            expect(data.message).toBe('Failed to generate practice question');
+            expect(data.message).not.toContain('AI service unavailable');
         });
     });
 

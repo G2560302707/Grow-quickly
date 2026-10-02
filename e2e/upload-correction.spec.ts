@@ -129,14 +129,13 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
         // Wait for Detail Page
         await expect(page.getByRole('heading', { level: 1, name: /详情|Detail/ })).toBeVisible({ timeout: 5000 });
 
-        // Setup dialog handler for item deletion
-        page.once('dialog', async dialog => {
-            console.log(`Item Delete Dialog: ${dialog.message()}`);
-            await dialog.accept();
-        });
-
         // Click Delete Button
         await page.getByRole('button', { name: /删除|Delete/ }).click();
+
+        // Confirm deletion in the in-app dialog (replaces native confirm)
+        const itemDeleteDialog = page.getByRole('dialog').last();
+        await expect(itemDeleteDialog).toBeVisible({ timeout: 5000 });
+        await itemDeleteDialog.getByRole('button', { name: /确认|Confirm/ }).click();
 
         // Wait to be redirected back to notebook page
         await page.waitForURL(/\/notebooks\/.+/, { timeout: 5000 });
@@ -150,12 +149,6 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     // 13. Delete the Notebook
     await page.goto('/notebooks');
 
-    // Setup dialog handler for notebook deletion
-    page.once('dialog', async dialog => {
-        console.log(`Notebook Delete Dialog: ${dialog.message()}`);
-        await dialog.accept();
-    });
-
     // Locate the delete button specifically for the "数学" notebook
     const notebookCard = page.locator('.group').filter({ hasText: '数学' }).first();
 
@@ -164,6 +157,11 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
 
     // Click the delete button (Trash icon)
     await notebookCard.getByRole('button').last().click();
+
+    // Confirm deletion in the in-app dialog (replaces native confirm)
+    const notebookDeleteDialog = page.getByRole('dialog').last();
+    await expect(notebookDeleteDialog).toBeVisible({ timeout: 5000 });
+    await notebookDeleteDialog.getByRole('button', { name: /确认|Confirm/ }).click();
 
     // 14. Verify Notebook Deleted
     await expect(page.getByText('数学', { exact: true })).not.toBeVisible({ timeout: 5000 });

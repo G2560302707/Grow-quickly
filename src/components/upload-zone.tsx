@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, Loader2, Monitor } from "lucide-react";
+import { UploadCloud, Loader2, Monitor, Camera } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+
+import { alertDialog } from "@/components/ui/app-dialog";
 
 // 添加 CaptureController 类型声明
 declare global {
@@ -27,6 +29,7 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
     const { t } = useLanguage();
     const [isScreenshotting, setIsScreenshotting] = useState(false);
     const [isClient, setIsClient] = useState(false);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
     // 确保只在客户端渲染屏幕截图功能
     useEffect(() => {
         setIsClient(true);
@@ -44,6 +47,19 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
                 // 直接传递 File 对象，让父组件处理压缩
                 onImageSelect(file);
             }
+        },
+        [onImageSelect]
+    );
+
+    // 相机直达：capture="environment" 让手机端直接调起后置相机，跳过"拍照 or 图库"选择
+    const handleCameraCapture = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                onImageSelect(file);
+            }
+            // 重置 value，保证连续拍摄同一画面也能再次触发 onChange
+            e.target.value = "";
         },
         [onImageSelect]
     );
@@ -66,7 +82,7 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
     // 屏幕截图功能
     const handleScreenshot = async () => {
         if (!isScreenshotSupported()) {
-            alert(t.upload.screenshotNotSupported);
+            await alertDialog({ description: t.upload.screenshotNotSupported });
             return;
         }
 
@@ -152,7 +168,7 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
             stream.getTracks().forEach(track => track.stop());
 
             // 转换为blob并创建文件
-            canvas.toBlob((blob) => {
+            canvas.toBlob(async (blob) => {
                 if (blob) {
                     const file = new File([blob], `screenshot-${Date.now()}.png`, {
                         type: 'image/png'
@@ -160,7 +176,7 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
                     onImageSelect(file);
                     console.log('✅ 截图完成，当前页面未跳转');
                 } else {
-                    alert('截图转换失败');
+                    await alertDialog({ description: '截图转换失败' });
                 }
             }, 'image/png', 1.0);
 
@@ -168,9 +184,9 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
             console.error('Screenshot failed:', error);
             if (error instanceof Error) {
                 if (error.name === 'NotAllowedError') {
-                    alert(t.upload.screenshotPermissionDenied);
+                    await alertDialog({ description: t.upload.screenshotPermissionDenied });
                 } else {
-                    alert(`${t.upload.screenshotFailed}: ${error.message}`);
+                    await alertDialog({ description: `${t.upload.screenshotFailed}: ${error.message}` });
                 }
             }
         } finally {
@@ -206,27 +222,46 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
                     </div>
                 </CardContent>
             </Card>
-            {/* 屏幕截图按钮 - 只在客户端渲染 */}
-            {isScreenshotSupported() && (
-                <div className="flex flex-col items-center gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={handleScreenshot}
-                        disabled={isAnalyzing || isScreenshotting}
-                        className="flex items-center gap-2"
-                    >
-                        {isScreenshotting ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <Monitor className="h-4 w-4" />
-                        )}
-                        {isScreenshotting ? t.common.pleaseWait : t.upload.screenshot}
-                    </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                        {t.upload.screenshotDesc}
-                    </p>
-                </div>
-            )}
+            {/* 拍照直达 + 屏幕截图（截图仅桌面端渲染） */}
+            <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleCameraCapture}
+            />
+            <div className="flex justify-center items-start gap-2">
+                <Button
+                    variant="outline"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={isAnalyzing}
+                    className="flex items-center gap-2"
+                >
+                    <Camera className="h-4 w-4" />
+                    {t.upload?.takePhoto || "拍照"}
+                </Button>
+                {isScreenshotSupported() && (
+                    <div className="flex flex-col items-center gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={handleScreenshot}
+                            disabled={isAnalyzing || isScreenshotting}
+                            className="flex items-center gap-2"
+                        >
+                            {isScreenshotting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Monitor className="h-4 w-4" />
+                            )}
+                            {isScreenshotting ? t.common.pleaseWait : t.upload.screenshot}
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center">
+                            {t.upload.screenshotDesc}
+                        </p>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

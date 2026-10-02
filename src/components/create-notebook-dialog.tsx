@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 
+import { alertDialog } from "@/components/ui/app-dialog";
+
 interface CreateNotebookDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -28,7 +30,7 @@ export function CreateNotebookDialog({ open, onOpenChange, onCreate }: CreateNot
 
     const handleCreate = async () => {
         if (!name.trim()) {
-            alert(t.notebooks?.dialog?.enterName || "Please enter notebook name");
+            await alertDialog({ description: t.notebooks?.dialog?.enterName || "Please enter notebook name" });
             return;
         }
 
