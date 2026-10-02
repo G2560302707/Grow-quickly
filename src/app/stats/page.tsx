@@ -3,6 +3,7 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { WrongAnswerStats } from "@/components/wrong-answer-stats";
 import { PracticeStats } from "@/components/practice-stats";
+import { WeakPointCard } from "@/components/weak-point-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
@@ -50,6 +51,7 @@ export default function StatsPage() {
                     <WrongAnswerStats />
                 </TabsContent>
                 <TabsContent value="practice" className="space-y-4">
+                    <WeakPointCard />
                     <PracticeStats />
                 </TabsContent>
             </Tabs>
