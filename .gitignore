@@ -69,3 +69,11 @@ upload_test_output*.txt
 # data
 /data/
 .next-prebuilt/
+
+# local verification & backups
+uniapp/.ui-shots/
+prisma/dev.db.backup-*
+*.zcode-tmp-*.cjs
+
+# zcode workspace
+.zcode/

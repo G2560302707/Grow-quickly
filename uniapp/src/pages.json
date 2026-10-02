@@ -3,18 +3,20 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "错题本",
+				"navigationBarTitleText": "智能错题本",
 				"enablePullDownRefresh": true,
 				"navigationBarTextStyle": "white",
-				"navigationBarBackgroundColor": "#f97316"
+				"navigationBarBackgroundColor": "#101a3c",
+				"backgroundColor": "#101a3c",
+				"backgroundTextStyle": "light"
 			}
 		},
 		{
 			"path": "pages/analyze/analyze",
 			"style": {
-				"navigationBarTitleText": "拍照识别",
-				"navigationBarTextStyle": "white",
-				"navigationBarBackgroundColor": "#f97316"
+				"navigationBarTitleText": "拍照识题",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff"
 			}
 		},
 		{
@@ -27,7 +29,24 @@
 		{
 			"path": "pages/login/login",
 			"style": {
-				"navigationStyle": "custom"
+				"navigationStyle": "custom",
+				"backgroundColor": "#101a3c"
+			}
+		},
+		{
+			"path": "pages/register/register",
+			"style": {
+				"navigationStyle": "custom",
+				"backgroundColor": "#101a3c"
+			}
+		},
+		{
+			"path": "pages/profile-edit/profile-edit",
+			"style": {
+				"navigationBarTitleText": "编辑资料",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
 			}
 		},
 		{
@@ -35,30 +54,51 @@
 			"style": {
 				"navigationBarTitleText": "错题列表",
 				"enablePullDownRefresh": true,
-				"navigationBarTextStyle": "white",
-				"navigationBarBackgroundColor": "#f97316"
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
 			}
 		},
 		{
 			"path": "pages/detail/detail",
 			"style": {
 				"navigationBarTitleText": "错题详情",
-				"navigationBarTextStyle": "white",
-				"navigationBarBackgroundColor": "#f97316"
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
 			}
 		},
 		{
 			"path": "pages/practice/practice",
 			"style": {
 				"navigationBarTitleText": "举一反三",
-				"navigationBarTextStyle": "white",
-				"navigationBarBackgroundColor": "#f97316"
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
+			"path": "pages/stats/stats",
+			"style": {
+				"navigationBarTitleText": "学习统计",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
+			"path": "pages/help/help",
+			"style": {
+				"navigationBarTitleText": "帮助与反馈",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
 			}
 		}
 	],
 	"tabBar": {
-		"color": "#9ca3af",
-		"selectedColor": "#f97316",
+		"color": "#9aa3b8",
+		"selectedColor": "#3d52d5",
 		"backgroundColor": "#ffffff",
 		"borderStyle": "white",
 		"list": [
@@ -86,6 +126,6 @@
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "智能错题本",
 		"navigationBarBackgroundColor": "#ffffff",
-		"backgroundColor": "#f5f6fa"
+		"backgroundColor": "#f4f5fa"
 	}
 }
