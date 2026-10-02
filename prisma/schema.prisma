@@ -29,6 +29,50 @@ model User {
   subjects   Subject[]
   practiceRecords PracticeRecord[]
   customTags KnowledgeTag[] // User's custom tags
+  feedbacks  Feedback[] // 用户提交的反馈（移动端帮助与反馈页）
+  announcementReads AnnouncementRead[] // 公告已读记录
+}
+
+// 系统公告（管理员在设置弹窗"公告管理"发布，网页端铃铛与小程序首页展示）
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  isActive  Boolean  @default(true) // 下架后不再对用户展示，仅管理员可见
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reads AnnouncementRead[]
+}
+
+// 公告已读：用户维度记录，红点只对未读公告亮
+model AnnouncementRead {
+  id            String      @id @default(cuid())
+  announcementId String
+  announcement  Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt        DateTime    @default(now())
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+}
+
+// 用户反馈（移动端"帮助与反馈"提交；网页端暂无管理界面，可通过 API/数据库查看）
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String   @default("other") // feature: 功能建议 / bug: 问题反馈 / other: 其他
+  content   String
+  contact   String?  // 可选联系方式（邮箱/微信等）
+  status    String   @default("open") // open: 待处理 / resolved: 已处理
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // 统一知识点标签表 (支持无限层级)
@@ -53,6 +97,9 @@ model KnowledgeTag {
 
   // 与错题的多对多关系
   errorItems ErrorItem[]
+
+  // 已归因的定向练习
+  practiceRecords PracticeRecord[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -114,6 +161,7 @@ model ErrorItem {
   updatedAt        DateTime @updatedAt
 
   reviewSchedules ReviewSchedule[]
+  practiceRecords PracticeRecord[] // 锚定本题的定向练习
 }
 
 model ReviewSchedule {
@@ -137,5 +185,14 @@ model PracticeRecord {
   difficulty String? // "easy", "medium", "hard", "harder"
   isCorrect Boolean?
   
+  // 定向练习归因（可空：旧数据与网页端调用不传则保持为空）
+  errorItemId String? // 本次练习锚定的原错题
+  errorItem   ErrorItem? @relation(fields: [errorItemId], references: [id], onDelete: SetNull)
+  tagId       String? // 本次练习归属的知识点（薄弱点诊断的练习通道）
+  tag         KnowledgeTag? @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  questionText String? // 生成题快照（用于出题去重）
+
   createdAt DateTime @default(now())
+
+  @@index([userId, tagId])
 }
