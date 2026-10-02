@@ -22,6 +22,7 @@ import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedb
 import { frontendLogger } from "@/lib/frontend-logger";
 import { TextInputZone } from "@/components/text-input-zone";
 import { DirectTextEditor } from "@/components/direct-text-editor";
+import { alertDialog } from "@/components/ui/app-dialog";
 
 function HomeContent() {
     const [step, setStep] = useState<"upload" | "review">("upload");
@@ -237,12 +238,12 @@ function HomeContent() {
                     }
                 }
 
-                alert(errorMessage);
+                await alertDialog({ description: errorMessage });
             } catch (innerError) {
                 frontendLogger.error('[HomeError]', 'Failed to process error message', {
                     innerError: String(innerError)
                 });
-                alert('Analysis failed. Please try again.');
+                await alertDialog({ description: 'Analysis failed. Please try again.' });
             }
         } finally {
             // Always reset analysis state, even if setState throws
@@ -277,7 +278,7 @@ function HomeContent() {
             setStep("upload");
             setParsedData(null);
             setCurrentImage(null);
-            alert(t.common?.messages?.saveSuccess || 'Saved successfully!');
+            await alertDialog({ description: t.common?.messages?.saveSuccess || 'Saved successfully!' });
 
             // Redirect to notebook page if subjectId is present
             if (finalData.subjectId) {
@@ -289,7 +290,7 @@ function HomeContent() {
                 errorMessage: error?.data?.message || error?.message || String(error),
                 errorData: error?.data,
             });
-            alert(t.common?.messages?.saveFailed || 'Failed to save');
+            await alertDialog({ description: t.common?.messages?.saveFailed || 'Failed to save' });
         }
     };
 
@@ -358,9 +359,9 @@ function HomeContent() {
                         errorMessage = backendErrorType;
                     }
                 }
-                alert(errorMessage);
+                await alertDialog({ description: errorMessage });
             } catch {
-                alert('Analysis failed. Please try again.');
+                await alertDialog({ description: 'Analysis failed. Please try again.' });
             }
         } finally {
             setAnalysisStep('idle');
@@ -407,7 +408,7 @@ function HomeContent() {
 
             frontendLogger.info('[HomeDirectSave]', 'Save successful');
             setAnalysisStep('idle');
-            alert(t.common?.messages?.saveSuccess || 'Saved successfully!');
+            await alertDialog({ description: t.common?.messages?.saveSuccess || 'Saved successfully!' });
 
             if (data.subjectId) {
                 router.push(`/notebooks/${data.subjectId}`);
@@ -418,7 +419,7 @@ function HomeContent() {
                 errorMessage: error?.data?.message || error?.message || String(error),
             });
             setAnalysisStep('idle');
-            alert(t.common?.messages?.saveFailed || 'Failed to save');
+            await alertDialog({ description: t.common?.messages?.saveFailed || 'Failed to save' });
         }
     };
 

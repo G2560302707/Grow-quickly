@@ -115,6 +115,22 @@ export const authOptions: NextAuthOptions = {
                     role: (user as any).role,
                 }
             }
+            // 后续调用回库刷新 name/role：用户在设置里改资料后，
+            // 无需重新登录即可在全站生效（否则 JWT 固化登录时的旧名字）
+            if (token.id) {
+                try {
+                    const dbUser = await prisma.user.findUnique({
+                        where: { id: token.id as string },
+                        select: { name: true, role: true },
+                    })
+                    if (dbUser) {
+                        token.name = dbUser.name
+                        token.role = dbUser.role
+                    }
+                } catch (e) {
+                    logger.warn({ error: e }, 'JWT callback - failed to refresh user profile');
+                }
+            }
             logger.debug('JWT callback - Subsequent call');
             return token
         }
