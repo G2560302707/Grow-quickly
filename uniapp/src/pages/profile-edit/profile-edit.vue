@@ -1,0 +1,172 @@
+<template>
+	<view class="page">
+		<view class="card fade-up">
+			<view v-if="profileLoading" class="loading-box">
+				<view class="skel sk-line sk-lg" />
+				<view class="skel sk-line sk-md" />
+			</view>
+			<template v-else>
+				<!-- 邮箱（只读）：邮箱关联登录会话，双端保持一致，暂不支持在小程序端修改 -->
+				<view class="field">
+					<view class="field-head">
+						<text class="field-label">登录邮箱</text>
+						<text class="field-hint">修改邮箱请到网页端</text>
+					</view>
+					<view class="field-input field-readonly">{{ profile.email || "—" }}</view>
+				</view>
+				<view class="field">
+					<view class="field-head">
+						<text class="field-label">昵称</text>
+					</view>
+					<input v-model="name" class="field-input" type="text" placeholder="怎么称呼你" placeholder-class="ph" :maxlength="30" />
+				</view>
+
+				<view class="divider" />
+
+				<view class="field">
+					<view class="field-head">
+						<text class="field-label">新密码</text>
+						<text class="field-hint">留空表示不修改密码</text>
+					</view>
+					<input v-model="password" class="field-input" type="password" password placeholder="至少 6 位" placeholder-class="ph" />
+				</view>
+				<view v-if="password" class="field">
+					<view class="field-head">
+						<text class="field-label">确认新密码</text>
+					</view>
+					<input v-model="confirmPassword" class="field-input" type="password" password placeholder="再输入一次新密码" placeholder-class="ph" />
+				</view>
+
+				<view v-if="errorMsg" class="error-tip">{{ errorMsg }}</view>
+				<button class="btn-primary save-btn" :disabled="saving" hover-class="button-hover" @tap="handleSave">
+					{{ saving ? "保存中..." : "保存修改" }}
+				</button>
+			</template>
+		</view>
+
+		<view class="tip-row">
+			<text class="tip-text">修改后小程序与网页端即时同步生效</text>
+		</view>
+	</view>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import { getUserProfile, updateUserProfile, type UserProfile } from "@/api";
+
+const profile = ref<UserProfile>({ name: "", email: "" });
+const name = ref("");
+const password = ref("");
+const confirmPassword = ref("");
+const profileLoading = ref(true);
+const saving = ref(false);
+const errorMsg = ref("");
+
+onShow(async () => {
+	profileLoading.value = true;
+	try {
+		const data = await getUserProfile();
+		profile.value = data;
+		name.value = data.name || "";
+	} catch (e: any) {
+		uni.showToast({ title: e?.message || "加载失败", icon: "none" });
+	} finally {
+		profileLoading.value = false;
+	}
+});
+
+async function handleSave() {
+	if (!name.value.trim()) {
+		errorMsg.value = "昵称不能为空";
+		return;
+	}
+	if (password.value && password.value.length < 6) {
+		errorMsg.value = "新密码至少 6 位";
+		return;
+	}
+	if (password.value && password.value !== confirmPassword.value) {
+		errorMsg.value = "两次输入的密码不一致";
+		return;
+	}
+	saving.value = true;
+	errorMsg.value = "";
+	try {
+		const payload: { name?: string; password?: string } = { name: name.value.trim() };
+		if (password.value) payload.password = password.value;
+		await updateUserProfile(payload);
+		password.value = "";
+		confirmPassword.value = "";
+		uni.showToast({ title: "资料已更新", icon: "success" });
+		setTimeout(() => uni.navigateBack(), 900);
+	} catch (e: any) {
+		errorMsg.value = e?.message || "保存失败";
+	} finally {
+		saving.value = false;
+	}
+}
+</script>
+
+<style scoped>
+.page {
+	min-height: 100vh;
+	padding-top: 24rpx;
+}
+.loading-box {
+	padding: 20rpx 0;
+}
+.sk-line {
+	height: 28rpx;
+	border-radius: 8rpx;
+	background: #edeef5;
+}
+.sk-lg {
+	width: 94%;
+}
+.sk-md {
+	width: 60%;
+	margin-top: 20rpx;
+}
+.field {
+	margin-bottom: 28rpx;
+}
+.field-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin-bottom: 14rpx;
+}
+.field-label {
+	font-size: 24rpx;
+	color: var(--ink-500);
+	font-weight: 500;
+	letter-spacing: 1rpx;
+}
+.field-hint {
+	font-size: 20rpx;
+	color: var(--ink-300);
+}
+.field-readonly {
+	color: var(--ink-400);
+}
+.divider {
+	height: 1rpx;
+	background: var(--line-100);
+	margin: 12rpx 0 32rpx;
+}
+.error-tip {
+	margin: 0 0 24rpx;
+}
+.save-btn {
+	margin-top: 8rpx;
+}
+.tip-row {
+	display: flex;
+	justify-content: center;
+	padding: 24rpx 0 calc(env(safe-area-inset-bottom) + 24rpx);
+}
+.tip-text {
+	font-size: 22rpx;
+	color: var(--ink-300);
+}
+</style>

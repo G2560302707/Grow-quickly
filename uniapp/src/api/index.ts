@@ -29,6 +29,7 @@ export interface ErrorItem {
     gradeSemester?: string | null;
     originalImageUrl: string;
     knowledgePoints: string | null;
+    createdAt?: string;
     subject?: { id: string; name: string } | null;
     tags?: ErrorItemTag[];
 }
@@ -57,6 +58,175 @@ export function listNotebooks(): Promise<Notebook[]> {
     return request<Notebook[]>("/api/notebooks");
 }
 
+// ---------- 学习概览（新增独立聚合路由，不影响网页端） ----------
+
+export interface OverviewStats {
+    totalItems: number;
+    unmastered: number;
+    reviewing: number;
+    mastered: number;
+    masteryRate: number;
+    notebookCount: number;
+    weekAdded: number;
+}
+
+export function getOverviewStats(): Promise<OverviewStats> {
+    return request<OverviewStats>("/api/error-items/overview");
+}
+
+export interface PracticeSummary {
+    total: number;
+    correct: number;
+    rate: number;
+}
+
+/** 复用网页端已有的 /api/stats/practice，仅取 overallStats 汇总部分 */
+export async function getPracticeSummary(): Promise<PracticeSummary> {
+    const res = await request<{
+        overallStats?: { total?: number; correct?: number; rate?: number | string };
+    }>("/api/stats/practice");
+    const o = res?.overallStats || {};
+    return {
+        total: Number(o.total) || 0,
+        correct: Number(o.correct) || 0,
+        rate: Number(o.rate) || 0,
+    };
+}
+
+export interface PracticeStats {
+    subjectStats: { name: string; value: number }[];
+    activityStats: { date: string; total: number; correct: number }[];
+    difficultyStats: { name: string; value: number }[];
+    overallStats: { total?: number; correct?: number; rate?: number | string };
+}
+
+/** 完整练习统计（学习统计页使用，复用网页端已有接口） */
+export function getPracticeStats(): Promise<PracticeStats> {
+    return request<PracticeStats>("/api/stats/practice");
+}
+
+// ---------- 反馈 ----------
+
+export type FeedbackType = "feature" | "bug" | "other";
+
+export function submitFeedback(data: {
+    type: FeedbackType;
+    content: string;
+    contact?: string;
+}): Promise<{ success: boolean; id: string }> {
+    return request("/api/feedback", { method: "POST", data });
+}
+
+// ---------- 薄弱点诊断与定向出题 ----------
+
+export interface KpDiagnosis {
+    tagId: string;
+    name: string;
+    chapterId: string | null;
+    chapterName: string | null;
+    errorCount: number;
+    unmasteredShare: number;
+    recurrence: number;
+    practiceAttempts: number;
+    practiceAccuracy: number | null;
+    score: number;
+    confidence: number;
+    trend: "worsening" | "flat" | "improving" | "unknown";
+    evidenceErrorItemIds: string[];
+    ready: boolean;
+}
+
+export interface WeaknessReport {
+    generatedAt: string;
+    totalErrorItems: number;
+    readyKpCount: number;
+    kps: KpDiagnosis[];
+    chapters: { tagId: string; name: string; kpCount: number; errorCount: number; score: number }[];
+    topKps: KpDiagnosis[];
+}
+
+export function getWeaknessReport(): Promise<WeaknessReport> {
+    return request<WeaknessReport>("/api/diagnosis/weakness");
+}
+
+export type SmartDifficulty = "easy" | "medium" | "hard" | "harder";
+
+export interface SmartQuestion extends ParsedQuestion {
+    meta?: {
+        mode: string;
+        tagId: string;
+        tagName: string;
+        anchorCount: number;
+        primaryErrorItemId: string | null;
+        difficulty: SmartDifficulty;
+        difficultySource?: "explicit" | "elo";
+        elo?: { rating: number; attempts: number };
+        source: string;
+        duplicate?: boolean;
+    };
+}
+
+/** 薄弱点定向出题（不传 tagId 时后端自动取诊断 Top1） */
+export function smartGenerate(params: {
+    tagId?: string;
+    difficulty?: SmartDifficulty;
+}): Promise<SmartQuestion> {
+    return request("/api/practice/smart", { method: "POST", data: params });
+}
+
+// ---------- 系统公告 ----------
+
+export interface AnnouncementItem {
+    id: string;
+    title: string;
+    content: string;
+    createdAt: string;
+    read?: boolean;
+}
+
+export function getAnnouncements(): Promise<{ announcements: AnnouncementItem[] }> {
+    return request("/api/announcements");
+}
+
+export function markAnnouncementsRead(): Promise<{ success: boolean; marked: number }> {
+    return request("/api/announcements/read-all", { method: "POST", data: {} });
+}
+
+// ---------- 账户 ----------
+
+export function registerAccount(data: {
+    email: string;
+    password: string;
+    name: string;
+}): Promise<{ user?: unknown; message?: string }> {
+    return request("/api/register", { method: "POST", data });
+}
+
+/** 注册开关（后端配置控制，与网页端注册页一致） */
+export function getRegisterStatus(): Promise<{ allowRegistration: boolean }> {
+    return request("/api/register/status");
+}
+
+export interface UserProfile {
+    id?: string;
+    name: string | null;
+    email: string | null;
+    educationStage?: string | null;
+    enrollmentYear?: number | null;
+}
+
+export function getUserProfile(): Promise<UserProfile> {
+    return request("/api/user");
+}
+
+/** 更新资料（姓名/密码，与网页端设置-账户共用接口；改名后全站即时生效） */
+export function updateUserProfile(data: {
+    name?: string;
+    password?: string;
+}): Promise<UserProfile> {
+    return request("/api/user", { method: "PATCH", data });
+}
+
 // ---------- 错题 ----------
 
 export function listErrorItems(params: {
@@ -81,6 +251,14 @@ export function updateErrorItemNotes(id: string, userNotes: string): Promise<Err
     return request(`/api/error-items/${id}/notes`, {
         method: "PATCH",
         data: { userNotes },
+    });
+}
+
+/** 更新掌握度：0 未掌握 / 1 复习中 / 2 已掌握（复用网页端已有接口） */
+export function updateErrorItemMastery(id: string, masteryLevel: number): Promise<ErrorItem> {
+    return request(`/api/error-items/${id}/mastery`, {
+        method: "PATCH",
+        data: { masteryLevel },
     });
 }
 
@@ -119,9 +297,18 @@ export function generatePractice(
     });
 }
 
-export function recordPractice(subject: string, difficulty: string, isCorrect: boolean) {
+export function recordPractice(
+    subject: string,
+    difficulty: string,
+    isCorrect: boolean,
+    attribution?: {
+        tagId?: string;
+        errorItemId?: string;
+        questionText?: string;
+    }
+) {
     return request("/api/practice/record", {
         method: "POST",
-        data: { subject, difficulty, isCorrect },
+        data: { subject, difficulty, isCorrect, ...(attribution || {}) },
     });
 }
