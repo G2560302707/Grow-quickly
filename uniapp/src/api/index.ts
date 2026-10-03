@@ -329,6 +329,31 @@ export function recordPractice(
     });
 }
 
+// ---------- 专注（番茄钟/模考掐表） ----------
+
+export interface FocusStats {
+    todaySeconds: number;
+    weekSeconds: number;
+    streakDays: number;
+    totalSessions: number;
+    totalSeconds: number;
+    last7Days: { date: string; seconds: number }[];
+}
+
+export function recordFocusSession(params: {
+    mode: "pomodoro" | "mock" | "custom";
+    moduleName?: string;
+    targetSeconds: number;
+    durationSeconds: number;
+    completed: boolean;
+}) {
+    return request("/api/focus/sessions", { method: "POST", data: params });
+}
+
+export function getFocusStats(): Promise<FocusStats> {
+    return request("/api/focus/stats");
+}
+
 /** 练习记录列表（分页倒序），用于练习历史窗口 */
 export function listPracticeRecords(params: { page?: number; pageSize?: number } = {}): Promise<{
     total: number;

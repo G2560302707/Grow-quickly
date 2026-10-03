@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Upload, BookOpen, Tags, LogOut, BarChart3, PenLine } from "lucide-react";
+import { Upload, BookOpen, Tags, LogOut, BarChart3, PenLine, Timer } from "lucide-react";
 import { UserWelcome } from "@/components/user-welcome";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { BroadcastNotification } from "@/components/broadcast-notification";
@@ -49,7 +49,7 @@ function HomeContent() {
                     <h2 className="text-sm font-medium text-muted-foreground mb-3">
                         {t.dashboard?.quickActions || "Quick Actions"}
                     </h2>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <Link href="/notebooks" className="w-full">
                             <Button
                                 variant="outline"
@@ -85,6 +85,19 @@ function HomeContent() {
                                 <div className="flex items-center gap-2">
                                     <BarChart3 className="h-5 w-5" />
                                     <span>{t.app?.stats || 'Stats'}</span>
+                                </div>
+                            </Button>
+                        </Link>
+
+                        <Link href="/focus" className="w-full">
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="w-full h-auto py-4 text-base shadow-sm hover:shadow-md transition-all border hover:border-primary/50 hover:bg-accent/50"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Timer className="h-5 w-5" />
+                                    <span>专注刷卷</span>
                                 </div>
                             </Button>
                         </Link>

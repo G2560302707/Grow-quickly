@@ -34,7 +34,8 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
     await page.getByRole('button', { name: /添加|Add/ }).click();
 
     // 6. Fill instance configuration
-    const instanceName = '智谱 GLM-4V';
+    // 唯一实例名：本用例会真实写入服务端配置，重名会触发校验导致添加按钮禁用
+    const instanceName = `E2E智谱 ${Date.now()}`;
     const apiKey = 'sk-aaa';
     const baseURL = 'https://new.xxx.net/v1';
     const modelName = 'claude-haiku-4.5';
@@ -84,4 +85,16 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
     await expect(page.locator('input[placeholder="sk-..."]')).toHaveValue(apiKey);
     await expect(page.locator('input[placeholder="https://api.openai.com/v1"]')).toHaveValue(baseURL);
     await expect(page.locator('input[placeholder="gpt-4o"]')).toHaveValue(modelName);
+
+    // 清理：删除本次创建的 E2E 实例并保存，防止反复运行把实例数推到上限（MAX 10）
+    await page.locator('[role="dialog"] button[role="combobox"]').nth(1).click();
+    await page.getByRole('option', { name: instanceName }).click();
+    await page.locator('[role="dialog"] button:has(svg.lucide-trash-2)').last().click();
+    const delDialog = page.getByRole('dialog').last();
+    await delDialog.getByRole('button', { name: /确认|Confirm|删除/ }).click();
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: /保存 AI 设置|Save AI Settings/ }).click();
+    const savedDialog2 = page.getByRole('dialog').filter({ hasText: /设置已保存|Settings saved/ }).last();
+    await expect(savedDialog2).toBeVisible({ timeout: 5000 });
+    await savedDialog2.getByRole('button', { name: /确认|Confirm/ }).click();
 });

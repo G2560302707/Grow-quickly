@@ -30,6 +30,23 @@
 			</view>
 		</view>
 
+		<!-- 薄弱点算法说明 -->
+		<view class="card fade-up">
+			<view class="section-head">
+				<text class="section-title">薄弱点是怎么算出来的？</text>
+				<text class="section-extra">算法透明</text>
+			</view>
+			<text class="algo-lead">系统能自动告诉你哪一块薄弱——靠的不是拍脑袋，是三层证据打分：</text>
+			<view class="algo-step" v-for="(st, i) in algoSteps" :key="i">
+				<text class="algo-no num">{{ i + 1 }}</text>
+				<view class="algo-body">
+					<text class="algo-t">{{ st.t }}</text>
+					<text class="algo-d">{{ st.d }}</text>
+				</view>
+			</view>
+			<text class="algo-note">一句话：最近反复错、还没掌握的知识点，就是你最该练的地方。在「学习统计 → 薄弱点诊断」查看排名，点「专项练习」直接定向出题；练错的题会自动收进错题本，让诊断越来越准。</text>
+		</view>
+
 		<!-- 意见反馈 -->
 		<view class="card fade-up">
 			<view class="section-head">
@@ -93,6 +110,21 @@ const guides = [
 	{ title: "拍照识题", desc: "在「识别」页拍摄或选择题目截图，AI 自动提取题目、答案与解析" },
 	{ title: "错题归档", desc: "识别结果保存到对应错题本，可补充个人笔记与掌握度标记" },
 	{ title: "举一反三", desc: "在错题详情页生成同难度练习题，检验是否真正掌握" },
+];
+
+const algoSteps = [
+	{
+		t: "每道错题都带知识点标签",
+		d: "AI 识别时自动打标（如「削弱论证」），练习答错的题也会带着来源自动收进错题本。",
+	},
+	{
+		t: "按「新鲜度 × 掌握程度」折算失败证据",
+		d: "45 天前的错题权重减半，已掌握的错题几乎不再计入——系统只关心你现在还错什么。",
+	},
+	{
+		t: "三个信号合成虚弱分排名",
+		d: "失败多少（60%）+ 是否反复错（20%）+ 还没学会的比例（20%），合成 0~100 分，另附恶化/改善趋势。",
+	},
 ];
 
 const faqs = [
@@ -298,5 +330,56 @@ async function handleSubmit() {
 .version-text {
 	font-size: 22rpx;
 	color: var(--ink-300);
+}
+.algo-lead {
+	display: block;
+	font-size: 26rpx;
+	color: var(--ink-700, #4a5568);
+	line-height: 1.7;
+	margin-bottom: 20rpx;
+}
+.algo-step {
+	display: flex;
+	align-items: flex-start;
+	gap: 18rpx;
+	padding: 18rpx 0;
+	border-bottom: 1rpx solid var(--line-100);
+}
+.algo-no {
+	flex-shrink: 0;
+	width: 40rpx;
+	height: 40rpx;
+	border-radius: 50%;
+	background: var(--brand-50);
+	color: var(--brand-600);
+	font-size: 22rpx;
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-top: 2rpx;
+}
+.algo-body {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 6rpx;
+}
+.algo-t {
+	font-size: 27rpx;
+	font-weight: 600;
+	color: var(--ink-900);
+}
+.algo-d {
+	font-size: 24rpx;
+	color: var(--ink-400);
+	line-height: 1.6;
+}
+.algo-note {
+	display: block;
+	margin-top: 20rpx;
+	font-size: 24rpx;
+	color: var(--ink-400);
+	line-height: 1.7;
 }
 </style>

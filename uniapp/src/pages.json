@@ -78,6 +78,15 @@
 			}
 		},
 		{
+			"path": "pages/focus/focus",
+			"style": {
+				"navigationBarTitleText": "专注刷卷",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
 			"path": "pages/practice/history",
 			"style": {
 				"navigationBarTitleText": "练习记录",

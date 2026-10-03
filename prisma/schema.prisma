@@ -28,6 +28,7 @@ model User {
   errorItems ErrorItem[]
   subjects   Subject[]
   practiceRecords PracticeRecord[]
+  focusSessions  FocusSession[]
   customTags KnowledgeTag[] // User's custom tags
   feedbacks  Feedback[] // 用户提交的反馈（移动端帮助与反馈页）
   announcementReads AnnouncementRead[] // 公告已读记录
@@ -202,5 +203,22 @@ model PracticeRecord {
   createdAt DateTime @default(now())
 
   @@index([userId, tagId])
+  @@index([userId, createdAt])
+}
+
+// 专注会话(番茄钟/模考掐表)
+model FocusSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  mode      String   // pomodoro(番茄钟) | mock(整卷模考) | custom(自定义)
+  moduleName String? // 绑定的行测模块(言语理解等),可空
+  targetSeconds   Int // 计划时长
+  durationSeconds Int // 实际专注秒数
+  completed Boolean  // 是否完整走完(未中途放弃)
+
+  createdAt DateTime @default(now())
+
   @@index([userId, createdAt])
 }
