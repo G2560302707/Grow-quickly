@@ -133,6 +133,12 @@
 				"selectedIconPath": "static/tab/scan-active.png"
 			},
 			{
+				"pagePath": "pages/focus/focus",
+				"text": "专注",
+				"iconPath": "static/tab/focus.png",
+				"selectedIconPath": "static/tab/focus-active.png"
+			},
+			{
 				"pagePath": "pages/profile/profile",
 				"text": "我的",
 				"iconPath": "static/tab/me.png",

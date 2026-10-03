@@ -132,10 +132,19 @@
 				</view>
 				<view class="judge-row">
 					<button class="btn-outline judge-btn" hover-class="button-hover" @tap="backToIdle">再来一组</button>
-					<button class="btn-primary judge-btn" hover-class="button-hover" @tap="goBack">完成</button>
+					<button class="btn-primary judge-btn" hover-class="button-hover" @tap="goHome">完成</button>
 				</view>
 			</view>
 		</template>
+
+		<!-- 练习记录入口 -->
+		<view class="card entry-card fade-up" hover-class="hv" @tap="goHistory">
+			<view class="entry-text">
+				<text class="entry-title">练习记录</text>
+				<text class="entry-sub">练过的每道题、对错与来源都在这里</text>
+			</view>
+			<text class="entry-arrow">›</text>
+		</view>
 
 		<!-- 统计条 -->
 		<view class="card stats-card fade-up">
@@ -379,8 +388,12 @@ function backToIdle() {
 	phase.value = "idle";
 }
 
-function goBack() {
-	uni.navigateBack();
+function goHome() {
+	uni.switchTab({ url: "/pages/index/index" });
+}
+
+function goHistory() {
+	uni.navigateTo({ url: "/pages/practice/history" });
 }
 
 // ---------- 断点续计 ----------
@@ -725,6 +738,32 @@ onUnmounted(stopTimers);
 }
 
 /* ---------- 统计条 ---------- */
+.entry-card {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 30rpx 32rpx;
+	margin-bottom: 24rpx;
+}
+.entry-text {
+	display: flex;
+	flex-direction: column;
+	gap: 6rpx;
+}
+.entry-title {
+	font-size: 30rpx;
+	font-weight: 700;
+	color: var(--ink-900);
+}
+.entry-sub {
+	font-size: 24rpx;
+	color: var(--ink-400);
+}
+.entry-arrow {
+	font-size: 44rpx;
+	color: var(--ink-300);
+	line-height: 1;
+}
 .stats-card {
 	display: flex;
 	align-items: stretch;

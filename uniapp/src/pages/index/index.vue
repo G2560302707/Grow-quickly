@@ -61,15 +61,6 @@
 			</template>
 		</view>
 
-		<!-- 专注刷卷入口 -->
-		<view class="card entry-card fade-up" hover-class="hv" @tap="goFocus">
-			<view class="entry-text">
-				<text class="entry-title">专注刷卷</text>
-				<text class="entry-sub">番茄钟 / 整卷模考掐表 · 今日 {{ focusTodayMinutes }} 分钟</text>
-			</view>
-			<text class="entry-arrow">›</text>
-		</view>
-
 		<!-- 错题本列表 -->
 		<view class="list-head">
 			<text class="list-title">我的错题本</text>
@@ -135,7 +126,6 @@ import {
 import { subjectIcon, subjectTint } from "@/utils/subject-icon";
 import { getSession } from "@/utils/auth";
 
-const focusTodayMinutes = ref(0);
 
 const notebooks = ref<Notebook[]>([]);
 const loading = ref(true);
@@ -220,15 +210,7 @@ onShow(async () => {
 		firstLoad.value = false;
 		uni.stopPullDownRefresh();
 	}
-	// 今日专注分钟数（番茄钟统计，失败静默）
-	getFocusStats()
-		.then(r => (focusTodayMinutes.value = Math.round(r.todaySeconds / 60)))
-		.catch(() => {});
 });
-
-function goFocus() {
-	uni.navigateTo({ url: "/pages/focus/focus" });
-}
 
 async function loadStats() {
 	statsLoading.value = true;
@@ -548,32 +530,6 @@ function moduleShadow(name: string): string {
 	width: 26%;
 	border-radius: 8rpx;
 	margin-top: 16rpx;
-}
-.entry-card {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 30rpx 32rpx;
-	margin-bottom: 24rpx;
-}
-.entry-text {
-	display: flex;
-	flex-direction: column;
-	gap: 6rpx;
-}
-.entry-title {
-	font-size: 30rpx;
-	font-weight: 700;
-	color: var(--ink-900);
-}
-.entry-sub {
-	font-size: 24rpx;
-	color: var(--ink-400);
-}
-.entry-arrow {
-	font-size: 44rpx;
-	color: var(--ink-300);
-	line-height: 1;
 }
 .nb-icon {
 	width: 92rpx;

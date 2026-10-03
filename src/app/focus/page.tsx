@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Play, Pause, Flag, RotateCcw, Timer, CalendarDays } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
+import { PracticeRecords } from "@/components/practice-records";
 
 type Mode = "pomodoro" | "mock" | "custom";
 
@@ -410,6 +411,11 @@ export default function FocusPage() {
                     </CardContent>
                 </Card>
             )}
+
+            {/* 练习记录 */}
+            <div className="mt-4">
+                <PracticeRecords />
+            </div>
 
             {/* 统计条 */}
             <Card className="mt-4">

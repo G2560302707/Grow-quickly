@@ -8,24 +8,6 @@
 		</view>
 		<view v-else-if="bothFailed" class="error-tip">{{ loadError || "统计数据加载失败" }}</view>
 		<template v-else>
-			<!-- 专注刷卷入口 -->
-			<view class="card entry-card fade-up" hover-class="hv" @tap="goFocus">
-				<view class="entry-text">
-					<text class="entry-title">专注刷卷</text>
-					<text class="entry-sub">番茄钟 / 整卷模考掐表，按行测节奏练</text>
-				</view>
-				<text class="entry-arrow">›</text>
-			</view>
-
-			<!-- 练习记录入口 -->
-			<view class="card entry-card fade-up" hover-class="hv" @tap="goHistory">
-				<view class="entry-text">
-					<text class="entry-title">练习记录</text>
-					<text class="entry-sub">查看练过的题与对错明细</text>
-				</view>
-				<text class="entry-arrow">›</text>
-			</view>
-
 			<!-- 错题掌握度 -->
 			<view class="card fade-up">
 				<view class="section-head">
@@ -253,13 +235,6 @@ function goSmartPractice(kp: KpDiagnosis) {
 	});
 }
 
-function goHistory() {
-	uni.navigateTo({ url: "/pages/practice/history" });
-}
-
-function goFocus() {
-	uni.navigateTo({ url: "/pages/focus/focus" });
-}
 const anyLoading = ref(true);
 const overviewFailed = ref(false);
 const practiceFailed = ref(false);
@@ -713,29 +688,4 @@ function normalizePractice(p: PracticeStats): NormalizedPractice {
 }
 
 /* ---------- 练习记录入口 ---------- */
-.entry-card {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 30rpx 32rpx;
-}
-.entry-text {
-	display: flex;
-	flex-direction: column;
-	gap: 6rpx;
-}
-.entry-title {
-	font-size: 30rpx;
-	font-weight: 700;
-	color: var(--ink-900);
-}
-.entry-sub {
-	font-size: 24rpx;
-	color: var(--ink-400);
-}
-.entry-arrow {
-	font-size: 44rpx;
-	color: var(--ink-300);
-	line-height: 1;
-}
 </style>
