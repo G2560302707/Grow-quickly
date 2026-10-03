@@ -24,6 +24,7 @@ export interface ErrorItem {
     wrongAnswerText: string | null;
     mistakeAnalysis: string | null;
     mistakeStatus?: string | null;
+    origin?: string | null; // 来源渠道: similar/smart/practice
     userNotes: string | null;
     masteryLevel: number;
     gradeSemester?: string | null;

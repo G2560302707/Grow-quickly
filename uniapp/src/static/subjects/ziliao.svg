@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#18A058" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 柱状 -->
+  <path d="M5.8 20.4v-6.2M11 20.4v-9.6M16.2 20.4V7.6" stroke-width="2.6"/>
+  <!-- 趋势箭头 -->
+  <path d="M4.2 8.6 10 5l3.4 2 5-3.4"/>
+  <path d="M15.6 3.4h2.8v2.8"/>
+</svg>

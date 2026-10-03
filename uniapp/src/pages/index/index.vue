@@ -91,8 +91,14 @@
 				:style="{ animationDelay: idx * 0.05 + 's' }"
 				@tap="openNotebook(nb)"
 			>
-				<view class="nb-icon" :style="{ background: moduleGradient(nb.name), boxShadow: moduleShadow(nb.name) }">
-					<text class="nb-icon-char">{{ nb.name.charAt(0) }}</text>
+				<view
+					class="nb-icon"
+					:style="moduleIcon(nb.name)
+						? { background: moduleTint(nb.name) }
+						: { background: moduleGradient(nb.name), boxShadow: moduleShadow(nb.name) }"
+				>
+					<image v-if="moduleIcon(nb.name)" class="nb-icon-img" :src="moduleIcon(nb.name)" mode="aspectFit" />
+					<text v-else class="nb-icon-char">{{ nb.name.charAt(0) }}</text>
 				</view>
 				<view class="nb-info">
 					<text class="nb-name">{{ nb.name }}</text>
@@ -116,6 +122,7 @@ import {
 	type OverviewStats,
 	type AnnouncementItem,
 } from "@/api";
+import { subjectIcon, subjectTint } from "@/utils/subject-icon";
 import { getSession } from "@/utils/auth";
 
 const notebooks = ref<Notebook[]>([]);
@@ -249,6 +256,14 @@ function moduleColor(name: string): string {
 		if (name.includes(key)) return color;
 	}
 	return "#56628c";
+}
+
+function moduleIcon(name: string): string {
+	return subjectIcon(name);
+}
+
+function moduleTint(name: string): string {
+	return subjectTint(name) || 'transparent';
 }
 
 function moduleGradient(name: string): string {
@@ -523,6 +538,10 @@ function moduleShadow(name: string): string {
 	justify-content: center;
 	margin-right: 26rpx;
 	flex-shrink: 0;
+}
+.nb-icon-img {
+	width: 46rpx;
+	height: 46rpx;
 }
 .nb-icon-char {
 	color: #ffffff;

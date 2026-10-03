@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { subjectIcon, subjectTint } from "@/lib/subject-icons";
 
 interface NotebookCardProps {
     id: string;
@@ -24,7 +25,17 @@ export function NotebookCard({ id, name, errorCount, onClick, onRename, onDelete
             <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                        <BookOpen className="h-5 w-5 text-primary" />
+                        {subjectIcon(name) ? (
+                            <span
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                                style={{ background: subjectTint(name) || "transparent" }}
+                            >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={subjectIcon(name)!} alt="" className="h-5 w-5" />
+                            </span>
+                        ) : (
+                            <BookOpen className="h-5 w-5 text-primary" />
+                        )}
                         <CardTitle className="text-lg truncate">{name}</CardTitle>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
