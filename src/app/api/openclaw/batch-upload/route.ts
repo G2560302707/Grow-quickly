@@ -6,6 +6,8 @@ import { calculateGrade } from "@/lib/grade-calculator";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { compare } from "bcryptjs";
+import { timingSafeEqual } from "crypto";
+import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:openclaw:batch-upload');
 
@@ -193,6 +195,12 @@ async function createErrorItem(
 }
 
 export async function POST(req: Request) {
+    // 限流：批量导入通道按 IP 宽松配额（60 次/分钟），防刷不误伤正常导入
+    const ocLimit = rateLimit(`openclaw:${clientIp(req)}`, { limit: 60, windowMs: 60 * 1000 });
+    if (!ocLimit.allowed) {
+        return tooManyRequests(ocLimit.retryAfterSeconds);
+    }
+
     logger.info('POST /api/openclaw/batch-upload called');
 
     // 获取请求头中的 API Key
@@ -223,7 +231,11 @@ export async function POST(req: Request) {
                 );
             }
 
-            if (apiKey !== expectedApiKey) {
+            // 常量时间比较，防时序侧信道逐位猜测
+            const a = Buffer.from(apiKey);
+            const b = Buffer.from(expectedApiKey);
+            const keyMatches = a.length === b.length && timingSafeEqual(a, b);
+            if (!keyMatches) {
                 logger.warn('Invalid API key provided');
                 return createErrorResponse(
                     'API密钥无效',

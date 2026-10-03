@@ -3,6 +3,7 @@
  * 测试用户注册接口
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resetRateLimits } from "@/lib/rate-limit";
 
 // Use vi.hoisted to ensure mocks are initialized before module imports
 const mocks = vi.hoisted(() => ({
@@ -39,6 +40,7 @@ import { GET as GET_STATUS } from '@/app/api/register/status/route';
 
 describe('/api/register', () => {
     beforeEach(() => {
+        resetRateLimits();
         vi.clearAllMocks();
         // Reset config mock to allow registration by default
         mocks.mockGetAppConfig.mockReturnValue({

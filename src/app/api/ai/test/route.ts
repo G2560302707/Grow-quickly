@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         logger.error({ error }, 'AI 测试 API 异常');
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Internal server error' },
+            { error: 'AI test failed' },
             { status: 500 }
         );
     }

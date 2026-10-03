@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@/lib/logger';
+import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('frontend-logs');
 
@@ -30,7 +31,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // 支持批量日志格式 { logs: [...] } 和单条日志格式
+    // 限流 + 条数上限：防止日志通道被刷爆
+    const logLimit = rateLimit(`fe-logs:${clientIp(request)}`, { limit: 30, windowMs: 60 * 1000 });
+    if (!logLimit.allowed) {
+        return tooManyRequests(logLimit.retryAfterSeconds);
+    }
     const logs: FrontendLogEntry[] = Array.isArray(body.logs) ? body.logs : [body];
+    if (logs.length > 100) {
+        logs.length = 100;
+    }
 
     for (const entry of logs) {
       const { level, prefix, message, context = {}, timestamp, url, userAgent } = entry;

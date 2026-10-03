@@ -6,6 +6,7 @@ import { getAIService } from "@/lib/ai";
 import { notFound, internalError, unauthorized } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 import { AI_SUBJECT_OPTIONS } from "@/lib/subjects";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:practice:generate');
 
@@ -29,6 +30,13 @@ export async function POST(req: Request) {
         if (!user) {
             return unauthorized("Authentication required");
         }
+
+    // 限流：AI 接口按用户每分钟 10 次，防滥用与成本失控
+    const aiLimit = rateLimit(`ai:practice-generate:${session.user?.email || "anon"}`, { limit: 10, windowMs: 60 * 1000 });
+    if (!aiLimit.allowed) {
+        return tooManyRequests(aiLimit.retryAfterSeconds, "AI 请求过于频繁，请稍后再试");
+    }
+
 
         const errorItemWithSubject = await prisma.errorItem.findFirst({
             where: { id: errorItemId, userId: user.id },

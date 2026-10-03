@@ -14,7 +14,8 @@ export default defineConfig({
         channel: 'chromium',
     },
     webServer: {
-        command: process.env.CI ? 'npm run start' : 'npm run dev',
+        // CI 也用 dev server：项目是 standalone 输出，next start 不可用；首版以稳为先
+        command: 'npm run dev',
         url: 'http://127.0.0.1:3000',
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,

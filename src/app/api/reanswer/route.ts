@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { badRequest, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:reanswer');
 
@@ -17,6 +18,13 @@ export async function POST(req: Request) {
         logger.warn('Unauthorized access attempt');
         return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
+
+    // 限流：AI 接口按用户每分钟 10 次，防滥用与成本失控
+    const aiLimit = rateLimit(`ai:reanswer:${session.user?.email || "anon"}`, { limit: 10, windowMs: 60 * 1000 });
+    if (!aiLimit.allowed) {
+        return tooManyRequests(aiLimit.retryAfterSeconds, "AI 请求过于频繁，请稍后再试");
+    }
+
 
     try {
         const body = await req.json();
@@ -48,7 +56,8 @@ export async function POST(req: Request) {
         const stack = error instanceof Error ? error.stack : undefined;
         logger.error({ error: errorMessageFromError, stack }, 'Reanswer error occurred');
 
-        let errorMessage = errorMessageFromError || "Failed to reanswer question";
+        // 默认通用消息，仅透传约定的 AI_* 错误码，避免泄漏上游服务细节
+        let errorMessage = "Failed to reanswer question";
 
         if (errorMessageFromError.includes('AI_AUTH_ERROR')) {
             errorMessage = 'AI_AUTH_ERROR';

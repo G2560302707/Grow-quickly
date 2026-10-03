@@ -144,16 +144,39 @@ export async function GET(req: Request) {
         });
 
         // 分页查询
-        const errorItems = await prisma.errorItem.findMany({
+        // 默认瘦身返回：排除 originalImageUrl(可达 14MB 的 base64)/analysis/ocrText 等大字段，
+        // 列表页不需要它们；打印预览等需要完整内容的场景传 ?full=1 取全量。
+        const full = searchParams.get("full") === "1";
+        const listArgs: Prisma.ErrorItemFindManyArgs = {
             where: whereClause,
             orderBy: { createdAt: "desc" },
-            include: {
-                subject: true,
-                tags: true,
-            },
+            ...(full
+                ? {
+                      include: {
+                          subject: true,
+                          tags: true,
+                      },
+                  }
+                : {
+                      select: {
+                          id: true,
+                          questionText: true,
+                          masteryLevel: true,
+                          mistakeStatus: true,
+                          origin: true,
+                          knowledgePoints: true,
+                          gradeSemester: true,
+                          paperLevel: true,
+                          createdAt: true,
+                          updatedAt: true,
+                          subject: { select: { id: true, name: true } },
+                          tags: { select: { id: true, name: true } },
+                      },
+                  }),
             skip: (page - 1) * pageSize,
             take: pageSize,
-        });
+        };
+        const errorItems = await prisma.errorItem.findMany(listArgs);
 
         const totalPages = Math.ceil(total / pageSize);
 

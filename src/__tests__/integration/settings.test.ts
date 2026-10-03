@@ -149,9 +149,9 @@ describe('/api/settings', () => {
         it('非管理员 GET 不应泄漏空值 Key 以外的信息', async () => {
             mocks.mockGetAppConfig.mockImplementationOnce(() => ({
                 aiProvider: 'gemini',
-                gemini: { apiKey: '', model: 'gemini-2.5-flash' },
-                azure: {},
-            }));
+                gemini: { apiKey: '', baseUrl: '', model: 'gemini-2.5-flash' },
+                azure: { apiKey: '', endpoint: '', deploymentName: '' },
+            } as any));
 
             vi.mocked(getServerSession).mockResolvedValueOnce({
                 user: { id: 'user-123', email: 'user@example.com', name: 'User', role: 'user' },

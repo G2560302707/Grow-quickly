@@ -3,6 +3,7 @@
  * 测试举一反三功能（生成类似题目和记录练习结果）
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resetRateLimits } from "@/lib/rate-limit";
 
 // Use vi.hoisted to ensure mocks are initialized before module imports
 const mocks = vi.hoisted(() => ({
@@ -70,6 +71,7 @@ import { getServerSession } from 'next-auth';
 
 describe('/api/practice', () => {
     beforeEach(() => {
+        resetRateLimits();
         vi.clearAllMocks();
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
     });

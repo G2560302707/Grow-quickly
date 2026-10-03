@@ -7,6 +7,7 @@ import { calculateGrade } from "@/lib/grade-calculator";
 import { prisma } from "@/lib/prisma";
 import { badRequest, internalError, createErrorResponse, ErrorCode } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:analyze');
 
@@ -37,6 +38,12 @@ export async function POST(req: Request) {
             return badRequest("Missing image data");
         }
 
+    // 限流：AI 接口按用户每分钟 10 次，防滥用与成本失控
+    const aiLimit = rateLimit(`ai:analyze:${session.user?.email || "anon"}`, { limit: 10, windowMs: 60 * 1000 });
+    if (!aiLimit.allowed) {
+        return tooManyRequests(aiLimit.retryAfterSeconds, "AI 请求过于频繁，请稍后再试");
+    }
+
         // Parse Data URL if present
         if (imageBase64.startsWith('data:')) {
             const matches = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
@@ -45,6 +52,21 @@ export async function POST(req: Request) {
                 imageBase64 = matches[2];
                 logger.debug({ mimeType, base64Length: imageBase64.length }, 'Parsed Data URL');
             }
+        }
+
+        // 图片类型白名单 + 大小上限，防止任意数据/超大载荷打到 AI 上游
+        const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (mimeType && !ALLOWED_MIME_TYPES.includes(mimeType)) {
+            return NextResponse.json(
+                { message: '不支持的图片格式，仅支持 JPEG/PNG/WebP/GIF', code: 'INVALID_INPUT' },
+                { status: 400 }
+            );
+        }
+        if (imageBase64.length > 12_000_000) {
+            return NextResponse.json(
+                { message: '图片过大，请压缩后重试（上限约 9MB）', code: 'INVALID_INPUT' },
+                { status: 400 }
+            );
         }
 
         // 先获取用户年级信息，用于动态生成 AI prompt 中的标签列表
@@ -151,6 +173,7 @@ export async function POST(req: Request) {
             errorMessage = 'AI_RESPONSE_ERROR';
         }
 
-        return createErrorResponse(errorMessage, 500, ErrorCode.AI_ERROR, error.message);
+        // 原始错误已记录日志，details 不回传客户端以免泄漏上游 AI 服务信息
+        return createErrorResponse(errorMessage, 500, ErrorCode.AI_ERROR);
     }
 }

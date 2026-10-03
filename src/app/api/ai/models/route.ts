@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
         logger.error({ error }, 'Error fetching models');
         return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Internal server error', models: [] },
+            { error: 'Failed to fetch models from AI provider', models: [] },
             { status: 200 } // Return 200 with empty models to allow manual input
         );
     }

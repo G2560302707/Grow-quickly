@@ -3,6 +3,7 @@ import { hash } from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { getAppConfig } from "@/lib/config"
+import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 const userSchema = z.object({
     // 支持标准邮箱和本地邮箱（如 user@localhost）
@@ -14,6 +15,12 @@ const userSchema = z.object({
 })
 
 export async function POST(req: Request) {
+    // 限流：注册接口按 IP 每小时最多 5 次，防批量刷号
+    const limit = rateLimit(`register:${clientIp(req)}`, { limit: 5, windowMs: 60 * 60 * 1000 });
+    if (!limit.allowed) {
+        return tooManyRequests(limit.retryAfterSeconds, '注册过于频繁，请一小时后再试');
+    }
+
     try {
         // 检查是否允许注册
         const config = getAppConfig();

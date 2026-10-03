@@ -9,6 +9,7 @@ import { AI_SUBJECT_OPTIONS } from "@/lib/subjects";
 import { buildWeaknessReport } from "@/lib/diagnosis";
 import { buildTargetedAnchor, bigramSimilarity } from "@/lib/smart-practice";
 import { replayElo, difficultyForRating } from "@/lib/elo";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:practice:smart');
 
@@ -29,6 +30,12 @@ export async function POST(req: Request) {
 
     if (!session?.user) {
         return unauthorized("Authentication required");
+    }
+
+    // 限流：AI 接口按用户每分钟 10 次，防滥用与成本失控
+    const aiLimit = rateLimit(`ai:practice-smart:${session.user?.email || "anon"}`, { limit: 10, windowMs: 60 * 1000 });
+    if (!aiLimit.allowed) {
+        return tooManyRequests(aiLimit.retryAfterSeconds, "AI 请求过于频繁，请稍后再试");
     }
 
     try {

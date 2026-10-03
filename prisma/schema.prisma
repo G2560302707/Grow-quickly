@@ -163,6 +163,10 @@ model ErrorItem {
 
   reviewSchedules ReviewSchedule[]
   practiceRecords PracticeRecord[] // 锚定本题的定向练习
+
+  @@index([userId, createdAt])
+  @@index([subjectId])
+  @@index([userId, masteryLevel])
 }
 
 model ReviewSchedule {
@@ -175,6 +179,8 @@ model ReviewSchedule {
   isCorrect    Boolean? // Result of the review
   
   createdAt    DateTime @default(now())
+
+  @@index([errorItemId])
 }
 
 model PracticeRecord {
@@ -196,4 +202,5 @@ model PracticeRecord {
   createdAt DateTime @default(now())
 
   @@index([userId, tagId])
+  @@index([userId, createdAt])
 }

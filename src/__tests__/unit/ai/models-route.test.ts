@@ -195,7 +195,8 @@ describe('POST /api/ai/models - Gemini provider', () => {
 
         expect(res.status).toBe(200);
         expect(body.models).toEqual([]);
-        expect(body.error).toContain('Gemini API error');
+        // 上游错误细节不透传，返回通用提示
+        expect(body.error).toBe('Failed to fetch models from AI provider');
     });
 
     it('缺少 apiKey 时应返回 400', async () => {
@@ -250,6 +251,6 @@ describe('POST /api/ai/models - OpenAI provider', () => {
 
         expect(res.status).toBe(200);
         expect(body.models).toEqual([]);
-        expect(body.error).toContain('API error');
+        expect(body.error).toBe('Failed to fetch models from AI provider');
     });
 });

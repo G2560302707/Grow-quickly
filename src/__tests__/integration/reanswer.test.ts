@@ -3,6 +3,7 @@
  * 测试重新回答问题接口
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resetRateLimits } from "@/lib/rate-limit";
 
 // Use vi.hoisted to ensure mocks are initialized before module imports
 const mocks = vi.hoisted(() => ({
@@ -37,6 +38,7 @@ import { POST } from '@/app/api/reanswer/route';
 
 describe('/api/reanswer', () => {
     beforeEach(() => {
+        resetRateLimits();
         vi.clearAllMocks();
     });
 
@@ -319,7 +321,8 @@ describe('/api/reanswer', () => {
             const data = await response.json();
 
             expect(response.status).toBe(500);
-            expect(data.message).toBe('Unknown error occurred');
+            // 未知错误不透传原始信息，返回通用消息
+            expect(data.message).toBe('Failed to reanswer question');
         });
 
         it('应该处理没有错误消息的异常', async () => {
