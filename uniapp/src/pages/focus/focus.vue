@@ -37,11 +37,14 @@
 						v-for="opt in MOCK_OPTIONS"
 						:key="opt"
 						class="opt-chip"
-						:class="{ 'opt-chip-active': targetMinutes === opt }"
+						:class="{ 'opt-chip-active': activePreset === opt }"
 						hover-class="hv"
-						@tap="targetMinutes = opt"
+						@tap="applyPreset(opt)"
 					>
 						{{ opt }} 分钟
+					</view>
+					<view class="opt-chip" :class="{ 'opt-chip-active': activePreset === null }">
+						共 {{ targetMinutes }} 分钟
 					</view>
 				</view>
 				<view class="seg-timeline">
@@ -55,7 +58,17 @@
 						<text class="seg-block-min">{{ seg.minutes }}′</text>
 					</view>
 				</view>
-				<view class="hint">按国考行测建议用时分配，超段会提醒你切换模块</view>
+				<view class="seg-edit-list">
+					<view v-for="(seg, i) in mockSegments" :key="seg.name" class="seg-edit-row">
+						<text class="seg-edit-name" :style="{ color: SEG_COLORS[i % SEG_COLORS.length] }">{{ seg.name }}</text>
+						<view class="seg-edit-stepper">
+							<view class="seg-step" hover-class="hv" @tap="editSegment(i, -1)">−</view>
+							<text class="seg-edit-min num">{{ segMinutes[i] }}′</text>
+							<view class="seg-step" hover-class="hv" @tap="editSegment(i, 1)">+</view>
+						</view>
+					</view>
+				</view>
+				<view class="hint">默认按国考建议用时分配；点 ± 自定义每模块用时，总时长随之变化，超段会提醒切换模块</view>
 			</template>
 
 			<!-- 自定义 -->
@@ -180,6 +193,7 @@ type Mode = (typeof MODES)[number]["value"];
 
 const POMODORO_OPTIONS = [25, 45, 60];
 const MOCK_OPTIONS = [90, 120, 150, 180];
+const MOCK_TOTAL_CAP = 240; // 服务端单次上限 4 小时
 const BIND_NAMES = ["言语理解", "判断推理", "数量关系", "资料分析", "常识判断"];
 const SEG_COLORS = ["#E8993C", "#5568E8", "#8B5CF6", "#0E9F8A", "#18A058"];
 // 国考行测 120 分钟建议用时分配（常识→资料）
@@ -200,6 +214,40 @@ const QUOTES = [
 	"岗位只招第一名，并列都不要。",
 	"先做完，再做好——考场上没有完美，只有完成。",
 ];
+
+// 模考各段用时(分钟),默认按国考建议分配;总时长 = 各段之和
+const segMinutes = ref<number[]>(MOCK_SEGMENTS_BASE.map(s => s.minutes));
+const activePreset = ref<number | null>(120);
+
+function applyPreset(total: number) {
+	const baseSum = MOCK_SEGMENTS_BASE.reduce((s, x) => s + x.minutes, 0);
+	// 等比缩放 + 最大余数法,保证各段之和恰等于 total
+	const raw = MOCK_SEGMENTS_BASE.map(s => (s.minutes / baseSum) * total);
+	const floored = raw.map(x => Math.max(1, Math.floor(x)));
+	let rest = total - floored.reduce((a, b) => a + b, 0);
+	const order = raw
+		.map((x, i) => ({ i, frac: x - Math.floor(x) }))
+		.sort((a, b) => b.frac - a.frac);
+	for (const { i } of order) {
+		if (rest <= 0) break;
+		floored[i] += 1;
+		rest -= 1;
+	}
+	segMinutes.value = floored;
+	activePreset.value = total;
+	targetMinutes.value = total;
+}
+
+function editSegment(i: number, delta: number) {
+	const next = [...segMinutes.value];
+	const v = next[i] + delta;
+	if (v < 1 || v > 90) return;
+	if (delta > 0 && next.reduce((a, b) => a + b, 0) >= MOCK_TOTAL_CAP) return;
+	next[i] = v;
+	segMinutes.value = next;
+	activePreset.value = null; // 手动编辑后脱离预设
+	targetMinutes.value = next.reduce((a, b) => a + b, 0);
+}
 
 const STORAGE_KEY = "focus_running_v1";
 const EXAM_DATE_KEY = "exam_target_date";
@@ -239,14 +287,10 @@ const examDaysLeft = computed(() => {
 	return diff;
 });
 
-// 模考分段随总时长等比缩放
-const mockSegments = computed(() => {
-	const total = MOCK_SEGMENTS_BASE.reduce((s, x) => s + x.minutes, 0);
-	return MOCK_SEGMENTS_BASE.map(seg => ({
-		name: seg.name,
-		minutes: Math.max(1, Math.round((seg.minutes / total) * targetMinutes.value)),
-	}));
-});
+// 模考分段:由 segMinutes 驱动(可自定义),名称固定
+const mockSegments = computed(() =>
+	MOCK_SEGMENTS_BASE.map((seg, i) => ({ name: seg.name, minutes: segMinutes.value[i] }))
+);
 const segmentOffsets = computed(() => {
 	let acc = 0;
 	return mockSegments.value.map(seg => {
@@ -273,7 +317,7 @@ const quote = computed(() => QUOTES[quoteIndex.value]);
 function switchMode(m: Mode) {
 	mode.value = m;
 	if (m === "pomodoro") targetMinutes.value = 25;
-	else if (m === "mock") targetMinutes.value = 120;
+	else if (m === "mock") applyPreset(120);
 	else targetMinutes.value = 60;
 }
 
@@ -403,6 +447,7 @@ function persistRunning() {
 		mode: mode.value,
 		moduleName: moduleName.value,
 		targetMinutes: targetMinutes.value,
+		segMinutes: mode.value === "mock" ? segMinutes.value : undefined,
 		elapsed: elapsed.value,
 	});
 }
@@ -413,6 +458,9 @@ function restoreRunning() {
 	mode.value = saved.mode;
 	moduleName.value = saved.moduleName || "";
 	targetMinutes.value = saved.targetMinutes;
+	if (mode.value === "mock" && Array.isArray(saved.segMinutes) && saved.segMinutes.length === MOCK_SEGMENTS_BASE.length) {
+		segMinutes.value = saved.segMinutes;
+	}
 	elapsed.value = saved.elapsed || 0;
 	if (elapsed.value >= targetSeconds.value) {
 		complete(true);
@@ -628,6 +676,48 @@ onUnmounted(stopTimers);
 .timer-elapsed {
 	font-size: 24rpx;
 	color: var(--ink-400);
+}
+.seg-edit-list {
+	width: 100%;
+	margin-top: 22rpx;
+	display: flex;
+	flex-direction: column;
+	gap: 10rpx;
+}
+.seg-edit-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: var(--bg-fill);
+	border-radius: 12rpx;
+	padding: 12rpx 22rpx;
+}
+.seg-edit-name {
+	font-size: 25rpx;
+	font-weight: 600;
+}
+.seg-edit-stepper {
+	display: flex;
+	align-items: center;
+	gap: 22rpx;
+}
+.seg-step {
+	width: 52rpx;
+	height: 52rpx;
+	line-height: 50rpx;
+	text-align: center;
+	border-radius: 50%;
+	background: #ffffff;
+	border: 2rpx solid var(--line-100);
+	color: var(--ink-900);
+	font-size: 32rpx;
+}
+.seg-edit-min {
+	font-size: 26rpx;
+	font-weight: 700;
+	color: var(--ink-900);
+	min-width: 60rpx;
+	text-align: center;
 }
 .mock-status {
 	margin-top: 28rpx;

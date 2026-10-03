@@ -23,6 +23,7 @@ const POMODORO_OPTIONS = [25, 45, 60];
 const MOCK_OPTIONS = [90, 120, 150, 180];
 const BIND_NAMES = ["言语理解", "判断推理", "数量关系", "资料分析", "常识判断"];
 const SEG_COLORS = ["#E8993C", "#5568E8", "#8B5CF6", "#0E9F8A", "#18A058"];
+const MOCK_TOTAL_CAP = 240; // 服务端单次上限 4 小时
 const MOCK_SEGMENTS_BASE = [
     { name: "常识判断", minutes: 10 },
     { name: "言语理解", minutes: 35 },
@@ -57,6 +58,8 @@ export default function FocusPage() {
     const [mode, setMode] = useState<Mode>("pomodoro");
     const [targetMinutes, setTargetMinutes] = useState(25);
     const [moduleName, setModuleName] = useState("");
+    const [segMinutes, setSegMinutes] = useState<number[]>(MOCK_SEGMENTS_BASE.map(s => s.minutes));
+    const [activePreset, setActivePreset] = useState<number | null>(120);
     const [phase, setPhase] = useState<"idle" | "running" | "paused" | "done">("idle");
     const [elapsed, setElapsed] = useState(0);
     const [quoteIndex, setQuoteIndex] = useState(0);
@@ -78,10 +81,7 @@ export default function FocusPage() {
         return h > 0 ? `${pad(h)}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
     };
 
-    const mockSegments = MOCK_SEGMENTS_BASE.map(seg => ({
-        ...seg,
-        minutes: Math.max(1, Math.round((seg.minutes / 120) * targetMinutes)),
-    }));
+    const mockSegments = MOCK_SEGMENTS_BASE.map((seg, i) => ({ name: seg.name, minutes: segMinutes[i] }));
     const segmentOffsets = mockSegments.reduce<number[]>((acc, seg) => {
         acc.push((acc[acc.length - 1] ?? 0) + seg.minutes * 60);
         return acc;
@@ -91,6 +91,33 @@ export default function FocusPage() {
         segmentOffsets.length - 1
     );
     const segmentOvertime = Math.max(0, elapsed - (segIdx > 0 ? segmentOffsets[segIdx - 1] : 0) - mockSegments[segIdx].minutes * 60);
+
+    const applyPreset = (total: number) => {
+        const baseSum = MOCK_SEGMENTS_BASE.reduce((acc, x) => acc + x.minutes, 0);
+        const raw = MOCK_SEGMENTS_BASE.map(s => (s.minutes / baseSum) * total);
+        const floored = raw.map(x => Math.max(1, Math.floor(x)));
+        let rest = total - floored.reduce((a, b) => a + b, 0);
+        const order = raw.map((x, i) => ({ i, frac: x - Math.floor(x) })).sort((a, b) => b.frac - a.frac);
+        for (const { i } of order) {
+            if (rest <= 0) break;
+            floored[i] += 1;
+            rest -= 1;
+        }
+        setSegMinutes(floored);
+        setActivePreset(total);
+        setTargetMinutes(total);
+    };
+
+    const editSegment = (i: number, delta: number) => {
+        const next = [...segMinutes];
+        const v = next[i] + delta;
+        if (v < 1 || v > 90) return;
+        if (delta > 0 && next.reduce((a, b) => a + b, 0) >= MOCK_TOTAL_CAP) return;
+        next[i] = v;
+        setSegMinutes(next);
+        setActivePreset(null);
+        setTargetMinutes(next.reduce((a, b) => a + b, 0));
+    };
 
     const loadStats = useCallback(() => {
         apiClient.get<FocusStats>("/api/focus/stats").then(setStats).catch(() => {});
@@ -107,6 +134,9 @@ export default function FocusPage() {
                     setMode(s.mode);
                     setModuleName(s.moduleName || "");
                     setTargetMinutes(s.targetMinutes);
+                    if (s.mode === 'mock' && Array.isArray(s.segMinutes) && s.segMinutes.length === MOCK_SEGMENTS_BASE.length) {
+                        setSegMinutes(s.segMinutes);
+                    }
                     setElapsed(s.elapsed || 0);
                     setPhase("paused");
                 } else {
@@ -133,7 +163,7 @@ export default function FocusPage() {
                     const { phase: p, elapsed: e } = stateRef.current;
                     localStorage.setItem(
                         RUNNING_KEY,
-                        JSON.stringify({ mode, moduleName, targetMinutes, elapsed: e, phase: p })
+                        JSON.stringify({ mode, moduleName, targetMinutes, segMinutes: mode === 'mock' ? segMinutes : undefined, elapsed: e, phase: p })
                     );
                 }
                 if (next >= targetSeconds) {
@@ -238,7 +268,12 @@ export default function FocusPage() {
                                     key={m}
                                     variant={mode === m ? "default" : "outline"}
                                     className="flex-1"
-                                    onClick={() => setMode(m)}
+                                    onClick={() => {
+                                        setMode(m);
+                                        if (m === 'mock') applyPreset(120);
+                                        else if (m === 'pomodoro') setTargetMinutes(25);
+                                        else setTargetMinutes(60);
+                                    }}
                                 >
                                     {m === "pomodoro" ? "番茄专注" : m === "mock" ? "模考掐表" : "自定义"}
                                 </Button>
@@ -269,9 +304,9 @@ export default function FocusPage() {
                                     {MOCK_OPTIONS.map(opt => (
                                         <Button
                                             key={opt}
-                                            variant={targetMinutes === opt ? "secondary" : "outline"}
+                                            variant={activePreset === opt ? "secondary" : "outline"}
                                             className="flex-1"
-                                            onClick={() => setTargetMinutes(opt)}
+                                            onClick={() => applyPreset(opt)}
                                         >
                                             {opt} 分钟
                                         </Button>
@@ -289,7 +324,27 @@ export default function FocusPage() {
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-xs text-muted-foreground">按国考行测建议用时分配，超段会提醒你切换模块</p>
+                                <div className="space-y-1.5">
+                                    {mockSegments.map((seg, i) => (
+                                        <div key={seg.name} className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-1.5">
+                                            <span className="text-sm font-medium" style={{ color: SEG_COLORS[i % SEG_COLORS.length] }}>
+                                                {seg.name}
+                                            </span>
+                                            <span className="flex items-center gap-3">
+                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => editSegment(i, -1)}>
+                                                    −
+                                                </Button>
+                                                <span className="w-10 text-center text-sm font-bold tabular-nums">{segMinutes[i]}′</span>
+                                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => editSegment(i, 1)}>
+                                                    +
+                                                </Button>
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    默认按国考建议用时分配；± 自定义每模块用时，总时长随之变化，超段会提醒切换模块
+                                </p>
                             </>
                         )}
 
