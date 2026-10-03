@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5568E8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 后气泡(左上) -->
+  <path d="M4 6.8C4 5.25 5.25 4 6.8 4h6.4C14.75 4 16 5.25 16 6.8v1.2c0 1.55-1.25 2.8-2.8 2.8H9l-2.6 2.2V10.8h-.6C4.7 10.8 4 9.9 4 8.9V6.8z" fill="#E9ECFC" stroke-width="1.7"/>
+  <!-- 前气泡(右下) -->
+  <path d="M8 13.6c0-1.55 1.25-2.8 2.8-2.8h5.6c1.55 0 2.8 1.25 2.8 2.8v1.4c0 1.55-1.25 2.8-2.8 2.8h-2.6l-2.8 2.4v-2.4h-.2C9.05 17.8 8 16.75 8 15.2v-1.6z" fill="#E9ECFC"/>
+  <!-- 文本行 -->
+  <path d="M11.2 13.9h5M11.2 16.2h3.4"/>
+</svg>

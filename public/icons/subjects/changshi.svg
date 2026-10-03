@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#E8993C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 光线 -->
+  <path d="M12 2.9v1.4M4.6 11h1.5M17.9 11h1.5M6.2 5.6l1.1 1.1M17.8 5.6l-1.1 1.1"/>
+  <!-- 灯泡 -->
+  <circle cx="12" cy="11" r="4.9" fill="#FCF1E2"/>
+  <!-- 灯头 -->
+  <path d="M10.2 17.6h3.6M10.8 19.8h2.4"/>
+</svg>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>题目类型图标设计 — 行测五大模块</title>
+<style>
+  :root {
+    --ink-900: #151c30; --ink-500: #6b7590; --ink-400: #9aa3b8;
+    --line: #e8eaf1; --bg: #f4f5fa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--ink-900); padding: 48px 32px 80px; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: .5px; }
+  .sub { color: var(--ink-500); font-size: 14px; margin: 10px 0 40px; }
+  h2 { font-size: 17px; margin: 48px 0 18px; padding-left: 10px; border-left: 4px solid #5568E8; }
+  .card { background: #fff; border-radius: 16px; padding: 28px; box-shadow: 0 1px 3px rgba(16,26,60,.06); }
+
+  /* 主视觉 */
+  .hero { display: flex; gap: 20px; flex-wrap: wrap; }
+  .hero-item { flex: 1; min-width: 160px; text-align: center; padding: 24px 12px; border-radius: 14px; transition: transform .15s; }
+  .hero-item:hover { transform: translateY(-3px); }
+  .chip { width: 56px; height: 56px; border-radius: 15px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .chip img { width: 30px; height: 30px; }
+  .hero-item .name { font-size: 15px; font-weight: 700; }
+  .hero-item .en { font-size: 11px; color: var(--ink-400); margin: 4px 0 10px; letter-spacing: .4px; }
+  .hero-item .metaphor { font-size: 12px; color: var(--ink-500); line-height: 1.6; }
+  .hero-item .hex { display: inline-block; font-size: 11px; margin-top: 10px; padding: 2px 10px; border-radius: 999px; font-family: ui-monospace, Consolas, monospace; }
+
+  /* 列表场景 mock */
+  .list-mock { display: flex; flex-direction: column; gap: 10px; }
+  .list-row { display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+  .list-row img { width: 22px; height: 22px; }
+  .list-row .t { font-size: 14px; font-weight: 600; flex: 1; }
+  .list-row .m { font-size: 12px; color: var(--ink-400); }
+
+  /* 尺寸 */
+  .sizes { display: flex; align-items: flex-end; gap: 40px; }
+  .size-item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .size-item .lbl { font-size: 12px; color: var(--ink-400); }
+  .size-item .chip2 { border-radius: 26%; display: flex; align-items: center; justify-content: center; }
+
+  /* 规范 */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--ink-500); font-weight: 600; }
+  td.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 6px; }
+
+  .note { font-size: 13px; color: var(--ink-500); line-height: 1.9; }
+  .note b { color: var(--ink-900); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>题目类型图标设计 · 行测五大模块</h1>
+  <p class="sub">风格：双色调线性图标（1.8px 圆头描边 + 12% 同色淡底）｜ 24px 网格 ｜ 每模块一个专属识别色，用于错题本、列表筛选、统计图与练习入口</p>
+
+  <h2>一、主视觉（App 图标形态）</h2>
+  <div class="card hero">
+    <div class="hero-item" style="background:#E9ECFC33">
+      <span class="chip" style="background:#E9ECFC"><img src="/icons/subjects/yanyu.svg" alt="言语理解"></span>
+      <div class="name">言语理解</div>
+      <div class="en">VERBAL</div>
+      <div class="metaphor">双对话气泡<br>阅读与表达</div>
+      <span class="hex" style="background:#E9ECFC;color:#5568E8">#5568E8</span>
+    </div>
+    <div class="hero-item" style="background:#F1EBFE33">
+      <span class="chip" style="background:#F1EBFE"><img src="/icons/subjects/panduan.svg" alt="判断推理"></span>
+      <div class="name">判断推理</div>
+      <div class="en">REASONING</div>
+      <div class="metaphor">三角 · 圆 · 方<br>图形推理三件套</div>
+      <span class="hex" style="background:#F1EBFE;color:#8B5CF6">#8B5CF6</span>
+    </div>
+    <div class="hero-item" style="background:#E2F5F233">
+      <span class="chip" style="background:#E2F5F2"><img src="/icons/subjects/shuliang.svg" alt="数量关系"></span>
+      <div class="name">数量关系</div>
+      <div class="en">QUANTITATIVE</div>
+      <div class="metaphor">计算器<br>运算与求解</div>
+      <span class="hex" style="background:#E2F5F2;color:#0E9F8A">#0E9F8A</span>
+    </div>
+    <div class="hero-item" style="background:#E4F6EC33">
+      <span class="chip" style="background:#E4F6EC"><img src="/icons/subjects/ziliao.svg" alt="资料分析"></span>
+      <div class="name">资料分析</div>
+      <div class="en">DATA</div>
+      <div class="metaphor">柱状图 + 趋势线<br>图表与数据</div>
+      <span class="hex" style="background:#E4F6EC;color:#18A058">#18A058</span>
+    </div>
+    <div class="hero-item" style="background:#FCF1E233">
+      <span class="chip" style="background:#FCF1E2"><img src="/icons/subjects/changshi.svg" alt="常识判断"></span>
+      <div class="name">常识判断</div>
+      <div class="en">KNOWLEDGE</div>
+      <div class="metaphor">发光灯泡<br>积累与常识</div>
+      <span class="hex" style="background:#FCF1E2;color:#E8993C">#E8993C</span>
+    </div>
+  </div>
+
+  <h2>二、列表场景（线性形态 · 22px）</h2>
+  <div class="card list-mock">
+    <div class="list-row"><img src="/icons/subjects/yanyu.svg"><span class="t">言语理解</span><span class="m">12 题未掌握</span></div>
+    <div class="list-row"><img src="/icons/subjects/panduan.svg"><span class="t">判断推理</span><span class="m">8 题未掌握</span></div>
+    <div class="list-row"><img src="/icons/subjects/shuliang.svg"><span class="t">数量关系</span><span class="m">15 题未掌握</span></div>
+    <div class="list-row"><img src="/icons/subjects/ziliao.svg"><span class="t">资料分析</span><span class="m">6 题未掌握</span></div>
+    <div class="list-row"><img src="/icons/subjects/changshi.svg"><span class="t">常识判断</span><span class="m">20 题未掌握</span></div>
+  </div>
+
+  <h2>三、尺寸阶梯</h2>
+  <div class="card">
+    <div class="sizes">
+      <div class="size-item"><span class="chip2" style="width:56px;height:56px;background:#E9ECFC"><img src="/icons/subjects/yanyu.svg" style="width:30px;height:30px"></span><span class="lbl">56 · 入口卡片</span></div>
+      <div class="size-item"><span class="chip2" style="width:36px;height:36px;background:#E9ECFC"><img src="/icons/subjects/yanyu.svg" style="width:20px;height:20px"></span><span class="lbl">36 · 列表分组</span></div>
+      <div class="size-item"><img src="/icons/subjects/yanyu.svg" style="width:24px;height:24px"><span class="lbl">24 · 标签页</span></div>
+      <div class="size-item"><img src="/icons/subjects/yanyu.svg" style="width:18px;height:18px"><span class="lbl">18 · 行内</span></div>
+    </div>
+  </div>
+
+  <h2>四、设计规范</h2>
+  <div class="card">
+    <table>
+      <tr><th>模块</th><th>主色</th><th>淡底</th><th>隐喻</th></tr>
+      <tr><td>言语理解</td><td><span class="swatch" style="background:#5568E8"></span><span class="mono">#5568E8</span></td><td class="mono">#E9ECFC</td><td>双对话气泡 —— 行测以文字阅读与表达为核心</td></tr>
+      <tr><td>判断推理</td><td><span class="swatch" style="background:#8B5CF6"></span><span class="mono">#8B5CF6</span></td><td class="mono">#F1EBFE</td><td>三角/圆/方 —— 直接取自图形推理题型元素</td></tr>
+      <tr><td>数量关系</td><td><span class="swatch" style="background:#0E9F8A"></span><span class="mono">#0E9F8A</span></td><td class="mono">#E2F5F2</td><td>计算器 —— 数量运算与速算技巧</td></tr>
+      <tr><td>资料分析</td><td><span class="swatch" style="background:#18A058"></span><span class="mono">#18A058</span></td><td class="mono">#E4F6EC</td><td>柱状图 + 趋势箭头 —— 图表材料的增长率计算</td></tr>
+      <tr><td>常识判断</td><td><span class="swatch" style="background:#E8993C"></span><span class="mono">#E8993C</span></td><td class="mono">#FCF1E2</td><td>发光灯泡 —— 政治法律人文科技的日常积累</td></tr>
+    </table>
+    <p class="note" style="margin-top:16px">
+      <b>统一规范</b>：24px 网格 · 1.8px 描边（圆头/圆角连接）· 隐喻主体带 12% 同色淡底形成双色调 · 图标主色即该模块在图表中的用色（统计页柱状图/薄弱点分布可直接复用）。<br>
+      <b>落地方式</b>：纯 SVG 静态资源，零依赖；网页端置于 <span class="mono">public/icons/subjects/</span>，小程序端复制到 <span class="mono">uniapp/src/static/subjects/</span> 即可使用。
+    </p>
+  </div>
+</div>
+</body>
+</html>
