@@ -71,8 +71,8 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     await page.getByRole('button', { name: /确认|Confirm/ }).click();
 
     // 6. Wait for Editor (Mocked analysis returns immediately)
-    // Look for Editor Title "校对" or "Review"
-    await expect(page.getByRole('heading', { level: 2 })).toContainText(/校对|Review|Correct/, { timeout: 10000 });
+    // Look for Editor Title "校对" or "Review"（改版后首页存在多个 h2，需按名称定位）
+    await expect(page.getByRole('heading', { name: /校对|Review|Correct/ })).toBeVisible({ timeout: 10000 });
 
     // 7. Correct the Question Text
     // Prepend "试题：" to the question text
@@ -97,6 +97,10 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     // 9. Save
     // Click "Save to Notebook" / "保存"
     await page.getByRole('button', { name: /保存|Save/ }).click();
+
+    // 保存成功后会弹出应用内提示对话框（alertDialog），确认后才开始跳转错题本
+    await expect(page.getByRole('dialog').last()).toBeVisible({ timeout: 10000 });
+    await page.getByRole('dialog').last().getByRole('button', { name: /确认|确定|OK|Confirm/ }).click();
 
     // 10. Verify Redirection and Content
     // Should redirect to /notebooks/[id]
@@ -136,6 +140,10 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
         const itemDeleteDialog = page.getByRole('dialog').last();
         await expect(itemDeleteDialog).toBeVisible({ timeout: 5000 });
         await itemDeleteDialog.getByRole('button', { name: /确认|Confirm/ }).click();
+
+        // 删除成功后会弹出"已删除"提示框，确认后才跳回错题本
+        await expect(page.getByRole('dialog').last()).toBeVisible({ timeout: 5000 });
+        await page.getByRole('dialog').last().getByRole('button', { name: /确认|确定|OK|Confirm/ }).click();
 
         // Wait to be redirected back to notebook page
         await page.waitForURL(/\/notebooks\/.+/, { timeout: 5000 });

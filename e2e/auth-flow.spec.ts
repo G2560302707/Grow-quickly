@@ -108,15 +108,13 @@ test.describe('Authentication Flow', () => {
         // 使用更长的超时时间等待用户行出现
         await expect(userRow).toBeVisible({ timeout: 10000 });
 
-        // Setup dialog handler for delete confirmation
-        page.once('dialog', async dialog => {
-            console.log(`Delete User Dialog: ${dialog.message()}`);
-            await dialog.accept();
-        });
-
         // Click Delete button in that row (Trash icon)
         // The button has title "Delete" or "删除"
         await userRow.getByRole('button', { name: /Delete|删除/ }).click();
+
+        // 改版后删除确认走应用内 confirmDialog（Radix Dialog）而非原生 confirm，
+        // 点击弹出对话框中的确认按钮（外层设置对话框仍开启，取最后渲染的一层）
+        await page.getByRole('dialog').last().getByRole('button', { name: /确认|确定|OK|Confirm/ }).click();
 
         // Verify user is gone
         await expect(page.locator('tr').filter({ hasText: user.email })).not.toBeVisible({ timeout: 5000 });

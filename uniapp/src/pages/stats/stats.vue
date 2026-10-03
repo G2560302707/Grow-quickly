@@ -8,6 +8,15 @@
 		</view>
 		<view v-else-if="bothFailed" class="error-tip">{{ loadError || "统计数据加载失败" }}</view>
 		<template v-else>
+			<!-- 练习记录入口 -->
+			<view class="card entry-card fade-up" hover-class="hv" @tap="goHistory">
+				<view class="entry-text">
+					<text class="entry-title">练习记录</text>
+					<text class="entry-sub">查看练过的题与对错明细</text>
+				</view>
+				<text class="entry-arrow">›</text>
+			</view>
+
 			<!-- 错题掌握度 -->
 			<view class="card fade-up">
 				<view class="section-head">
@@ -233,6 +242,10 @@ function goSmartPractice(kp: KpDiagnosis) {
 	uni.navigateTo({
 		url: `/pages/practice/practice?mode=session&tagId=${kp.tagId}&tagName=${encodeURIComponent(kp.name)}`,
 	});
+}
+
+function goHistory() {
+	uni.navigateTo({ url: "/pages/practice/history" });
 }
 const anyLoading = ref(true);
 const overviewFailed = ref(false);
@@ -684,5 +697,32 @@ function normalizePractice(p: PracticeStats): NormalizedPractice {
 	font-size: 20rpx;
 	color: var(--ink-300);
 	line-height: 1.6;
+}
+
+/* ---------- 练习记录入口 ---------- */
+.entry-card {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 30rpx 32rpx;
+}
+.entry-text {
+	display: flex;
+	flex-direction: column;
+	gap: 6rpx;
+}
+.entry-title {
+	font-size: 30rpx;
+	font-weight: 700;
+	color: var(--ink-900);
+}
+.entry-sub {
+	font-size: 24rpx;
+	color: var(--ink-400);
+}
+.entry-arrow {
+	font-size: 44rpx;
+	color: var(--ink-300);
+	line-height: 1;
 }
 </style>

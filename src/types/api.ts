@@ -58,6 +58,7 @@ export interface ErrorItem {
     wrongAnswerText?: string | null;
     mistakeAnalysis?: string | null;
     mistakeStatus?: 'not_attempted' | 'wrong_attempt' | 'unknown' | string | null;
+    origin?: 'similar' | 'smart' | 'practice' | string | null; // 来源渠道：举一反三/薄弱点专项/练习，拍照或手动录入为空
     knowledgePoints?: string | null;
 
     source?: string | null;

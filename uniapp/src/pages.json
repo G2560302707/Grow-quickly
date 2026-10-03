@@ -78,6 +78,15 @@
 			}
 		},
 		{
+			"path": "pages/practice/history",
+			"style": {
+				"navigationBarTitleText": "练习记录",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
 			"path": "pages/stats/stats",
 			"style": {
 				"navigationBarTitleText": "学习统计",

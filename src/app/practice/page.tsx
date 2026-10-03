@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, RefreshCw, CheckCircle, Eye, Send, XCircle, ArrowLeft, House } from "lucide-react";
 import { ParsedQuestion } from "@/lib/ai/types";
+import { parseChoiceOptions, parseCorrectOption } from "@/lib/practice-choice";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,13 @@ function PracticeContent() {
     const [notes, setNotes] = useState("");
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+    const [selectedOption, setSelectedOption] = useState<number | null>(null);
+    const [savedErrorItemId, setSavedErrorItemId] = useState<string | null>(null);
     const [config, setConfig] = useState<AppConfig | null>(null);
+
+    // 选择题：解析选项与正确项（解析失败回退自由输入）
+    const choice = question ? parseChoiceOptions(question.questionText) : null;
+    const correctLabel = question ? parseCorrectOption(question.answerText) : null;
 
     useEffect(() => {
         apiClient.get<AppConfig>("/api/settings")
@@ -59,6 +66,8 @@ function PracticeContent() {
         setIsSubmitted(false);
         setIsCorrect(null);
         setShowAnswer(false);
+        setSelectedOption(null);
+        setSavedErrorItemId(null);
         try {
             const timeout = config?.timeouts?.analyze || 180000;
             frontendLogger.info('[Practice]', 'Generating question', {
@@ -92,8 +101,14 @@ function PracticeContent() {
         }
     };
 
-    const submitAnswer = () => {
-        if (!userAnswer.trim() || !question) return;
+    const submitAnswer = async () => {
+        if (!question) return;
+        if (choice) {
+            if (selectedOption === null) return;
+            setUserAnswer(choice.options[selectedOption].label);
+        } else if (!userAnswer.trim()) {
+            return;
+        }
 
         setIsSubmitted(true);
 
@@ -114,15 +129,30 @@ function PracticeContent() {
             isMatch = true;
         }
 
+        // 选择题能解析出正确项时以选项相等为准，避免答案文本不规整导致误判
+        if (choice && correctLabel && selectedOption !== null) {
+            isMatch = choice.options[selectedOption].label === correctLabel;
+        }
+
         setIsCorrect(isMatch);
         setShowAnswer(true);
 
-        // Save practice record
-        apiClient.post("/api/practice/record", {
-            subject: question.subject || "Unknown",
-            difficulty,
-            isCorrect: isMatch
-        }).catch(err => console.error("Failed to save practice record:", err));
+        // Save practice record（带题目与解析快照，答错时后端自动收录错题本）
+        try {
+            const res = await apiClient.post<{ savedErrorItemId?: string | null }>("/api/practice/record", {
+                subject: question.subject || "Unknown",
+                difficulty,
+                isCorrect: isMatch,
+                errorItemId: errorItemId || undefined,
+                questionText: question.questionText,
+                answerText: question.answerText,
+                analysis: question.analysis,
+                knowledgePoints: question.knowledgePoints,
+            });
+            setSavedErrorItemId(res?.savedErrorItemId || null);
+        } catch (err) {
+            console.error("Failed to save practice record:", err);
+        }
     };
 
     if (!errorItemId) {
@@ -246,17 +276,58 @@ function PracticeContent() {
                     <Card className="border-blue-200">
                         <CardHeader>
                             <CardTitle className="text-blue-600">
-                                {t.app.yourAnswer || "你的答案"}
+                                {choice ? "选择答案" : t.app.yourAnswer || "你的答案"}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <Input
-                                placeholder={t.app.answerPlaceholder || "输入你的答案..."}
-                                value={userAnswer}
-                                onChange={(e) => setUserAnswer(e.target.value)}
-                                disabled={isSubmitted}
-                                className="text-lg"
-                            />
+                            {choice ? (
+                                <div className="space-y-2" role="radiogroup" aria-label="选项">
+                                    {choice.options.map((opt, idx) => {
+                                        const isCorrectOption = isSubmitted && correctLabel === opt.label;
+                                        const isWrongPicked = isSubmitted && correctLabel !== null && selectedOption === idx && correctLabel !== opt.label;
+                                        return (
+                                            <button
+                                                key={opt.label}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={selectedOption === idx}
+                                                disabled={isSubmitted}
+                                                onClick={() => setSelectedOption(idx)}
+                                                className={`w-full text-left flex items-start gap-3 rounded-lg border p-3 transition-colors disabled:cursor-default ${
+                                                    isCorrectOption
+                                                        ? "border-green-600 bg-green-50 dark:bg-green-950/40"
+                                                        : isWrongPicked
+                                                            ? "border-red-600 bg-red-50 dark:bg-red-950/40"
+                                                            : selectedOption === idx
+                                                                ? "border-primary bg-primary/5"
+                                                                : "bg-muted/30 hover:bg-muted"
+                                                }`}
+                                            >
+                                                <span className={`shrink-0 w-7 h-7 rounded-full border flex items-center justify-center text-sm font-bold ${
+                                                    isCorrectOption
+                                                        ? "border-green-600 bg-green-600 text-white"
+                                                        : isWrongPicked
+                                                            ? "border-red-600 bg-red-600 text-white"
+                                                            : selectedOption === idx
+                                                                ? "border-primary bg-primary text-primary-foreground"
+                                                                : "text-muted-foreground"
+                                                }`}>
+                                                    {opt.label}
+                                                </span>
+                                                <span className="text-sm leading-relaxed">{opt.text}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <Input
+                                    placeholder={t.app.answerPlaceholder || "输入你的答案..."}
+                                    value={userAnswer}
+                                    onChange={(e) => setUserAnswer(e.target.value)}
+                                    disabled={isSubmitted}
+                                    className="text-lg"
+                                />
+                            )}
                             <Textarea
                                 placeholder={t.app.notesPlaceholder || "记录解题思路（可选）..."}
                                 value={notes}
@@ -273,7 +344,7 @@ function PracticeContent() {
                             <Button
                                 size="lg"
                                 onClick={submitAnswer}
-                                disabled={!userAnswer.trim()}
+                                disabled={choice ? selectedOption === null : !userAnswer.trim()}
                                 className="w-full md:w-auto"
                             >
                                 <Send className="mr-2 h-4 w-4" />
@@ -310,6 +381,11 @@ function PracticeContent() {
                                         </>
                                     )}
                                 </div>
+                                {!isCorrect && savedErrorItemId && (
+                                    <p className="text-sm text-muted-foreground">
+                                        本题已自动收录到错题本（来源：举一反三），可在错题本中复习
+                                    </p>
+                                )}
                                 {notes && (
                                     <div className="mt-4 p-3 bg-white rounded-lg border">
                                         <p className="text-sm font-medium text-gray-600 mb-1">
@@ -320,6 +396,18 @@ function PracticeContent() {
                                 )}
                             </CardContent>
                         </Card>
+                    )}
+
+                    {isSubmitted && (
+                        <div className="flex gap-3 justify-center">
+                            <Button variant="outline" onClick={generateQuestion} disabled={loading}>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                再来一题
+                            </Button>
+                            <Button variant="ghost" onClick={() => router.back()}>
+                                {t.common?.back || "返回"}
+                            </Button>
+                        </div>
                     )}
 
                     {showAnswer && (

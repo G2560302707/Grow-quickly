@@ -297,6 +297,18 @@ export function generatePractice(
     });
 }
 
+export interface PracticeRecordItem {
+    id: string;
+    subject?: string;
+    difficulty?: string;
+    isCorrect?: boolean;
+    questionText?: string;
+    errorItemId?: string;
+    tagId?: string;
+    tag?: { name: string };
+    createdAt: string;
+}
+
 export function recordPractice(
     subject: string,
     difficulty: string,
@@ -305,10 +317,24 @@ export function recordPractice(
         tagId?: string;
         errorItemId?: string;
         questionText?: string;
+        answerText?: string;
+        analysis?: string;
+        knowledgePoints?: string[];
     }
-) {
+): Promise<{ savedErrorItemId?: string | null }> {
     return request("/api/practice/record", {
         method: "POST",
         data: { subject, difficulty, isCorrect, ...(attribution || {}) },
     });
+}
+
+/** 练习记录列表（分页倒序），用于练习历史窗口 */
+export function listPracticeRecords(params: { page?: number; pageSize?: number } = {}): Promise<{
+    total: number;
+    page: number;
+    pageSize: number;
+    records: PracticeRecordItem[];
+}> {
+    const query = `?page=${params.page || 1}&pageSize=${params.pageSize || 20}`;
+    return request("/api/practice/records" + query);
 }

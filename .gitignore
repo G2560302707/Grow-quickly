@@ -87,3 +87,4 @@ prisma/dev.db.backup-*
 .zcode/
 uniapp/.ui-shots/
 >>>>>>> feature/frontend-upgrade
+config/app-config.json.bak*

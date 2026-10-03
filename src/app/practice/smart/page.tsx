@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle, XCircle, ArrowLeft, Target, RefreshCw } from "lucide-react";
 import { ParsedQuestion } from "@/lib/ai/types";
+import { parseChoiceOptions, parseCorrectOption } from "@/lib/practice-choice";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { apiClient } from "@/lib/api-client";
@@ -51,7 +52,9 @@ function SmartPracticeContent() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [userAnswer, setUserAnswer] = useState("");
+    const [selectedOption, setSelectedOption] = useState<number | null>(null);
     const [submitted, setSubmitted] = useState(false);
+    const [savedToNotebook, setSavedToNotebook] = useState(false);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
     const [sessionIndex, setSessionIndex] = useState(1);
     const [results, setResults] = useState<boolean[]>([]);
@@ -62,8 +65,10 @@ function SmartPracticeContent() {
         setLoading(true);
         setError(null);
         setUserAnswer("");
+        setSelectedOption(null);
         setSubmitted(false);
         setIsCorrect(null);
+        setSavedToNotebook(false);
         try {
             const data = await apiClient.post<SmartQuestion>("/api/practice/smart", { tagId }, { timeout: 180000 });
             setQuestion(data);
@@ -82,30 +87,58 @@ function SmartPracticeContent() {
         if (tagId) generate();
     }, [tagId, generate]);
 
-    const submitAnswer = async () => {
-        if (!userAnswer.trim() || !question) return;
-        setSubmitted(true);
+    // 选择题：从题干解析选项、从参考答案解析正确项（解析失败则回退自由作答）
+    const choice = question ? parseChoiceOptions(question.questionText) : null;
+    const correctLabel = question ? parseCorrectOption(question.answerText) : null;
 
-        const user = normalize(userAnswer);
-        const correct = normalize(question.answerText || "");
-        let match = user === correct;
-        if (!match && /^[a-d]$/.test(user)) match = correct.startsWith(user);
-        if (!match && correct.includes(user) && user.length > 1) match = true;
+    const recordResult = async (match: boolean) => {
         setIsCorrect(match);
         setResults(prev => [...prev, match]);
-
         try {
-            await apiClient.post("/api/practice/record", {
-                subject: question.subject || "Unknown",
-                difficulty: question.meta?.difficulty || "medium",
+            const res = await apiClient.post<{ savedErrorItemId?: string | null }>("/api/practice/record", {
+                subject: question?.subject || "Unknown",
+                difficulty: question?.meta?.difficulty || "medium",
                 isCorrect: match,
-                tagId: question.meta?.tagId || tagId,
-                errorItemId: question.meta?.primaryErrorItemId || undefined,
-                questionText: question.questionText || undefined,
+                tagId: question?.meta?.tagId || tagId,
+                errorItemId: question?.meta?.primaryErrorItemId || undefined,
+                questionText: question?.questionText || undefined,
+                answerText: question?.answerText || undefined,
+                analysis: question?.analysis || undefined,
+                knowledgePoints: question?.knowledgePoints || undefined,
             });
+            setSavedToNotebook(Boolean(res?.savedErrorItemId));
         } catch (e) {
             console.error("Failed to save practice record:", e);
         }
+    };
+
+    const judgeAndRecord = (answerText: string) => {
+        const user = normalize(answerText);
+        const correct = normalize(question?.answerText || "");
+        let match = user === correct;
+        if (!match && /^[a-d]$/.test(user)) match = correct.startsWith(user);
+        if (!match && correct.includes(user) && user.length > 1) match = true;
+        return recordResult(match);
+    };
+
+    const submitAnswer = async () => {
+        if (!question) return;
+        if (choice && selectedOption !== null) {
+            // 选择题：以选项字母作答；能确定正确选项则自动判分
+            const picked = choice.options[selectedOption];
+            setUserAnswer(picked.label);
+            setSubmitted(true);
+            if (correctLabel) {
+                await recordResult(picked.label === correctLabel);
+            } else {
+                // 参考答案没有明确选项字母，退回文本比对（单字母前缀规则仍适用）
+                await judgeAndRecord(picked.label);
+            }
+            return;
+        }
+        if (!userAnswer.trim()) return;
+        setSubmitted(true);
+        await judgeAndRecord(userAnswer);
     };
 
     const nextQuestion = async () => {
@@ -211,24 +244,65 @@ function SmartPracticeContent() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="whitespace-pre-wrap leading-relaxed">{question.questionText || "—"}</p>
+                            <p className="whitespace-pre-wrap leading-relaxed">{choice ? choice.stem : question.questionText || "—"}</p>
                         </CardContent>
                     </Card>
 
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-base">我的作答</CardTitle>
+                            <CardTitle className="text-base">{choice ? "选择答案" : "我的作答"}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <Textarea
-                                value={userAnswer}
-                                onChange={(e) => setUserAnswer(e.target.value)}
-                                placeholder="写下你的答案和解题过程..."
-                                rows={3}
-                                disabled={submitted}
-                            />
+                            {choice ? (
+                                <div className="space-y-2" role="radiogroup" aria-label="选项">
+                                    {choice.options.map((opt, idx) => {
+                                        const isCorrectOption = submitted && correctLabel === opt.label;
+                                        const isWrongPicked = submitted && correctLabel !== null && selectedOption === idx && correctLabel !== opt.label;
+                                        return (
+                                            <button
+                                                key={opt.label}
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={selectedOption === idx}
+                                                disabled={submitted}
+                                                onClick={() => setSelectedOption(idx)}
+                                                className={`w-full text-left flex items-start gap-3 rounded-lg border p-3 transition-colors disabled:cursor-default ${
+                                                    isCorrectOption
+                                                        ? "border-green-600 bg-green-50 dark:bg-green-950/40"
+                                                        : isWrongPicked
+                                                            ? "border-red-600 bg-red-50 dark:bg-red-950/40"
+                                                            : selectedOption === idx
+                                                                ? "border-primary bg-primary/5"
+                                                                : "bg-muted/30 hover:bg-muted"
+                                                }`}
+                                            >
+                                                <span className={`shrink-0 w-7 h-7 rounded-full border flex items-center justify-center text-sm font-bold ${
+                                                    isCorrectOption
+                                                        ? "border-green-600 bg-green-600 text-white"
+                                                        : isWrongPicked
+                                                            ? "border-red-600 bg-red-600 text-white"
+                                                            : selectedOption === idx
+                                                                ? "border-primary bg-primary text-primary-foreground"
+                                                                : "text-muted-foreground"
+                                                }`}>
+                                                    {opt.label}
+                                                </span>
+                                                <span className="text-sm leading-relaxed">{opt.text}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <Textarea
+                                    value={userAnswer}
+                                    onChange={(e) => setUserAnswer(e.target.value)}
+                                    placeholder="写下你的答案和解题过程..."
+                                    rows={3}
+                                    disabled={submitted}
+                                />
+                            )}
                             {!submitted ? (
-                                <Button className="w-full" disabled={!userAnswer.trim()} onClick={submitAnswer}>
+                                <Button className="w-full" disabled={choice ? selectedOption === null : !userAnswer.trim()} onClick={submitAnswer}>
                                     提交并查看答案
                                 </Button>
                             ) : (
@@ -237,6 +311,9 @@ function SmartPracticeContent() {
                                         {isCorrect ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                                         {isCorrect ? "回答正确" : "回答有误，看看解析"}
                                     </div>
+                                    {!isCorrect && savedToNotebook && (
+                                        <p className="text-xs text-muted-foreground">本题已自动收录到错题本（来源：薄弱点专项），可在错题本中复习</p>
+                                    )}
                                     <div className="rounded-lg border bg-muted/30 p-3">
                                         <p className="text-xs text-muted-foreground mb-1">参考答案</p>
                                         <p className="text-sm font-medium">{question.answerText || "—"}</p>

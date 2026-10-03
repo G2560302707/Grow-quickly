@@ -19,6 +19,10 @@ const PracticeStats = dynamic(
     () => import("@/components/practice-stats").then(mod => mod.PracticeStats),
     { ssr: false, loading: () => <ChartSkeleton /> }
 );
+const PracticeRecords = dynamic(
+    () => import("@/components/practice-records").then(mod => mod.PracticeRecords),
+    { ssr: false, loading: () => <ChartSkeleton /> }
+);
 
 function ChartSkeleton() {
     return (
@@ -79,6 +83,7 @@ export default function StatsPage() {
                 <TabsContent value="practice" className="space-y-4">
                     <WeakPointCard />
                     <PracticeStats />
+                    <PracticeRecords />
                 </TabsContent>
             </Tabs>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { originLabel } from "@/lib/error-origin";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -398,6 +399,12 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
                                 <Card className="h-full hover:border-primary/50 transition-colors cursor-pointer gap-2 pt-4">
                                     <CardHeader className="pb-0">
                                         <div className="flex justify-between items-start">
+                                            <div className="flex gap-1.5 items-center">
+                                            {item.origin ? (
+                                                <Badge variant="outline" className="text-xs text-primary border-primary/40">
+                                                    {originLabel(item.origin)}
+                                                </Badge>
+                                            ) : null}
                                             <Badge
                                                 variant={item.masteryLevel > 0 ? "default" : "secondary"}
                                                 className={item.masteryLevel > 0 ? "bg-green-600 hover:bg-green-700" : ""}
@@ -412,6 +419,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
                                                     </span>
                                                 )}
                                             </Badge>
+                                            </div>
                                             <span className="text-xs text-muted-foreground">
                                                 {format(new Date(item.createdAt), "MM/dd")}
                                             </span>

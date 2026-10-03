@@ -26,7 +26,10 @@
 			<view class="card fade-up">
 				<view class="section-head">
 					<text class="section-title">题目</text>
-					<text v-if="item.subject?.name" class="section-extra">{{ item.subject.name }}</text>
+					<view class="section-extra-wrap">
+						<text v-if="item.origin" class="origin-chip">{{ originLabel(item.origin) }}</text>
+						<text v-if="item.subject?.name" class="section-extra">{{ item.subject.name }}</text>
+					</view>
 				</view>
 				<text class="content-text">{{ item.questionText || "—" }}</text>
 
@@ -119,6 +122,7 @@ import {
 	type ErrorItem,
 } from "@/api";
 import MdView from "@/components/MdView.vue";
+import { originLabel } from "@/utils/origin";
 
 const masteryOptions = [
 	{ level: 0, label: "未掌握" },
@@ -332,6 +336,21 @@ function goPractice() {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 12rpx;
+}
+
+/* ---------- 来源标注 ---------- */
+.section-extra-wrap {
+	display: flex;
+	align-items: center;
+	gap: 12rpx;
+}
+.origin-chip {
+	font-size: 22rpx;
+	font-weight: 600;
+	background: var(--brand-50);
+	color: var(--brand-600);
+	border-radius: 8rpx;
+	padding: 4rpx 14rpx;
 }
 
 /* ---------- 笔记 ---------- */

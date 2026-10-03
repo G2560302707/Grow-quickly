@@ -71,10 +71,35 @@
 						{{ sessionMode ? `第 ${sessionIndex} / ${sessionTotal} 题 · ${question.meta?.difficulty || "medium"}` : smartMode ? "薄弱点专项 · " + subjectName : subjectName }}
 					</text>
 				</view>
-				<text class="content-text">{{ question.questionText || "—" }}</text>
+				<text class="content-text">{{ choice ? choice.stem : (question.questionText || "—") }}</text>
 			</view>
 
-			<view class="card fade-up">
+			<!-- 选择题：选项按钮作答 -->
+			<view v-if="choice" class="card fade-up">
+				<view class="section-head">
+					<text class="section-title">选择答案</text>
+				</view>
+				<view class="option-list">
+					<view
+						v-for="(opt, idx) in choice.options"
+						:key="opt.label"
+						class="option-item"
+						:class="{
+							'option-selected': !revealed && selectedOption === idx,
+							'option-correct': revealed && autoResult !== null && opt.label === correctLabel,
+							'option-wrong': revealed && autoResult !== null && selectedOption === idx && !autoResult,
+						}"
+						hover-class="hv"
+						@tap="selectOption(idx)"
+					>
+						<text class="option-label num">{{ opt.label }}</text>
+						<text class="option-text">{{ opt.text }}</text>
+					</view>
+				</view>
+			</view>
+
+			<!-- 非选择题：自由文本作答 -->
+			<view v-else class="card fade-up">
 				<view class="section-head">
 					<text class="section-title">我的作答</text>
 					<text class="section-extra">{{ answer.length }}/2000</text>
@@ -101,22 +126,66 @@
 					</view>
 				</view>
 
-				<view class="judge-row">
-					<button class="btn-outline judge-btn judge-wrong" hover-class="button-hover" @tap="record(false)">
-						答错了
-					</button>
-					<button class="btn-primary judge-btn" hover-class="button-hover" @tap="record(true)">
-						答对了
-					</button>
+				<!-- 选择题已自动判分：展示结果 -->
+				<view v-if="autoResult !== null" class="result-banner" :class="autoResult ? 'result-good' : 'result-bad'">
+					<text class="result-banner-text">{{ autoResult ? "回答正确 ✓" : "回答错误 ✗" }}</text>
 				</view>
+
+				<!-- 会话模式：记录后自动进入下一题 / 小结 -->
+				<template v-if="sessionMode">
+					<button
+						v-if="autoResult !== null"
+						class="btn-primary reveal-btn"
+						hover-class="button-hover"
+						@tap="finishResult"
+					>
+						{{ sessionResults.length + 1 >= SESSION_TOTAL ? "查看小结" : "下一题" }}
+					</button>
+					<view v-else class="judge-row">
+						<button class="btn-outline judge-btn judge-wrong" hover-class="button-hover" @tap="record(false)">
+							答错了
+						</button>
+						<button class="btn-primary judge-btn" hover-class="button-hover" @tap="record(true)">
+							答对了
+						</button>
+					</view>
+				</template>
+
+				<!-- 非会话模式：记录完成后给「再来一题 / 完成」选择，不再自动退出 -->
+				<template v-else>
+					<view v-if="finished" class="judge-row">
+						<button class="btn-outline judge-btn" hover-class="button-hover" @tap="practiceAgain">
+							再来一题
+						</button>
+						<button class="btn-primary judge-btn" hover-class="button-hover" @tap="finishPractice">
+							完成
+						</button>
+					</view>
+					<button
+						v-else-if="autoResult !== null"
+						class="btn-primary reveal-btn"
+						hover-class="button-hover"
+						@tap="finishResult"
+					>
+						提交记录
+					</button>
+					<view v-else class="judge-row">
+						<button class="btn-outline judge-btn judge-wrong" hover-class="button-hover" @tap="record(false)">
+							答错了
+						</button>
+						<button class="btn-primary judge-btn" hover-class="button-hover" @tap="record(true)">
+							答对了
+						</button>
+					</view>
+				</template>
 			</template>
 
 			<button
 				v-else
 				class="btn-primary reveal-btn"
-				:disabled="!answer.trim()"
+				:disabled="choice ? selectedOption === null : !answer.trim()"
 				hover-class="button-hover"
-				@tap="revealed = true"
+				@tap="onSubmit"
 			>
 				提交并查看答案
 			</button>
@@ -128,6 +197,7 @@
 import { ref, computed } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { generatePractice, recordPractice, smartGenerate, type ParsedQuestion, type SmartQuestion } from "@/api";
+import { parseChoiceOptions, parseCorrectOption } from "@/utils/practice-choice";
 import MdView from "@/components/MdView.vue";
 
 const difficulties = [
@@ -147,6 +217,40 @@ const revealed = ref(false);
 const loading = ref(true);
 const errorMsg = ref("");
 const difficulty = ref<"easy" | "medium" | "hard">("medium");
+
+// 选择题：解析出的选项与作答状态
+const selectedOption = ref<number | null>(null);
+const autoResult = ref<boolean | null>(null);
+// 记录已上报（非会话模式完成后给出「再来一题 / 完成」选择）
+const finished = ref(false);
+const lastSavedErrorItemId = ref<string | null>(null);
+const choice = computed(() => (question.value ? parseChoiceOptions(question.value.questionText) : null));
+const correctLabel = computed(() => parseCorrectOption(question.value?.answerText));
+
+function selectOption(idx: number) {
+	if (revealed.value) return;
+	selectedOption.value = idx;
+}
+
+/** 提交作答：选择题自动判分，非选择题仅翻开答案等自评 */
+function onSubmit() {
+	if (revealed.value) return;
+	if (choice.value) {
+		if (selectedOption.value === null) return;
+		const picked = choice.value.options[selectedOption.value];
+		answer.value = picked.label;
+		autoResult.value = correctLabel.value === null ? null : picked.label === correctLabel.value;
+	} else if (!answer.value.trim()) {
+		return;
+	}
+	revealed.value = true;
+}
+
+/** 自动判分后点击「下一题/完成」，沿用原有记录与跳转逻辑 */
+function finishResult() {
+	if (autoResult.value === null) return;
+	record(autoResult.value);
+}
 
 // 薄弱点专项模式（mode=smart：单题；mode=session：连续一组）
 const smartMode = ref(false);
@@ -190,6 +294,10 @@ async function generate() {
 	errorMsg.value = "";
 	revealed.value = false;
 	answer.value = "";
+	selectedOption.value = null;
+	autoResult.value = null;
+	finished.value = false;
+	lastSavedErrorItemId.value = null;
 	try {
 		if (smartMode.value) {
 			const res = await smartGenerate({
@@ -217,25 +325,18 @@ function switchDifficulty(value: "easy" | "medium" | "hard") {
 }
 
 async function record(isCorrect: boolean) {
-	const meta = smartMode.value ? question.value?.meta : null;
-	try {
-		await recordPractice(subjectName.value, difficulty.value, isCorrect, {
-			tagId: meta?.tagId,
-			errorItemId: meta?.primaryErrorItemId || undefined,
-			questionText: question.value?.questionText || undefined,
-		});
-	} catch (e: any) {
-		// 记录失败不阻塞练习流程，仅提示
-		uni.showToast({ title: e?.message || "记录失败", icon: "none" });
-	}
+	const ok = await doRecord(isCorrect);
 
 	if (!sessionMode.value) {
-		uni.showToast({ title: isCorrect ? "真棒！继续加油" : "已记录，多复习哦", icon: "none" });
-		setTimeout(() => {
-			uni.navigateBack();
-		}, 1200);
+		if (!ok) return; // 记录失败停留在本页，自评按钮仍可重试
+		if (!isCorrect && lastSavedErrorItemId.value) {
+			uni.showToast({ title: "错题已自动收录到错题本", icon: "none" });
+		}
+		finished.value = true; // 留在本页，由用户选择「再来一题 / 完成」
 		return;
 	}
+
+	if (!ok) return; // 会话模式记录失败不推进，可重试
 
 	// 会话模式：记录结果后自动进入下一题 / 小结
 	sessionResults.value.push(isCorrect);
@@ -246,6 +347,35 @@ async function record(isCorrect: boolean) {
 	}
 	sessionIndex.value += 1;
 	await generate();
+}
+
+/** 上报练习记录（含题目与解析快照，答错时后端会自动收录错题本并返回错题 ID） */
+async function doRecord(isCorrect: boolean): Promise<boolean> {
+	const meta = smartMode.value ? question.value?.meta : null;
+	try {
+		const res = await recordPractice(subjectName.value, difficulty.value, isCorrect, {
+			tagId: meta?.tagId,
+			errorItemId: meta?.primaryErrorItemId || undefined,
+			questionText: question.value?.questionText || undefined,
+			answerText: question.value?.answerText || undefined,
+			analysis: question.value?.analysis || undefined,
+			knowledgePoints: question.value?.knowledgePoints || undefined,
+		});
+		lastSavedErrorItemId.value = res?.savedErrorItemId || null;
+		return true;
+	} catch (e: any) {
+		// 记录失败不阻塞练习流程，仅提示
+		uni.showToast({ title: e?.message || "记录失败", icon: "none" });
+		return false;
+	}
+}
+
+function practiceAgain() {
+	generate();
+}
+
+function finishPractice() {
+	uni.navigateBack();
 }
 
 function restartSession() {
@@ -523,6 +653,95 @@ function finishSession() {
 	box-sizing: border-box;
 	min-height: 160rpx;
 	color: var(--ink-900);
+}
+
+/* ---------- 选择题选项 ---------- */
+.option-list {
+	display: flex;
+	flex-direction: column;
+	gap: 18rpx;
+}
+.option-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 20rpx;
+	background: var(--bg-fill);
+	border: 2rpx solid transparent;
+	border-radius: 16rpx;
+	padding: 24rpx;
+	transition: all 0.15s ease;
+}
+.option-selected {
+	background: var(--brand-50);
+	border-color: var(--brand-500);
+}
+.option-correct {
+	background: var(--success-50);
+	border-color: var(--success-600);
+}
+.option-wrong {
+	background: var(--danger-50);
+	border-color: var(--danger-600);
+}
+.option-label {
+	flex-shrink: 0;
+	width: 48rpx;
+	height: 48rpx;
+	border-radius: 50%;
+	background: #ffffff;
+	border: 2rpx solid var(--line-100);
+	color: var(--ink-600);
+	font-size: 26rpx;
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-top: 2rpx;
+}
+.option-selected .option-label {
+	background: var(--brand-600);
+	border-color: var(--brand-600);
+	color: #ffffff;
+}
+.option-correct .option-label {
+	background: var(--success-600);
+	border-color: var(--success-600);
+	color: #ffffff;
+}
+.option-wrong .option-label {
+	background: var(--danger-600);
+	border-color: var(--danger-600);
+	color: #ffffff;
+}
+.option-text {
+	flex: 1;
+	font-size: 28rpx;
+	line-height: 1.6;
+	color: var(--ink-900);
+}
+
+/* ---------- 自动判分结果 ---------- */
+.result-banner {
+	margin: 30rpx 24rpx 0;
+	border-radius: 16rpx;
+	padding: 24rpx;
+	text-align: center;
+}
+.result-banner-text {
+	font-size: 30rpx;
+	font-weight: 700;
+}
+.result-good {
+	background: var(--success-50);
+}
+.result-good .result-banner-text {
+	color: var(--success-600);
+}
+.result-bad {
+	background: var(--danger-50);
+}
+.result-bad .result-banner-text {
+	color: var(--danger-600);
 }
 
 .reveal-btn {

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { originLabel } from "@/lib/error-origin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Save, X, Box, Loader2, Eye, EyeOff, ImageIcon } from "lucide-react";
@@ -35,6 +36,7 @@ interface ErrorItemDetail {
     wrongAnswerText?: string | null;
     mistakeAnalysis?: string | null;
     mistakeStatus?: string | null;
+    origin?: 'similar' | 'smart' | 'practice' | string | null; // 来源渠道
     knowledgePoints: string; // 保留兼容旧数据
     tags: KnowledgeTag[]; // 新的标签关联
     masteryLevel: number;
@@ -454,6 +456,11 @@ export default function ErrorDetailPage() {
                     </div>
 
                     <div className="flex gap-2">
+                        {item.origin ? (
+                            <Badge variant="outline" className="text-xs text-primary border-primary/40 h-8 px-3 self-center">
+                                {originLabel(item.origin)}
+                            </Badge>
+                        ) : null}
                         <Link href={`/practice?id=${item.id}`}>
                             <Button variant="outline" size="sm">
                                 <RefreshCw className="mr-2 h-4 w-4" />

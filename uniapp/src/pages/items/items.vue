@@ -62,6 +62,7 @@
 				<text class="item-question">{{ item.questionText || "（无题目文本）" }}</text>
 				<view class="item-foot">
 					<view class="item-tags">
+						<text v-if="item.origin" class="tag tag-origin">{{ originLabel(item.origin) }}</text>
 						<text v-if="firstTag(item)" class="tag">{{ firstTag(item) }}</text>
 					</view>
 					<text v-if="formatDate(item.createdAt)" class="item-date num">{{ formatDate(item.createdAt) }}</text>
@@ -77,6 +78,7 @@
 import { ref } from "vue";
 import { onLoad, onPullDownRefresh, onReachBottom, onShow } from "@dcloudio/uni-app";
 import { listErrorItems, type ErrorItem } from "@/api";
+import { originLabel } from "@/utils/origin";
 
 const PAGE_SIZE = 15;
 
@@ -366,6 +368,10 @@ function masteryClass(level: number): string {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 12rpx;
+}
+.tag-origin {
+	background: var(--brand-50);
+	color: var(--brand-600);
 }
 .item-date {
 	font-size: 22rpx;

@@ -9,11 +9,20 @@ const mocks = vi.hoisted(() => ({
     mockPrismaErrorItem: {
         findUnique: vi.fn(),
         findFirst: vi.fn(),
+        create: vi.fn(),
     },
     mockPrismaUser: {
         findUnique: vi.fn(),
     },
     mockPrismaPracticeRecord: {
+        create: vi.fn(),
+    },
+    mockPrismaSubject: {
+        findFirst: vi.fn(),
+        create: vi.fn(),
+    },
+    mockPrismaKnowledgeTag: {
+        findFirst: vi.fn(),
         create: vi.fn(),
     },
     mockAIService: {
@@ -35,6 +44,8 @@ vi.mock('@/lib/prisma', () => ({
         errorItem: mocks.mockPrismaErrorItem,
         user: mocks.mockPrismaUser,
         practiceRecord: mocks.mockPrismaPracticeRecord,
+        subject: mocks.mockPrismaSubject,
+        knowledgeTag: mocks.mockPrismaKnowledgeTag,
     },
 }));
 
@@ -449,6 +460,79 @@ describe('/api/practice', () => {
             expect(response.status).toBe(200);
             expect(data.subject).toBe('数学');
             expect(data.isCorrect).toBe(true);
+        });
+
+        it('答错的练习题自动收录错题本并标注来源', async () => {
+            mocks.mockPrismaPracticeRecord.create.mockResolvedValue({
+                id: 'record-9',
+                userId: 'user-123',
+                subject: '常识判断',
+                difficulty: 'medium',
+                isCorrect: false,
+                createdAt: new Date(),
+            });
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue(null); // 无重复收录
+            mocks.mockPrismaSubject.findFirst.mockResolvedValue({ id: 'subject-1' });
+            mocks.mockPrismaKnowledgeTag.findFirst.mockResolvedValue({ id: 'tag-1' });
+            mocks.mockPrismaErrorItem.create.mockResolvedValue({ id: 'new-error-item' });
+
+            const request = new Request('http://localhost/api/practice/record', {
+                method: 'POST',
+                body: JSON.stringify({
+                    subject: '常识判断',
+                    difficulty: 'medium',
+                    isCorrect: false,
+                    tagId: 'tag-1',
+                    questionText: '下列属于公务员法定处分种类的是？',
+                    answerText: 'B',
+                    analysis: '考点：公务员处分种类',
+                    knowledgePoints: ['公务员处分'],
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await RECORD_POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.savedErrorItemId).toBe('new-error-item');
+            expect(mocks.mockPrismaErrorItem.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        origin: 'smart',
+                        subjectId: 'subject-1',
+                        mistakeStatus: 'wrong_attempt',
+                        questionText: '下列属于公务员法定处分种类的是？',
+                    }),
+                })
+            );
+        });
+
+        it('同题干已收录过时去重不再重复创建', async () => {
+            mocks.mockPrismaPracticeRecord.create.mockResolvedValue({
+                id: 'record-10',
+                isCorrect: false,
+                createdAt: new Date(),
+            });
+            mocks.mockPrismaErrorItem.findFirst.mockResolvedValue({ id: 'existing-item' });
+
+            const request = new Request('http://localhost/api/practice/record', {
+                method: 'POST',
+                body: JSON.stringify({
+                    subject: '常识判断',
+                    difficulty: 'medium',
+                    isCorrect: false,
+                    questionText: '重复的题目',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await RECORD_POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.savedErrorItemId).toBe('existing-item');
+            expect(mocks.mockPrismaErrorItem.create).not.toHaveBeenCalled();
         });
 
         it('应该成功记录错误的练习结果', async () => {

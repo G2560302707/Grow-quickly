@@ -142,6 +142,7 @@ model ErrorItem {
   wrongAnswerText  String? // Student's wrong answer/work if visible
   mistakeAnalysis  String? // Analysis of why the wrong answer happened
   mistakeStatus    String? // not_attempted, wrong_attempt, unknown
+  origin           String? // 题目进入错题本的渠道: similar(举一反三练习) / smart(薄弱点专项练习)；拍照或手动录入为 null
   knowledgePoints  String? // [DEPRECATED] JSON string - kept for migration only
   geogebraCommands String? // GeoGebra commands for interactive demo (JSON or newline-separated)
 

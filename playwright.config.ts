@@ -10,6 +10,8 @@ export default defineConfig({
     use: {
         baseURL: 'http://127.0.0.1:3000',
         trace: 'on-first-retry',
+        // 使用完整 chromium 的无头模式，避免额外维护 chromium_headless_shell 构建
+        channel: 'chromium',
     },
     webServer: {
         command: process.env.CI ? 'npm run start' : 'npm run dev',
