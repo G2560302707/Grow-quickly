@@ -304,10 +304,17 @@ export interface PracticeRecordItem {
     difficulty?: string;
     isCorrect?: boolean;
     questionText?: string;
+    answerText?: string;
+    analysis?: string;
     errorItemId?: string;
     tagId?: string;
     tag?: { name: string };
     createdAt: string;
+}
+
+/** 练习记录详情（含答案/解析快照） */
+export function getPracticeRecord(id: string): Promise<PracticeRecordItem> {
+    return request("/api/practice/records?id=" + id);
 }
 
 export function recordPractice(

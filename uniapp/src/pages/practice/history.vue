@@ -32,7 +32,7 @@
 				<text class="record-question">{{ r.questionText || "（无题目快照）" }}</text>
 				<view class="record-foot">
 					<text class="record-meta">{{ r.subject || "—" }} · {{ difficultyLabel(r.difficulty) }}</text>
-					<text v-if="r.errorItemId" class="record-link">查看原题 ›</text>
+					<text class="record-link">看详情 ›</text>
 				</view>
 			</view>
 
@@ -100,10 +100,9 @@ function formatDate(iso?: string): string {
 	return `${dt.getMonth() + 1}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 }
 
-/** 举一反三的练习可跳回原错题 */
+/** 点卡片进练习详情（完整题目 + 答案 + 解析） */
 function openSource(r: PracticeRecordItem) {
-	if (!r.errorItemId) return;
-	uni.navigateTo({ url: `/pages/detail/detail?id=${r.errorItemId}` });
+	uni.navigateTo({ url: `/pages/practice/record-detail?id=${r.id}` });
 }
 
 load(true);

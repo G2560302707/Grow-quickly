@@ -199,6 +199,8 @@ model PracticeRecord {
   tagId       String? // 本次练习归属的知识点（薄弱点诊断的练习通道）
   tag         KnowledgeTag? @relation(fields: [tagId], references: [id], onDelete: SetNull)
   questionText String? // 生成题快照（用于出题去重）
+  answerText String? // 参考答案快照（练习记录详情展示）
+  analysis  String? // 解析快照（练习记录详情展示）
 
   createdAt DateTime @default(now())
 

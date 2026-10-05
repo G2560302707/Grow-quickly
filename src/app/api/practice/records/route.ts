@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { unauthorized, internalError } from "@/lib/api-errors";
+import { unauthorized, internalError, notFound } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger('api:practice:records');
@@ -23,6 +23,30 @@ export async function GET(req: Request) {
         const userId = session.user.id;
 
         const { searchParams } = new URL(req.url);
+
+        // 单条查询（练习记录详情页）
+        const id = searchParams.get("id");
+        if (id) {
+            const record = await prisma.practiceRecord.findFirst({
+                where: { id, userId },
+                select: {
+                    id: true,
+                    subject: true,
+                    difficulty: true,
+                    isCorrect: true,
+                    questionText: true,
+                    answerText: true,
+                    analysis: true,
+                    errorItemId: true,
+                    tagId: true,
+                    createdAt: true,
+                    tag: { select: { name: true } },
+                },
+            });
+            if (!record) return notFound("Record not found");
+            return NextResponse.json(record);
+        }
+
         const page = Math.max(1, Number.parseInt(searchParams.get("page") || "1", 10) || 1);
         const pageSize = Math.min(50, Math.max(1, Number.parseInt(searchParams.get("pageSize") || "20", 10) || 20));
 
@@ -39,6 +63,8 @@ export async function GET(req: Request) {
                     difficulty: true,
                     isCorrect: true,
                     questionText: true,
+                    answerText: true,
+                    analysis: true,
                     errorItemId: true,
                     tagId: true,
                     createdAt: true,

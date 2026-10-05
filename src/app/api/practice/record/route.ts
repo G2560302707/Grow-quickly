@@ -49,6 +49,8 @@ export async function POST(req: Request) {
                 errorItemId: safeErrorItemId,
                 tagId: safeTagId,
                 questionText: typeof questionText === "string" ? questionText.slice(0, 2000) : null,
+                answerText: typeof answerText === "string" ? answerText.slice(0, 4000) : null,
+                analysis: typeof analysis === "string" ? analysis.slice(0, 12000) : null,
             },
         });
 
