@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { KnowledgeFilter } from "@/components/knowledge-filter";
 import { ErrorItem, PaginatedResponse } from "@grow/shared/types/api";
-import { apiClient, ApiError } from "@/lib/api-client";
+import { apiClient, ApiError } from "@grow/shared/api-client";
 import { cleanMarkdown } from "@/lib/markdown-utils";
 import { Pagination } from "@/components/ui/pagination";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination";

@@ -10,7 +10,7 @@ import { ErrorList } from "@/components/error-list";
 import { RenameNotebookDialog } from "@/components/rename-notebook-dialog";
 
 import { Notebook } from "@grow/shared/types/api";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 
 import { useLanguage } from "@/contexts/LanguageContext";
 

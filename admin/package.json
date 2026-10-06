@@ -31,6 +31,11 @@
         "nodemailer": "^7.0.13",
         "react": "19.2.0",
         "react-dom": "19.2.0",
+        "react-markdown": "^10.1.0",
+        "rehype-katex": "^7.0.1",
+        "remark-gfm": "^4.0.1",
+        "remark-math": "^6.0.0",
+        "katex": "^0.16.25",
         "tailwind-merge": "^3.4.0",
         "zod": "^4.1.13"
     },

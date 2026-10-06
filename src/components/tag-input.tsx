@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { TagSuggestionsResponse } from "@grow/shared/types/api";
 
 interface TagInputProps {

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Megaphone, Plus, Trash2, Pencil, Eye, EyeOff } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
 import { AdminAnnouncement } from "@grow/shared/types/api";
 

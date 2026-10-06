@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { BookOpen, Target, PenLine, Flame, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { AnalyticsData } from "@grow/shared/types/api";
 
 /** 数字入场动画：从 0 计数到目标值（rAF，无依赖库） */

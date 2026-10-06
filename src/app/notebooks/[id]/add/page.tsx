@@ -7,7 +7,7 @@ import { UploadZone } from "@/components/upload-zone";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ImageCropper } from "@/components/image-cropper";
 import { ParsedQuestion } from "@grow/shared/ai";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { AnalyzeResponse, Notebook, AppConfig } from "@grow/shared/types/api";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -16,14 +15,13 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Trash2, Ban, CheckCircle, Loader2 } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { AdminUser, AppConfig } from "@grow/shared/types/api";
 
 import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
 
 export function UserManagement() {
     const { data: session } = useSession();
-    const { t, language } = useLanguage();
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [allowRegistration, setAllowRegistration] = useState(true);
@@ -50,7 +48,7 @@ export function UserManagement() {
             setAllowRegistration(checked);
         } catch (error) {
             console.error("Failed to update registration setting", error);
-            await alertDialog({ description: t.common.error });
+            await alertDialog({ description: "发生错误，请重试" });
         } finally {
             setSavingRegistration(false);
         }
@@ -70,8 +68,8 @@ export function UserManagement() {
 
     const handleToggleStatus = async (user: AdminUser) => {
         const confirmMsg = user.isActive
-            ? t.admin.confirmDisable
-            : t.admin.confirmEnable;
+            ? "确定要禁用此用户吗？"
+            : "确定要启用此用户吗？";
 
         if (!(await confirmDialog({ description: confirmMsg }))) return;
 
@@ -80,19 +78,19 @@ export function UserManagement() {
             fetchUsers();
         } catch (error) {
             console.error("Failed to update user status", error);
-            await alertDialog({ description: t.common.error });
+            await alertDialog({ description: "发生错误，请重试" });
         }
     };
 
     const handleDelete = async (user: AdminUser) => {
-        if (!(await confirmDialog({ description: t.admin.confirmDelete }))) return;
+        if (!(await confirmDialog({ description: "确定要删除此用户吗？所有数据将被永久删除。" }))) return;
 
         try {
             await apiClient.delete(`/api/admin/users/${user.id}`);
             fetchUsers();
         } catch (error: any) {
             console.error("Failed to delete user", error);
-            const text = error.data?.message || t.common.error;
+            const text = error.data?.message || "发生错误，请重试";
             await alertDialog({ description: text });
         }
     };
@@ -107,10 +105,10 @@ export function UserManagement() {
             <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
                 <div className="space-y-0.5">
                     <Label className="text-base">
-                        {t.admin?.allowRegistration || "Allow New Registrations"}
+                        {"Allow New Registrations"}
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                        {t.admin?.allowRegistrationDesc || "When disabled, new users cannot register"}
+                        {"When disabled, new users cannot register"}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -133,15 +131,15 @@ export function UserManagement() {
                                 <div className="text-sm text-muted-foreground">{user.email}</div>
                             </div>
                             <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                                {user.role === "admin" ? t.admin.admin : t.admin.user}
+                                {user.role === "admin" ? "管理员" : "普通用户"}
                             </Badge>
                         </div>
                         <div className="flex justify-between text-sm">
                             <div className="text-muted-foreground">
-                                {t.admin.errors}: {user._count.errorItems} | {t.admin.practiceCount}: {user._count.practiceRecords}
+                                {"错题"}: {user._count.errorItems} | {"练习"}: {user._count.practiceRecords}
                             </div>
                             <Badge variant={user.isActive ? "default" : "destructive"} className="text-xs">
-                                {user.isActive ? t.admin.active : t.admin.disabled}
+                                {user.isActive ? "正常" : "已禁用"}
                             </Badge>
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t">
@@ -180,12 +178,12 @@ export function UserManagement() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{t.admin.nameEmail}</TableHead>
-                            <TableHead>{t.admin.role}</TableHead>
-                            <TableHead>{t.admin.stats}</TableHead>
-                            <TableHead>{t.admin.createdAt}</TableHead>
-                            <TableHead>{t.admin.status}</TableHead>
-                            <TableHead className="text-right">{t.admin.actions}</TableHead>
+                            <TableHead>{"姓名/邮箱"}</TableHead>
+                            <TableHead>{"角色"}</TableHead>
+                            <TableHead>{"统计"}</TableHead>
+                            <TableHead>{"注册时间"}</TableHead>
+                            <TableHead>{"状态"}</TableHead>
+                            <TableHead className="text-right">{"操作"}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -197,15 +195,15 @@ export function UserManagement() {
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                                        {user.role === "admin" ? t.admin.admin : t.admin.user}
+                                        {user.role === "admin" ? "管理员" : "普通用户"}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
                                     <div className="text-sm">
-                                        {t.admin.errors}: {user._count.errorItems}
+                                        {"错题"}: {user._count.errorItems}
                                     </div>
                                     <div className="text-sm">
-                                        {t.admin.practiceCount}: {user._count.practiceRecords}
+                                        {"练习"}: {user._count.practiceRecords}
                                     </div>
                                 </TableCell>
                                 <TableCell>
@@ -213,7 +211,7 @@ export function UserManagement() {
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant={user.isActive ? "default" : "destructive"}>
-                                        {user.isActive ? t.admin.active : t.admin.disabled}
+                                        {user.isActive ? "正常" : "已禁用"}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right space-x-2">
@@ -222,7 +220,7 @@ export function UserManagement() {
                                         size="sm"
                                         onClick={() => handleToggleStatus(user)}
                                         disabled={user.id === (session?.user as any).id}
-                                        title={user.isActive ? t.admin.disable : t.admin.enable}
+                                        title={user.isActive ? "禁用" : "启用"}
                                     >
                                         {user.isActive ? (
                                             <Ban className="h-4 w-4 text-orange-500" />
@@ -235,7 +233,7 @@ export function UserManagement() {
                                         size="sm"
                                         onClick={() => handleDelete(user)}
                                         disabled={user.id === (session?.user as any).id}
-                                        title={t.admin.delete}
+                                        title={"删除用户"}
                                     >
                                         <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>

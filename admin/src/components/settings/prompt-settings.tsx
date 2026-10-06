@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppConfig } from "@grow/shared/types/api";
 import { DEFAULT_ANALYZE_TEMPLATE, DEFAULT_SIMILAR_TEMPLATE } from "@grow/shared/ai/prompts";
 import { RotateCcw, AlertTriangle, Info } from "lucide-react";
-import { useLanguage } from "@/contexts/LanguageContext";
 
 import { confirmDialog } from "@/components/ui/app-dialog";
 
@@ -32,7 +31,6 @@ function VariableInfo({ name, description }: VariableInfoProps) {
 }
 
 export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
-    const { language, t } = useLanguage();
     const [analyzeTemplate, setAnalyzeTemplate] = useState("");
     const [similarTemplate, setSimilarTemplate] = useState("");
 
@@ -42,7 +40,7 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
     }, [config.prompts]);
 
     const handleReset = async (type: 'analyze' | 'similar') => {
-        if (!(await confirmDialog({ description: t.settings?.prompts?.resetConfirm || "Are you sure you want to reset to default?" }))) return;
+        if (!(await confirmDialog({ description: "Are you sure you want to reset to default?" }))) return;
 
         const defaultValue = type === 'analyze' ? DEFAULT_ANALYZE_TEMPLATE : DEFAULT_SIMILAR_TEMPLATE;
         if (type === 'analyze') {
@@ -69,10 +67,10 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
             <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
             <div className="space-y-1">
                 <p className="font-medium">
-                    {t.settings?.prompts?.caution || "Modify with Caution"}
+                    {"Modify with Caution"}
                 </p>
                 <p className="text-amber-800/90 text-xs">
-                    {t.settings?.prompts?.warning || "Variables in {{brackets}} are used to inject dynamic content. Please preserve these variables, otherwise the AI providing may fail to get question context or return invalid formats."}
+                    {"Variables in {{brackets}} are used to inject dynamic content. Please preserve these variables, otherwise the AI providing may fail to get question context or return invalid formats."}
                 </p>
             </div>
         </div>
@@ -83,10 +81,10 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
             <Tabs defaultValue="analyze" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="analyze">
-                        {t.settings?.prompts?.analysisTab || "Analysis Prompt"}
+                        {"Analysis Prompt"}
                     </TabsTrigger>
                     <TabsTrigger value="similar">
-                        {t.settings?.prompts?.similarTab || "Similar Question Prompt"}
+                        {"Similar Question Prompt"}
                     </TabsTrigger>
                 </TabsList>
 
@@ -94,11 +92,11 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <Label className="text-base font-semibold">
-                                {t.settings?.prompts?.customAnalysis || "Custom Analysis Template"}
+                                {"Custom Analysis Template"}
                             </Label>
                             <Button variant="outline" size="sm" onClick={() => handleReset('analyze')}>
                                 <RotateCcw className="w-4 h-4 mr-2" />
-                                {t.settings?.prompts?.reset || "Reset Default"}
+                                {"Reset Default"}
                             </Button>
                         </div>
 
@@ -107,20 +105,20 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
                         <div className="space-y-2 border rounded-md p-3 bg-background">
                             <h4 className="text-xs font-medium flex items-center gap-1.5 mb-2">
                                 <Info className="h-3.5 w-3.5" />
-                                {t.settings?.prompts?.variables || "Available Variables"}
+                                {"Available Variables"}
                             </h4>
                             <div className="space-y-1.5">
                                 <VariableInfo
                                     name="language_instruction"
-                                    description={t.settings?.prompts?.vars?.languageInstruction || "Injects instructions based on target language (e.g., keep English questions in English but analysis in Chinese)."}
+                                    description={"Injects instructions based on target language (e.g., keep English questions in English but analysis in Chinese)."}
                                 />
                                 <VariableInfo
                                     name="knowledge_points_list"
-                                    description={t.settings?.prompts?.vars?.knowledgePointsList || "Injects the standard list of knowledge point tags for the specific subject."}
+                                    description={"Injects the standard list of knowledge point tags for the specific subject."}
                                 />
                                 <VariableInfo
                                     name="provider_hints"
-                                    description={t.settings?.prompts?.vars?.providerHints || "System-injected hints (e.g., enforcing JSON format)."}
+                                    description={"System-injected hints (e.g., enforcing JSON format)."}
                                 />
                             </div>
                         </div>
@@ -138,11 +136,11 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <Label className="text-base font-semibold">
-                                {t.settings?.prompts?.customSimilar || "Custom Similar Question Template"}
+                                {"Custom Similar Question Template"}
                             </Label>
                             <Button variant="outline" size="sm" onClick={() => handleReset('similar')}>
                                 <RotateCcw className="w-4 h-4 mr-2" />
-                                {t.settings?.prompts?.reset || "Reset Default"}
+                                {"Reset Default"}
                             </Button>
                         </div>
 
@@ -151,28 +149,28 @@ export function PromptSettings({ config, onUpdate }: PromptSettingsProps) {
                         <div className="space-y-2 border rounded-md p-3 bg-background">
                             <h4 className="text-xs font-medium flex items-center gap-1.5 mb-2">
                                 <Info className="h-3.5 w-3.5" />
-                                {t.settings?.prompts?.variables || "Available Variables"}
+                                {"Available Variables"}
                             </h4>
                             <div className="space-y-1.5">
                                 <VariableInfo
                                     name="difficulty_level"
-                                    description={t.settings?.prompts?.vars?.difficultyLevel || "Target difficulty level."}
+                                    description={"Target difficulty level."}
                                 />
                                 <VariableInfo
                                     name="difficulty_instruction"
-                                    description={t.settings?.prompts?.vars?.difficultyInstruction || "Specific writing instructions for the target difficulty."}
+                                    description={"Specific writing instructions for the target difficulty."}
                                 />
                                 <VariableInfo
                                     name="original_question"
-                                    description={t.settings?.prompts?.vars?.originalQuestion || "The full text of the original question."}
+                                    description={"The full text of the original question."}
                                 />
                                 <VariableInfo
                                     name="knowledge_points"
-                                    description={t.settings?.prompts?.vars?.knowledgePoints || "List of knowledge points to test."}
+                                    description={"List of knowledge points to test."}
                                 />
                                 <VariableInfo
                                     name="language_instruction"
-                                    description={t.settings?.prompts?.vars?.languageInstructionShort || "Language formatting instructions."}
+                                    description={"Language formatting instructions."}
                                 />
                             </div>
                         </div>

@@ -13,9 +13,9 @@ import {
     HISTORY_CURRICULUM, HISTORY_GRADE_ORDER,
     GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER,
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
-} from "@/lib/tag-data";
+} from "@grow/shared/tag-data";
 import { createLogger } from "@grow/shared/logger";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { findParentTagIdForGrade } from "@grow/shared/tag-recognition";
 
 const logger = createLogger('api:admin:migrate-tags');
 

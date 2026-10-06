@@ -12,7 +12,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { RefreshCw, Loader2 } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { AIModel, ModelsResponse } from "@grow/shared/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 

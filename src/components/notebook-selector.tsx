@@ -9,7 +9,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { BookOpen } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { Notebook } from "@grow/shared/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 

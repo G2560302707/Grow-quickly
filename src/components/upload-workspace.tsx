@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { UploadZone } from "@/components/upload-zone";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ParsedQuestion } from "@grow/shared/ai";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { AnalyzeResponse, Notebook, AppConfig } from "@grow/shared/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";

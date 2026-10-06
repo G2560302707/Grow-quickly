@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { unauthorized, internalError, validationError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { findParentTagIdForGrade } from "@grow/shared/tag-recognition";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { normalizeMistakeStatusForSave } from "@grow/shared/mistake-status";
 

@@ -4,7 +4,7 @@ import { createLogger } from "@grow/shared/logger";
 import { createErrorResponse, ErrorCode } from "@grow/shared/api-errors";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { findParentTagIdForGrade } from "@grow/shared/tag-recognition";
 import { compare } from "bcryptjs";
 import { timingSafeEqual } from "crypto";
 import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";

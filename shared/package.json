@@ -26,9 +26,12 @@
         "./logger": "./src/logger.ts",
         "./auth-utils": "./src/auth-utils.ts",
         "./api-errors": "./src/api-errors.ts",
+        "./api-client": "./src/api-client.ts",
         "./mailer": "./src/mailer.ts",
         "./subjects": "./src/subjects.ts",
         "./mistake-status": "./src/mistake-status.ts",
+        "./tag-data": "./src/tag-data/index.ts",
+        "./tag-recognition": "./src/tag-recognition.ts",
         "./types/api": "./src/types/api.ts",
         "./ai": "./src/ai/index.ts",
         "./ai/*": "./src/ai/*.ts"

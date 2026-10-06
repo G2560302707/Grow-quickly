@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, MessageSquareText, CheckCheck, RotateCcw } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { alertDialog } from "@/components/ui/app-dialog";
 
 interface FeedbackItem {

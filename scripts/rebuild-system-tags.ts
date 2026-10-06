@@ -13,7 +13,7 @@ import {
     HISTORY_CURRICULUM, HISTORY_GRADE_ORDER,
     GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER,
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
-} from '../src/lib/tag-data';
+} from '../shared/src/tag-data';
 
 const prisma = new PrismaClient();
 

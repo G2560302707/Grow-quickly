@@ -12,7 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { AppConfig } from "@grow/shared/types/api";
 import { frontendLogger } from "@/lib/frontend-logger";
 

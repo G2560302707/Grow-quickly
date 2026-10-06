@@ -15,7 +15,7 @@ import { ParsedQuestion } from "@grow/shared/ai/types";
 import { parseChoiceOptions, parseCorrectOption } from "@/lib/practice-choice";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { Progress } from "@/components/ui/progress";
 import {
     confirmDialog,

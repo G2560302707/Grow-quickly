@@ -15,7 +15,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { UserProfile, Notebook } from "@grow/shared/types/api";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { normalizeMistakeStatusForSave, type MistakeStatus } from "@grow/shared/mistake-status";

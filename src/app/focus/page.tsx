@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Play, Pause, Flag, RotateCcw, Timer, CalendarDays } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+import { apiClient } from "@grow/shared/api-client";
 import { Input } from "@/components/ui/input";
 import { PracticeRecords } from "@/components/practice-records";
 

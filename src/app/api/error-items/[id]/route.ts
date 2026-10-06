@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, internalError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
-import { findParentTagIdForGrade } from "@/lib/tag-recognition";
+import { findParentTagIdForGrade } from "@grow/shared/tag-recognition";
 import { normalizeMistakeStatusForSave } from "@grow/shared/mistake-status";
 
 const logger = createLogger('api:error-items:id');

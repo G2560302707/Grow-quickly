@@ -6,7 +6,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { MATH_CURRICULUM, MATH_GRADE_ORDER } from '../src/lib/tag-data/math';
+import { MATH_CURRICULUM, MATH_GRADE_ORDER } from '../shared/src/tag-data/math';
 
 const prisma = new PrismaClient();
 
