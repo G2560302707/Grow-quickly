@@ -56,51 +56,36 @@
 
 ## 🚀 快速开始
 
-### 方式一：使用 Docker 部署
+### 方式一：使用 Docker 部署（推荐）
 
-#### 1. 启动服务
+本仓库没有发布预构建镜像，首次部署使用本地构建（Compose 会同时构建学习端与管理端两个镜像）：
 
-您可以选择 **直接使用命令** (适合快速测试) 或 **Docker Compose** (适合长期运行)。
+1.  **克隆仓库**（见方式二第 1 步），在仓库根目录执行：
 
-**选项 A：直接使用 Docker 命令**
+2.  **修改 `NEXTAUTH_SECRET`**：编辑 `docker-compose.yml`，把两个服务的 `NEXTAUTH_SECRET` 改为 `openssl rand -base64 32` 生成的随机值（两个服务保持一致）。
 
-```bash
-docker run -d --name wrong-notebook \
-  -e NEXTAUTH_SECRET="your_secret_key" \
-  -p 3000:3000 \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/config:/app/config \
-  ghcr.io/wttwins/wrong-notebook
-```
-
-**选项 B：使用 Docker Compose (推荐)**
-
-使用 `docker-compose.yml` 文件进行管理。
-
-1.  **下载配置文件**：
+3.  **启动服务**（本地构建学习端 + 管理端）：
     ```bash
-    curl -o docker-compose.yml https://raw.githubusercontent.com/wttwins/wrong-notebook/refs/heads/main/docker-compose.yml
+    docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
     ```
-2.  **启动服务**：
+4.  **查看日志**：
     ```bash
-    docker-compose up -d
+    docker compose logs -f
     ```
-3.  **查看日志**：
+5.  **停止服务**：
     ```bash
-    docker-compose logs -f
+    docker compose down
     ```
-4.  **停止服务**：
-    ```bash
-    docker-compose down
-    ```
+
+> 首次启动会自动完成数据库迁移、种子与管理员账号初始化；AI 供应商在管理端（`:3001`）首次配置。完整说明（HTTPS、备份、升级、排查）见 [部署文档](doc/部署文档.md)。
 
 ### 方式二：本地源码运行
 
 #### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/wttwins/wrong-notebook.git
-cd wrong-notebook
+git clone http://gitlab.funyond.com:10269/Sun/Grow-quickly.git
+cd Grow-quickly
 ```
 
 #### 2. 环境准备
