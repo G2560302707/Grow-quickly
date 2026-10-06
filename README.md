@@ -167,21 +167,41 @@ npx prisma db seed
 - **邮箱**: `admin@localhost`
 - **密码**: `123456`
 
-> 管理员登录后，可在“设置” -> “用户管理”中管理系统用户。
-
 #### 7. 启动开发服务器
 
 ```bash
-npm run dev
+npm run dev              # 学习端 http://localhost:3000
+npm run dev -w @grow/admin   # 管理后台 http://localhost:3001
 ```
+
+（一键启动：双击 `启动测试.bat`，会同时拉起学习端与管理端两个窗口。）
 
 访问 [http://your-domain-name:3000](http://your-domain-name:3000) 开始使用。
 
+## 🖥️ 管理后台（独立应用）
+
+管理功能与学习功能已拆分：**学习端（根目录）与 uniapp 只负责学习**，用户、公告、反馈、系统配置等管理功能全部在独立的管理后台应用 `admin/`（端口 3001）。
+
+| 功能 | 入口（管理后台） |
+| :--- | :--- |
+| 仪表盘（全站统计/趋势） | `/` |
+| 用户管理（启用/禁用/删除、注册开关） | `/users` |
+| 公告管理（发布/下架/删除） | `/announcements` |
+| 反馈处理 | `/feedback` |
+| 系统设置（AI 供应商 / Prompts / 邮件通知） | `/settings` |
+| 系统工具（标签迁移、系统重置、Prompt 调试） | `/tools` |
+
+- 管理后台使用**独立登录**：复用同一套用户数据，但仅 `admin` 角色可登录；会话 cookie 与学习端互相隔离。
+- 两端共享同一个 SQLite 数据库与 `config/app-config.json` 配置文件（学习端只读，管理端读写）。
+- 共享代码（Prisma、配置、AI 库、邮件等）在 `shared/`（`@grow/shared` 包）。
+- Docker 部署：`docker-compose.yml` 已包含 `wrong-notebook-admin` 服务（本地构建，端口 3001）；生产环境建议只在内网/VPN 或加 IP 白名单暴露管理端。
+- 详细拆分方案见 [doc/管理后台拆分方案.md](doc/管理后台拆分方案.md)。
+
 ## ⚙️ AI 模型配置
 
-本项目支持动态配置 AI 模型，无需重启服务器。
+本项目支持动态配置 AI 模型，无需重启服务器。**AI 配置入口已迁移至管理后台 `/settings`**（学习端设置弹窗不再包含 AI 配置）。
 
-1.  **进入设置**：点击首页右上角的设置图标。
+1.  **进入管理后台**：`http://your-domain-name:3001`，使用管理员账号登录。
 2.  **选择提供商**：支持 Google Gemini、OpenAI 和 **Azure OpenAI**。
 3.  **填写参数**：
     *   **通用参数**: API Key、Base URL（或 Endpoint）、Model Name（或 Deployment Name）。

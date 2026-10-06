@@ -18,7 +18,6 @@ export async function middleware(req: NextRequest) {
 
         const isAuth = !!token;
         const isAuthPage = req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/register");
-        const isAdminPage = req.nextUrl.pathname.startsWith("/admin");
 
         logger.debug({
             path: req.nextUrl.pathname,
@@ -47,12 +46,7 @@ export async function middleware(req: NextRequest) {
                 new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
             );
         }
-
-        // Admin route protection: only allow users with admin role
-        if (isAdminPage && token?.role !== "admin") {
-            logger.warn({ userId: token?.id, path: req.nextUrl.pathname }, 'Non-admin user attempting to access admin area');
-            return NextResponse.redirect(new URL("/", req.url));
-        }
+        // 管理功能已拆分至独立管理端（admin/ 应用），学习端不再有 admin 页面
     } catch (e) {
         logger.error({ error: e }, 'Error processing token');
         return NextResponse.next();

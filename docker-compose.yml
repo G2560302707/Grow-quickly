@@ -16,3 +16,20 @@ services:
       - ./data:/app/data
       - ./config:/app/config
 
+  # 管理后台（本地构建；与学习端共享同一个 SQLite 与配置文件）
+  # 生产环境建议只在内网/VPN 或加 IP 白名单暴露 3001
+  wrong-notebook-admin:
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
+    container_name: wrong-notebook-admin
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - NEXTAUTH_SECRET=your_secret_key
+      - APP_CONFIG_PATH=/app/config/app-config.json
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+

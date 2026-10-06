@@ -32,6 +32,15 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 " ^| findstr "LISTENIN
 )
 endlocal
 
+echo  [INFO] Releasing port 3001 (if occupied)...
+setlocal
+set PORT=3001
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3001 " ^| findstr "LISTENING"') do (
+    echo  [INFO] Closing PID %%a on port 3001...
+    taskkill /F /PID %%a >nul 2>&1
+)
+endlocal
+
 echo.
 echo  All done. Server stopped.
 pause

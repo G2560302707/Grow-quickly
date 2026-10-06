@@ -1,37 +1,37 @@
 import { test, expect } from '@playwright/test';
 
+// 管理端运行在 3001（playwright.config 已同时拉起学习端 3000 与管理端 3001）
+const ADMIN = 'http://127.0.0.1:3001';
+
 test('Admin can configure OpenAI settings with multi-instance support', async ({ page }) => {
     // 增加测试超时时间
-    test.setTimeout(60000);
+    test.setTimeout(90000);
 
-    // 1. Login as Admin
-    await page.goto('/login');
+    // 1. Login to admin app
+    await page.goto(`${ADMIN}/login`);
     await page.locator('input[name="email"]').fill('admin@localhost');
     await page.locator('input[name="password"]').fill('123456');
     await page.locator('button[type="submit"]').click();
 
     // Wait for login to complete
-    await page.waitForURL('**/', { timeout: 15000 });
+    await page.waitForURL(`${ADMIN}/`, { timeout: 15000 });
 
-    // 2. Open Settings
-    await page.getByRole('button', { name: '设置' }).click();
-
-    // Wait for dialog to be visible
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+    // 2. Open Settings page
+    await page.goto(`${ADMIN}/settings`);
+    await page.waitForLoadState('networkidle');
 
     // 3. Switch to AI Tab (支持中英文)
-    await page.getByRole('tab', { name: /AI Provider|AI 提供商/ }).click();
+    await page.getByRole('tab', { name: /AI 供应商|AI Provider/ }).click();
 
     // 4. Select OpenAI Provider
-    const providerTrigger = page.locator('[role="dialog"] button[role="combobox"]').first();
+    const providerTrigger = page.locator('button[role="combobox"]').first();
     await providerTrigger.click();
 
     // Select OpenAI option
     await page.getByRole('option', { name: 'OpenAI / Compatible' }).click();
 
     // 5. Add a new instance (multi-instance support)
-    // Click "Add" button to create a new instance
-    await page.getByRole('button', { name: /添加|Add/ }).click();
+    await page.getByRole('button', { name: /^添加$|^Add$/ }).click();
 
     // 6. Fill instance configuration
     // 唯一实例名：本用例会真实写入服务端配置，重名会触发校验导致添加按钮禁用
@@ -56,7 +56,7 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
     // 7. Save Settings
     await page.getByRole('button', { name: /保存 AI 设置|Save AI Settings/ }).click();
 
-    // 保存成功提示改为应用内弹窗（替代原生 alert），点击确认关闭
+    // 保存成功提示为应用内弹窗（替代原生 alert），点击确认关闭
     const savedDialog = page.getByRole('dialog').filter({ hasText: /设置已保存|Settings saved/ }).last();
     await expect(savedDialog).toBeVisible({ timeout: 5000 });
     await savedDialog.getByRole('button', { name: /确认|Confirm/ }).click();
@@ -70,14 +70,8 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
     // 等待页面加载完成
     await page.waitForLoadState('networkidle');
 
-    // 重新打开 Settings Dialog
-    await page.getByRole('button', { name: '设置' }).click();
-
-    // 等待对话框显示
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
-
-    // Switch to AI Tab (支持中英文)
-    await page.getByRole('tab', { name: /AI Provider|AI 提供商/ }).click();
+    // Switch to AI Tab
+    await page.getByRole('tab', { name: /AI 供应商|AI Provider/ }).click();
 
     // Verify values match
     // First combobox should be AI Provider, second should be instance selector
@@ -87,9 +81,9 @@ test('Admin can configure OpenAI settings with multi-instance support', async ({
     await expect(page.locator('input[placeholder="gpt-4o"]')).toHaveValue(modelName);
 
     // 清理：删除本次创建的 E2E 实例并保存，防止反复运行把实例数推到上限（MAX 10）
-    await page.locator('[role="dialog"] button[role="combobox"]').nth(1).click();
+    await page.locator('button[role="combobox"]').nth(1).click();
     await page.getByRole('option', { name: instanceName }).click();
-    await page.locator('[role="dialog"] button:has(svg.lucide-trash-2)').last().click();
+    await page.locator('button:has(svg.lucide-trash-2)').last().click();
     const delDialog = page.getByRole('dialog').last();
     await delDialog.getByRole('button', { name: /确认|Confirm|删除/ }).click();
     await page.waitForTimeout(500);
