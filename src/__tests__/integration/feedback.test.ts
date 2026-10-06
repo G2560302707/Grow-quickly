@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => ({
     },
 }));
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@grow/shared/prisma', () => ({
     prisma: {
         feedback: mocks.mockPrismaFeedback,
         user: mocks.mockPrismaUser,
@@ -36,7 +36,7 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 // 邮件库整体 mock：不真正发信
-vi.mock('@/lib/mailer', () => ({
+vi.mock('@grow/shared/mailer', () => ({
     sendFeedbackNotification: mocks.mockSendFeedbackNotification,
     sendTestMail: mocks.mockSendTestMail,
 }));

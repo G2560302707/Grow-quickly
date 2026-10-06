@@ -3,7 +3,7 @@
  * 测试错题本创建、获取、更新、删除等接口
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GONGKAO_NOTEBOOKS } from '@/lib/subjects';
+import { GONGKAO_NOTEBOOKS } from '@grow/shared/subjects';
 
 // Use vi.hoisted to ensure mocks are initialized before module imports
 const mocks = vi.hoisted(() => ({
@@ -29,7 +29,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Mock Prisma client
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@grow/shared/prisma', () => ({
     prisma: {
         user: mocks.mockPrismaUser,
         subject: mocks.mockPrismaSubject,

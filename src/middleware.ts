@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import type { NextRequest } from "next/server";
-import { createLogger } from "@/lib/logger";
+import { createLogger } from "@grow/shared/logger";
 
 const logger = createLogger('middleware');
 

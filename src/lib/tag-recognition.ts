@@ -1,5 +1,5 @@
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 
 export async function findParentTagIdForGrade(gradeSemester: string | null | undefined, subjectKey: string): Promise<string | null> {
     if (!gradeSemester || !subjectKey) return null;

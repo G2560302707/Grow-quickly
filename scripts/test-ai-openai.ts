@@ -7,7 +7,7 @@
  * 3. 测试 analyzeImage (图片分析) 功能。
  * 用途：用于验证 OpenAI (或兼容接口) 配置是否正确以及核心功能是否可用。
  */
-import { OpenAIProvider } from "../src/lib/ai/openai-provider";
+import { OpenAIProvider } from "../shared/src/ai/openai-provider";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";

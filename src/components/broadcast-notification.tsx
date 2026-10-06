@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
-import { AnnouncementItem } from "@/types/api";
+import { AnnouncementItem } from "@grow/shared/types/api";
 
 function formatDate(iso: string): string {
     const d = new Date(iso);

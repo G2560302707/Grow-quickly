@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, CheckCircle, BookOpen } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
-import { AnalyticsData } from "@/types/api";
+import { AnalyticsData } from "@grow/shared/types/api";
 
 // 图表配色走主题变量，深浅色自动适配
 const AXIS_COLOR = 'var(--muted-foreground)';

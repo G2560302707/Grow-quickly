@@ -4,7 +4,7 @@
  * 测试 Zod 验证 schema，特别是新增的错因分析字段
  */
 import { describe, it, expect } from 'vitest';
-import { ParsedQuestionSchema, safeParseParsedQuestion } from '@/lib/ai/schema';
+import { ParsedQuestionSchema, safeParseParsedQuestion } from '@grow/shared/ai/schema';
 
 describe('ParsedQuestionSchema 验证', () => {
     const validBaseQuestion = {

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { AIModel, ModelsResponse } from "@/types/api";
+import { AIModel, ModelsResponse } from "@grow/shared/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ModelSelectorProps {

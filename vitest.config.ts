@@ -10,6 +10,7 @@ export default defineConfig({
         setupFiles: ['./src/__tests__/setup.ts'],
         alias: {
             '@': path.resolve(__dirname, './src'),
+            '@grow/shared': path.resolve(__dirname, './shared/src'),
         },
         include: ['src/__tests__/**/*.test.ts', 'src/__tests__/**/*.test.tsx'],
         exclude: ['node_modules', '.next', 'dist'],

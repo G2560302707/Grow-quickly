@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { getAIService } from "@/lib/ai";
-import { notFound, internalError, unauthorized } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
-import { AI_SUBJECT_OPTIONS } from "@/lib/subjects";
+import { getAIService } from "@grow/shared/ai";
+import { notFound, internalError, unauthorized } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
+import { AI_SUBJECT_OPTIONS } from "@grow/shared/subjects";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:practice:generate');

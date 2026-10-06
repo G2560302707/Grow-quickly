@@ -15,9 +15,9 @@ import { TagInput } from "@/components/tag-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
-import { UserProfile, Notebook } from "@/types/api";
+import { UserProfile, Notebook } from "@grow/shared/types/api";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import { getMistakeStatusLabel, normalizeMistakeStatusForSave } from "@/lib/mistake-status";
+import { getMistakeStatusLabel, normalizeMistakeStatusForSave } from "@grow/shared/mistake-status";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { GeogebraDemo } from "@/components/geogebra-demo";
 

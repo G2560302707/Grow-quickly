@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { unauthorized } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
-import { getAIService } from "@/lib/ai";
+import { unauthorized } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
+import { getAIService } from "@grow/shared/ai";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:geogebra-analyze');

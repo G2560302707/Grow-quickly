@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@grow/shared/*": ["./shared/src/*"]
     },
     "types": ["node", "vitest/globals"]
   },

@@ -39,7 +39,7 @@ describe('config module', () => {
         it('应该返回默认配置（文件不存在时）', async () => {
             vi.mocked(fs.existsSync).mockReturnValue(false);
 
-            const { getAppConfig } = await import('@/lib/config');
+            const { getAppConfig } = await import('@grow/shared/config');
             const config = getAppConfig();
 
             expect(config.aiProvider).toBe('gemini'); // 默认值
@@ -50,7 +50,7 @@ describe('config module', () => {
             vi.mocked(fs.existsSync).mockReturnValue(false);
             process.env.AI_PROVIDER = 'openai';
 
-            const { getAppConfig } = await import('@/lib/config');
+            const { getAppConfig } = await import('@grow/shared/config');
             const config = getAppConfig();
 
             expect(config.aiProvider).toBe('openai');
@@ -61,7 +61,7 @@ describe('config module', () => {
             process.env.OPENAI_API_KEY = 'sk-env-key';
             process.env.GOOGLE_API_KEY = 'AIza-env-key';
 
-            const { getAppConfig } = await import('@/lib/config');
+            const { getAppConfig } = await import('@grow/shared/config');
             const config = getAppConfig();
 
             // OpenAI 现在使用多实例格式
@@ -87,7 +87,7 @@ describe('config module', () => {
             vi.mocked(fs.existsSync).mockReturnValue(true);
             vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(fileConfig));
 
-            const { getAppConfig } = await import('@/lib/config');
+            const { getAppConfig } = await import('@grow/shared/config');
             const config = getAppConfig();
 
             expect(config.aiProvider).toBe('openai');
@@ -101,7 +101,7 @@ describe('config module', () => {
             vi.mocked(fs.existsSync).mockReturnValue(true);
             vi.mocked(fs.readFileSync).mockReturnValue('invalid json{');
 
-            const { getAppConfig } = await import('@/lib/config');
+            const { getAppConfig } = await import('@grow/shared/config');
             const config = getAppConfig();
 
             // 应该回退到默认配置
@@ -114,7 +114,7 @@ describe('config module', () => {
             process.env.OPENAI_MODEL = 'gpt-4-turbo';
             process.env.GEMINI_MODEL = 'gemini-3.0';
 
-            const { getAppConfig } = await import('@/lib/config');
+            const { getAppConfig } = await import('@grow/shared/config');
             const config = getAppConfig();
 
             expect(config.openai?.instances?.[0]?.model).toBe('gpt-4-turbo');
@@ -127,7 +127,7 @@ describe('config module', () => {
             delete process.env.OPENAI_MODEL;
             delete process.env.GEMINI_MODEL;
 
-            const { getAppConfig } = await import('@/lib/config');
+            const { getAppConfig } = await import('@grow/shared/config');
             const config = getAppConfig();
 
             expect(config.openai?.instances?.[0]?.model).toBe('gpt-4o');
@@ -140,7 +140,7 @@ describe('config module', () => {
             vi.mocked(fs.existsSync).mockReturnValue(false);
             vi.mocked(fs.writeFileSync).mockImplementation(() => { });
 
-            const { updateAppConfig } = await import('@/lib/config');
+            const { updateAppConfig } = await import('@grow/shared/config');
             const result = updateAppConfig({ aiProvider: 'openai' });
 
             expect(fs.writeFileSync).toHaveBeenCalled();
@@ -151,7 +151,7 @@ describe('config module', () => {
             vi.mocked(fs.existsSync).mockReturnValue(false);
             vi.mocked(fs.writeFileSync).mockImplementation(() => { });
 
-            const { updateAppConfig } = await import('@/lib/config');
+            const { updateAppConfig } = await import('@grow/shared/config');
             const result = updateAppConfig({
                 openai: {
                     instances: [{
@@ -176,7 +176,7 @@ describe('config module', () => {
                 throw new Error('Permission denied');
             });
 
-            const { updateAppConfig } = await import('@/lib/config');
+            const { updateAppConfig } = await import('@grow/shared/config');
 
             expect(() => updateAppConfig({ aiProvider: 'openai' })).toThrow();
         });
@@ -185,7 +185,7 @@ describe('config module', () => {
             vi.mocked(fs.existsSync).mockReturnValue(false);
             vi.mocked(fs.writeFileSync).mockImplementation(() => { });
 
-            const { updateAppConfig } = await import('@/lib/config');
+            const { updateAppConfig } = await import('@grow/shared/config');
             const result = updateAppConfig({
                 prompts: { analyze: '自定义提示词' },
             });
@@ -197,7 +197,7 @@ describe('config module', () => {
             vi.mocked(fs.existsSync).mockReturnValue(false);
             vi.mocked(fs.writeFileSync).mockImplementation(() => { });
 
-            const { updateAppConfig } = await import('@/lib/config');
+            const { updateAppConfig } = await import('@grow/shared/config');
             const result = updateAppConfig({ allowRegistration: false });
 
             expect(result.allowRegistration).toBe(false);

@@ -9,7 +9,7 @@ import { Loader2, ArrowLeft, User, BookOpen, PenTool, Layers, Calendar, Tag, Che
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AdminUserDetail } from "@/types/api";
+import { AdminUserDetail } from "@grow/shared/types/api";
 
 export default function AdminUserDetailPage() {
     const { data: session, status } = useSession()

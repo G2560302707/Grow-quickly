@@ -30,7 +30,7 @@ import { AnnouncementManagement } from "@/components/admin/announcement-manageme
 import { FeedbackManagement } from "@/components/admin/feedback-management";
 import { apiClient } from "@/lib/api-client";
 import { frontendLogger } from "@/lib/frontend-logger";
-import { AppConfig, UserProfile, UpdateUserProfileRequest, OpenAIInstance } from "@/types/api";
+import { AppConfig, UserProfile, UpdateUserProfileRequest, OpenAIInstance } from "@grow/shared/types/api";
 import { ModelSelector } from "@/components/ui/model-selector";
 import { PromptSettings } from "@/components/settings/prompt-settings";
 import { alertDialog, confirmDialog, promptDialog } from "@/components/ui/app-dialog";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { createLogger } from "@/lib/logger";
+import { prisma } from "@grow/shared/prisma";
+import { createLogger } from "@grow/shared/logger";
 
 const logger = createLogger('api:tags:stats');
 

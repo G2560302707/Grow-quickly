@@ -1,5 +1,5 @@
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
-import { createLogger } from './logger';
+import { createLogger } from '@grow/shared/logger';
 
 const logger = createLogger('proxy');
 

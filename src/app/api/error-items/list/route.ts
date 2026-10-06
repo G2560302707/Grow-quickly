@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { unauthorized, internalError } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
+import { unauthorized, internalError } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
 
 const logger = createLogger('api:error-items:list');

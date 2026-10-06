@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from '@grow/shared/logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { requireAdmin } from '@/lib/auth-utils';
-import { unauthorized, forbidden } from '@/lib/api-errors';
+import { requireAdmin } from '@grow/shared/auth-utils';
+import { unauthorized, forbidden } from '@grow/shared/api-errors';
 
 const logger = createLogger('api:ai:models');
 

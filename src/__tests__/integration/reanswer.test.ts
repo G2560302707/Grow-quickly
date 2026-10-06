@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Mock AI service
-vi.mock('@/lib/ai', () => ({
+vi.mock('@grow/shared/ai', () => ({
     getAIService: vi.fn(() => mocks.mockAIService),
 }));
 

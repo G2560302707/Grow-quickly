@@ -21,12 +21,12 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { KnowledgeFilter } from "@/components/knowledge-filter";
-import { ErrorItem, PaginatedResponse } from "@/types/api";
+import { ErrorItem, PaginatedResponse } from "@grow/shared/types/api";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { cleanMarkdown } from "@/lib/markdown-utils";
 import { Pagination } from "@/components/ui/pagination";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination";
-import { getMistakeStatusLabel } from "@/lib/mistake-status";
+import { getMistakeStatusLabel } from "@grow/shared/mistake-status";
 
 import { confirmDialog, alertDialog } from "@/components/ui/app-dialog";
 

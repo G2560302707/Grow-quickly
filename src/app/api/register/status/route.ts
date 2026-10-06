@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAppConfig } from "@/lib/config";
+import { getAppConfig } from "@grow/shared/config";
 
 export async function GET() {
     const config = getAppConfig();

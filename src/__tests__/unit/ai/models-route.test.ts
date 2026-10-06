@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 // Mock logger
-vi.mock('@/lib/logger', () => ({
+vi.mock('@grow/shared/logger', () => ({
     createLogger: vi.fn(() => ({
         debug: vi.fn(),
         info: vi.fn(),

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getAIService } from "@/lib/ai";
+import { getAIService } from "@grow/shared/ai";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { calculateGradeNumber, inferSubjectFromName } from "@/lib/knowledge-tags";
 import { calculateGrade } from "@/lib/grade-calculator";
-import { prisma } from "@/lib/prisma";
-import { badRequest, internalError, createErrorResponse, ErrorCode } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
+import { prisma } from "@grow/shared/prisma";
+import { badRequest, internalError, createErrorResponse, ErrorCode } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:analyze');

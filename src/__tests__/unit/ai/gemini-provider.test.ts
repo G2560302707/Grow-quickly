@@ -19,7 +19,7 @@ vi.mock('@google/genai', () => {
 });
 
 // Mock logger
-vi.mock('@/lib/logger', () => ({
+vi.mock('@grow/shared/logger', () => ({
     createLogger: vi.fn(() => ({
         debug: vi.fn(),
         info: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 // Mock config
-vi.mock('@/lib/config', () => ({
+vi.mock('@grow/shared/config', () => ({
     getAppConfig: vi.fn(() => ({
         aiProvider: 'gemini',
         gemini: {
@@ -42,14 +42,14 @@ vi.mock('@/lib/config', () => ({
 }));
 
 // Mock tag service
-vi.mock('@/lib/ai/tag-service', () => ({
+vi.mock('@grow/shared/ai/tag-service', () => ({
     getMathTagsFromDB: vi.fn(() => Promise.resolve([])),
     getTagsFromDB: vi.fn(() => Promise.resolve([])),
 }));
 
 // Delayed import to ensure mocks are applied
-import { GeminiProvider } from '@/lib/ai/gemini-provider';
-import type { ParsedQuestion } from '@/lib/ai/types';
+import { GeminiProvider } from '@grow/shared/ai/gemini-provider';
+import type { ParsedQuestion } from '@grow/shared/ai/types';
 
 type PrivateGeminiProvider = {
     parseResponse(text: string): ParsedQuestion;

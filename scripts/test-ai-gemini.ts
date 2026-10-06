@@ -7,7 +7,7 @@
  * 3. 测试 analyzeImage (图片分析) 功能。
  * 用途：用于验证 Gemini API 配置是否正确以及核心功能是否可用。
  */
-import { GeminiProvider } from "../src/lib/ai/gemini-provider";
+import { GeminiProvider } from "../shared/src/ai/gemini-provider";
 import dotenv from "dotenv";
 import path from "path";
 

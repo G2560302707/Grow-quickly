@@ -3,7 +3,7 @@
  * This module provides centralized prompt management
  */
 
-import { AI_SUBJECT_PROMPT_LIST } from "@/lib/subjects";
+import { AI_SUBJECT_PROMPT_LIST } from "../subjects";
 
 /**
  * 将 gradeSemester 字符串转换为年级数字（用于标签过滤）

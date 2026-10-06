@@ -13,7 +13,7 @@ import {
     conflict,
     internalError,
     ErrorCode,
-} from '@/lib/api-errors';
+} from '@grow/shared/api-errors';
 
 describe('lib/api-errors', () => {
     describe('createErrorResponse (创建错误响应)', () => {

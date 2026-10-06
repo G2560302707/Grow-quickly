@@ -1,9 +1,9 @@
 import { NextAuthOptions } from "next-auth"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@grow/shared/prisma"
 import { compare } from "bcryptjs"
-import { createLogger } from "@/lib/logger"
+import { createLogger } from "@grow/shared/logger"
 
 const logger = createLogger('auth');
 

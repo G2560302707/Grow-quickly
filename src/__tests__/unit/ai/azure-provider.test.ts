@@ -21,7 +21,7 @@ vi.mock('openai', () => {
 });
 
 // Mock logger
-vi.mock('@/lib/logger', () => ({
+vi.mock('@grow/shared/logger', () => ({
     createLogger: vi.fn(() => ({
         debug: vi.fn(),
         info: vi.fn(),
@@ -33,7 +33,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 // Mock config
-vi.mock('@/lib/config', () => ({
+vi.mock('@grow/shared/config', () => ({
     getAppConfig: vi.fn(() => ({
         aiProvider: 'azure',
         azure: {
@@ -46,7 +46,7 @@ vi.mock('@/lib/config', () => ({
 }));
 
 // Mock tag service
-vi.mock('@/lib/ai/tag-service', () => ({
+vi.mock('@grow/shared/ai/tag-service', () => ({
     getMathTagsFromDB: vi.fn(() => Promise.resolve([])),
     getTagsFromDB: vi.fn(() => Promise.resolve([])),
 }));
@@ -57,8 +57,8 @@ vi.mock('jsonrepair', () => ({
 }));
 
 // Delayed import to ensure mocks are applied
-import { AzureOpenAIProvider } from '@/lib/ai/azure-provider';
-import type { ParsedQuestion } from '@/lib/ai/types';
+import { AzureOpenAIProvider } from '@grow/shared/ai/azure-provider';
+import type { ParsedQuestion } from '@grow/shared/ai/types';
 
 type PrivateAzureProvider = {
     parseResponse(text: string): ParsedQuestion;

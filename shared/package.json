@@ -1,0 +1,36 @@
+{
+    "name": "@grow/shared",
+    "version": "0.1.0",
+    "private": true,
+    "description": "学习端/管理端共享代码：Prisma、系统配置、AI 调用库、邮件、鉴权工具",
+    "scripts": {
+        "generate": "prisma generate"
+    },
+    "dependencies": {
+        "@google/genai": "^1.34.0",
+        "@prisma/client": "5.22.0",
+        "next": "^16.0.10",
+        "nodemailer": "^7.0.13",
+        "openai": "^6.9.1",
+        "zod": "^4.1.13"
+    },
+    "devDependencies": {
+        "@types/node": "^20",
+        "@types/nodemailer": "^8.0.2",
+        "prisma": "5.22.0",
+        "typescript": "^5"
+    },
+    "exports": {
+        "./config": "./src/config.ts",
+        "./prisma": "./src/prisma.ts",
+        "./logger": "./src/logger.ts",
+        "./auth-utils": "./src/auth-utils.ts",
+        "./api-errors": "./src/api-errors.ts",
+        "./mailer": "./src/mailer.ts",
+        "./subjects": "./src/subjects.ts",
+        "./mistake-status": "./src/mistake-status.ts",
+        "./types/api": "./src/types/api.ts",
+        "./ai": "./src/ai/index.ts",
+        "./ai/*": "./src/ai/*.ts"
+    }
+}

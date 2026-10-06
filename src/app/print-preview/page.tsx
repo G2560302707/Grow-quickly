@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { apiClient } from "@/lib/api-client";
-import { ErrorItem, PaginatedResponse } from "@/types/api";
+import { ErrorItem, PaginatedResponse } from "@grow/shared/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { PRINT_PREVIEW_PAGE_SIZE } from "@/lib/constants/pagination";
 import {

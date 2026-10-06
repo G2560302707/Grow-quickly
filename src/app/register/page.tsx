@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { RegisterRequest } from "@/types/api";
+import { RegisterRequest } from "@grow/shared/types/api";
 
 import { alertDialog } from "@/components/ui/app-dialog";
 

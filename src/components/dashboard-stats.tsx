@@ -12,7 +12,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recha
 import { BookOpen, Target, PenLine, Flame, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiClient } from "@/lib/api-client";
-import { AnalyticsData } from "@/types/api";
+import { AnalyticsData } from "@grow/shared/types/api";
 
 /** 数字入场动画：从 0 计数到目标值（rAF，无依赖库） */
 function useCountUp(target: number, durationMs = 700): number {

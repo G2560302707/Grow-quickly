@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { createLogger } from "@/lib/logger";
-import { createErrorResponse, ErrorCode } from "@/lib/api-errors";
+import { prisma } from "@grow/shared/prisma";
+import { createLogger } from "@grow/shared/logger";
+import { createErrorResponse, ErrorCode } from "@grow/shared/api-errors";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";

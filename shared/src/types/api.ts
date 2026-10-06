@@ -1,4 +1,4 @@
-import { ParsedQuestion } from "@/lib/ai/types";
+import { ParsedQuestion } from "../ai/types";
 
 // 通用分页响应类型
 export interface PaginatedResponse<T> {

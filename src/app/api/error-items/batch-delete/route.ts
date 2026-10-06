@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { unauthorized, badRequest, internalError } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
+import { unauthorized, badRequest, internalError } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
 
 const logger = createLogger('api:error-items:batch-delete');
 

@@ -12,7 +12,7 @@ import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import type { MistakeStatus } from "@/lib/mistake-status";
+import type { MistakeStatus } from "@grow/shared/mistake-status";
 
 import { alertDialog } from "@/components/ui/app-dialog";
 

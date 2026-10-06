@@ -11,7 +11,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle, XCircle, ArrowLeft, Target, RefreshCw } from "lucide-react";
-import { ParsedQuestion } from "@/lib/ai/types";
+import { ParsedQuestion } from "@grow/shared/ai/types";
 import { parseChoiceOptions, parseCorrectOption } from "@/lib/practice-choice";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownRenderer } from "@/components/markdown-renderer";

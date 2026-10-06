@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => ({
     },
 }));
 
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@grow/shared/prisma', () => ({
     prisma: {
         practiceQuestion: mocks.mockPrismaPracticeQuestion,
     },

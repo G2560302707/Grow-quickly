@@ -2,7 +2,7 @@
  * AI 共享重试工具单元测试
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { retryOperation, isRetryableError } from '@/lib/ai/retry';
+import { retryOperation, isRetryableError } from '@grow/shared/ai/retry';
 
 describe('isRetryableError', () => {
     it('网络类错误应可重试', () => {

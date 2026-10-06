@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AI_SUBJECT_OPTIONS } from '@/lib/subjects';
+import { AI_SUBJECT_OPTIONS } from '../subjects';
 
 /**
  * Zod schema for validating AI-parsed questions

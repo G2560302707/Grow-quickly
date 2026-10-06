@@ -13,7 +13,7 @@ import {
     DEFAULT_ANALYZE_TEMPLATE,
     DEFAULT_SIMILAR_TEMPLATE,
     DEFAULT_REANSWER_TEMPLATE,
-} from '@/lib/ai/prompts';
+} from '@grow/shared/ai/prompts';
 
 describe('AI Prompts', () => {
     describe('默认模板存在性', () => {

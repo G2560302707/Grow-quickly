@@ -9,7 +9,7 @@ import Link from "next/link";
 import { ErrorList } from "@/components/error-list";
 import { RenameNotebookDialog } from "@/components/rename-notebook-dialog";
 
-import { Notebook } from "@/types/api";
+import { Notebook } from "@grow/shared/types/api";
 import { apiClient } from "@/lib/api-client";
 
 import { useLanguage } from "@/contexts/LanguageContext";

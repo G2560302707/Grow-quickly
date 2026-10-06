@@ -7,7 +7,7 @@ vi.mock('next-auth/jwt', () => ({
 }));
 
 // Mock logger
-vi.mock('@/lib/logger', () => ({
+vi.mock('@grow/shared/logger', () => ({
     createLogger: vi.fn(() => ({
         debug: vi.fn(),
         error: vi.fn(),

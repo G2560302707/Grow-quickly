@@ -26,7 +26,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Mock Prisma client
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@grow/shared/prisma', () => ({
     prisma: {
         user: mocks.mockPrismaUser,
         subject: mocks.mockPrismaSubject,
@@ -34,7 +34,7 @@ vi.mock('@/lib/prisma', () => ({
 }));
 
 // Mock AI service
-vi.mock('@/lib/ai', () => ({
+vi.mock('@grow/shared/ai', () => ({
     getAIService: vi.fn(() => mocks.mockAIService),
 }));
 

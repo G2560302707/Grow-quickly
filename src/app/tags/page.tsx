@@ -12,7 +12,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
-import { TagStats, TagStatsResponse } from "@/types/api";
+import { TagStats, TagStatsResponse } from "@grow/shared/types/api";
 
 import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
 

@@ -4,8 +4,8 @@
  * 反馈提交后的通知是 fire-and-forget：任何失败只记日志，绝不阻塞反馈本身。
  */
 import nodemailer, { type Transporter } from "nodemailer";
-import { getAppConfig, type AppConfig, type FeedbackNotificationPayload } from "@/lib/config";
-import { createLogger } from "@/lib/logger";
+import { getAppConfig, type AppConfig, type FeedbackNotificationPayload } from "./config";
+import { createLogger } from "./logger";
 
 const logger = createLogger("lib:mailer");
 

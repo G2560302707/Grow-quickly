@@ -53,7 +53,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Mock config module
-vi.mock('@/lib/config', () => ({
+vi.mock('@grow/shared/config', () => ({
     getAppConfig: mocks.mockGetAppConfig,
     updateAppConfig: mocks.mockUpdateAppConfig,
 }));

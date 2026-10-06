@@ -18,14 +18,14 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Mock Prisma client
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@grow/shared/prisma', () => ({
     prisma: {
         user: mocks.mockPrismaUser,
     },
 }));
 
 // Mock config
-vi.mock('@/lib/config', () => ({
+vi.mock('@grow/shared/config', () => ({
     getAppConfig: mocks.mockGetAppConfig,
 }));
 

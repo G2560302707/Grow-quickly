@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createLogger } from '@/lib/logger';
+import { createLogger } from '@grow/shared/logger';
 import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('frontend-logs');

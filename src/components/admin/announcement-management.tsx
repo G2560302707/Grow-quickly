@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Megaphone, Plus, Trash2, Pencil, Eye, EyeOff } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
-import { AdminAnnouncement } from "@/types/api";
+import { AdminAnnouncement } from "@grow/shared/types/api";
 
 export function AnnouncementManagement() {
     const [items, setItems] = useState<AdminAnnouncement[]>([]);

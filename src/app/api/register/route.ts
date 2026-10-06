@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
-import { prisma } from "@/lib/prisma"
+import { prisma } from "@grow/shared/prisma"
 import { z } from "zod"
-import { getAppConfig } from "@/lib/config"
+import { getAppConfig } from "@grow/shared/config"
 import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 const userSchema = z.object({

@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { calculateGrade } from "@/lib/grade-calculator";
-import { unauthorized, internalError, validationError } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
+import { unauthorized, internalError, validationError } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
+import { normalizeMistakeStatusForSave } from "@grow/shared/mistake-status";
 
 const logger = createLogger('api:error-items');
 

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import { BookOpen } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { Notebook } from "@/types/api";
+import { Notebook } from "@grow/shared/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface NotebookSelectorProps {

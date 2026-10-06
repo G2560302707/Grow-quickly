@@ -30,7 +30,7 @@ vi.mock('@google/genai', () => {
 });
 
 // Mock logger
-vi.mock('@/lib/logger', () => ({
+vi.mock('@grow/shared/logger', () => ({
     createLogger: vi.fn(() => ({
         debug: vi.fn(),
         info: vi.fn(),
@@ -42,13 +42,13 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 // Mock config
-vi.mock('@/lib/config', () => ({
+vi.mock('@grow/shared/config', () => ({
     getAppConfig: vi.fn(),
     getActiveOpenAIConfig: vi.fn(),
 }));
 
 // Delayed import to ensure mocks are applied
-import { getAppConfig, getActiveOpenAIConfig } from '@/lib/config';
+import { getAppConfig, getActiveOpenAIConfig } from '@grow/shared/config';
 
 describe('AI Provider 初始化', () => {
     beforeEach(() => {
@@ -57,19 +57,19 @@ describe('AI Provider 初始化', () => {
 
     describe('OpenAI Provider', () => {
         it('缺少 API Key 时应该抛出 AI_AUTH_ERROR', async () => {
-            const { OpenAIProvider } = await import('@/lib/ai/openai-provider');
+            const { OpenAIProvider } = await import('@grow/shared/ai/openai-provider');
 
             expect(() => new OpenAIProvider({})).toThrow('AI_AUTH_ERROR');
         });
 
         it('API Key 为空字符串时应该抛出 AI_AUTH_ERROR', async () => {
-            const { OpenAIProvider } = await import('@/lib/ai/openai-provider');
+            const { OpenAIProvider } = await import('@grow/shared/ai/openai-provider');
 
             expect(() => new OpenAIProvider({ apiKey: '' })).toThrow('AI_AUTH_ERROR');
         });
 
         it('有效 API Key 时应该成功创建实例', async () => {
-            const { OpenAIProvider } = await import('@/lib/ai/openai-provider');
+            const { OpenAIProvider } = await import('@grow/shared/ai/openai-provider');
 
             const provider = new OpenAIProvider({
                 apiKey: 'sk-test-key',
@@ -81,7 +81,7 @@ describe('AI Provider 初始化', () => {
         });
 
         it('应该支持自定义 baseUrl', async () => {
-            const { OpenAIProvider } = await import('@/lib/ai/openai-provider');
+            const { OpenAIProvider } = await import('@grow/shared/ai/openai-provider');
 
             const provider = new OpenAIProvider({
                 apiKey: 'test-key',
@@ -94,19 +94,19 @@ describe('AI Provider 初始化', () => {
 
     describe('Gemini Provider', () => {
         it('缺少 API Key 时应该抛出 AI_AUTH_ERROR', async () => {
-            const { GeminiProvider } = await import('@/lib/ai/gemini-provider');
+            const { GeminiProvider } = await import('@grow/shared/ai/gemini-provider');
 
             expect(() => new GeminiProvider({})).toThrow('AI_AUTH_ERROR');
         });
 
         it('API Key 为空字符串时应该抛出 AI_AUTH_ERROR', async () => {
-            const { GeminiProvider } = await import('@/lib/ai/gemini-provider');
+            const { GeminiProvider } = await import('@grow/shared/ai/gemini-provider');
 
             expect(() => new GeminiProvider({ apiKey: '' })).toThrow('AI_AUTH_ERROR');
         });
 
         it('有效 API Key 时应该成功创建实例', async () => {
-            const { GeminiProvider } = await import('@/lib/ai/gemini-provider');
+            const { GeminiProvider } = await import('@grow/shared/ai/gemini-provider');
 
             const provider = new GeminiProvider({
                 apiKey: 'test-gemini-key',
@@ -118,7 +118,7 @@ describe('AI Provider 初始化', () => {
         });
 
         it('应该使用默认模型 gemini-2.0-flash', async () => {
-            const { GeminiProvider } = await import('@/lib/ai/gemini-provider');
+            const { GeminiProvider } = await import('@grow/shared/ai/gemini-provider');
 
             const provider = new GeminiProvider({ apiKey: 'test-key' });
 
@@ -128,7 +128,7 @@ describe('AI Provider 初始化', () => {
 
     describe('AI Service Factory', () => {
         it('应该根据配置返回 OpenAI Provider', async () => {
-            const { getAIService } = await import('@/lib/ai');
+            const { getAIService } = await import('@grow/shared/ai');
             vi.mocked(getAppConfig).mockReturnValue({
                 aiProvider: 'openai',
                 openai: {
@@ -152,7 +152,7 @@ describe('AI Provider 初始化', () => {
         });
 
         it('应该根据配置返回 Gemini Provider', async () => {
-            const { getAIService } = await import('@/lib/ai');
+            const { getAIService } = await import('@grow/shared/ai');
             vi.mocked(getAppConfig).mockReturnValue({
                 aiProvider: 'gemini',
                 gemini: { apiKey: 'test-gemini-key', model: 'gemini-2.0-flash' },
@@ -166,7 +166,7 @@ describe('AI Provider 初始化', () => {
         });
 
         it('配置未知 provider 时应该默认返回 Gemini Provider', async () => {
-            const { getAIService } = await import('@/lib/ai');
+            const { getAIService } = await import('@grow/shared/ai');
             vi.mocked(getAppConfig).mockReturnValue({
                 aiProvider: 'unknown',
                 gemini: { apiKey: 'test-gemini-key' },

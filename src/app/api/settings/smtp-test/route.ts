@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { unauthorized, forbidden, internalError } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
+import { unauthorized, forbidden, internalError } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { requireAdmin } from "@/lib/auth-utils";
-import { sendTestMail } from "@/lib/mailer";
-import type { AppConfig } from "@/lib/config";
+import { requireAdmin } from "@grow/shared/auth-utils";
+import { sendTestMail } from "@grow/shared/mailer";
+import type { AppConfig } from "@grow/shared/config";
 
 const logger = createLogger('api:settings:smtp-test');
 

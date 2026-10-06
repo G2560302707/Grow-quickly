@@ -3,8 +3,8 @@
  * 替代原有的 getMathTagsByGrade 函数
  */
 
-import { prisma } from '@/lib/prisma';
-import { createLogger } from '@/lib/logger';
+import { prisma } from '../prisma';
+import { createLogger } from '../logger';
 
 const logger = createLogger('ai:tag-service');
 

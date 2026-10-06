@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ParsedQuestion } from "@/lib/ai";
+import { ParsedQuestion } from "@grow/shared/ai";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,10 @@ import { TagInput } from "@/components/tag-input";
 import { NotebookSelector } from "@/components/notebook-selector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiClient } from "@/lib/api-client";
-import { UserProfile, Notebook } from "@/types/api";
+import { UserProfile, Notebook } from "@grow/shared/types/api";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import { normalizeMistakeStatusForSave, type MistakeStatus } from "@/lib/mistake-status";
-import type { ReanswerQuestionResult } from "@/lib/ai/types";
+import { normalizeMistakeStatusForSave, type MistakeStatus } from "@grow/shared/mistake-status";
+import type { ReanswerQuestionResult } from "@grow/shared/ai/types";
 import { buildReanswerRequestBody } from "@/lib/reanswer-request";
 import { GeogebraDemo } from "@/components/geogebra-demo";
 

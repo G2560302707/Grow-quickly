@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { unauthorized, forbidden, notFound, internalError } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
+import { unauthorized, forbidden, notFound, internalError } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
-import { normalizeMistakeStatusForSave } from "@/lib/mistake-status";
+import { normalizeMistakeStatusForSave } from "@grow/shared/mistake-status";
 
 const logger = createLogger('api:error-items:id');
 

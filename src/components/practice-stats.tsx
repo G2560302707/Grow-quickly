@@ -7,7 +7,7 @@ import { Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Compose
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, BookOpen, Target } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { PracticeStatsData } from "@/types/api";
+import { PracticeStatsData } from "@grow/shared/types/api";
 
 // 图表配色走主题变量，深浅色自动适配
 const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];

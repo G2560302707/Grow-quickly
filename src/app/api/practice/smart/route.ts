@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { getAIService } from "@/lib/ai";
-import { unauthorized, badRequest, notFound, internalError } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
-import { AI_SUBJECT_OPTIONS } from "@/lib/subjects";
+import { getAIService } from "@grow/shared/ai";
+import { unauthorized, badRequest, notFound, internalError } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
+import { AI_SUBJECT_OPTIONS } from "@grow/shared/subjects";
 import { buildWeaknessReport } from "@/lib/diagnosis";
 import { buildTargetedAnchor, bigramSimilarity } from "@/lib/smart-practice";
 import { replayElo, difficultyForRating } from "@/lib/elo";

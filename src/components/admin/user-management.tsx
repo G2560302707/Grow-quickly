@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Trash2, Ban, CheckCircle, Loader2 } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
-import { AdminUser, AppConfig } from "@/types/api";
+import { AdminUser, AppConfig } from "@grow/shared/types/api";
 
 import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
 

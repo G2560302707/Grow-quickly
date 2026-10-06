@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getAIService } from "@/lib/ai";
+import { getAIService } from "@grow/shared/ai";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { badRequest, createErrorResponse, ErrorCode } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
+import { badRequest, createErrorResponse, ErrorCode } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:reanswer');

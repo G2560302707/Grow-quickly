@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { createLogger } from "@/lib/logger";
+import { createLogger } from "@grow/shared/logger";
 
 const logger = createLogger('api:tags:suggestions');
 

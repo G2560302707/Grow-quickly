@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { requireAdmin } from "@/lib/auth-utils";
-import { unauthorized, forbidden, badRequest, internalError } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
-import { sendFeedbackNotification } from "@/lib/mailer";
+import { requireAdmin } from "@grow/shared/auth-utils";
+import { unauthorized, forbidden, badRequest, internalError } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
+import { sendFeedbackNotification } from "@grow/shared/mailer";
 
 const logger = createLogger('api:feedback');
 

@@ -11,7 +11,7 @@ vi.mock('@google/genai', () => {
     };
 });
 
-vi.mock('@/lib/logger', () => ({
+vi.mock('@grow/shared/logger', () => ({
     createLogger: vi.fn(() => ({
         debug: vi.fn(),
         info: vi.fn(),
@@ -21,23 +21,23 @@ vi.mock('@/lib/logger', () => ({
     })),
 }));
 
-vi.mock('@/lib/config', () => ({
+vi.mock('@grow/shared/config', () => ({
     getAppConfig: vi.fn(() => ({
         prompts: {},
     })),
 }));
 
-vi.mock('@/lib/ai/schema', () => ({
+vi.mock('@grow/shared/ai/schema', () => ({
     safeParseParsedQuestion: vi.fn((data) => ({ success: true, data })),
 }));
 
 // Mock tag service to avoid DB calls
-vi.mock('@/lib/ai/tag-service', () => ({
+vi.mock('@grow/shared/ai/tag-service', () => ({
     getMathTagsFromDB: vi.fn().mockResolvedValue([]),
     getTagsFromDB: vi.fn().mockResolvedValue([]),
 }));
 
-import { GeminiProvider } from '@/lib/ai/gemini-provider';
+import { GeminiProvider } from '@grow/shared/ai/gemini-provider';
 
 describe('GeminiProvider Retry Logic', () => {
     let provider: GeminiProvider;

@@ -3,7 +3,7 @@
  * 测试 isAdmin 和 requireAdmin 函数
  */
 import { describe, it, expect } from 'vitest';
-import { isAdmin, requireAdmin } from '@/lib/auth-utils';
+import { isAdmin, requireAdmin } from '@grow/shared/auth-utils';
 
 describe('auth-utils', () => {
     describe('isAdmin', () => {

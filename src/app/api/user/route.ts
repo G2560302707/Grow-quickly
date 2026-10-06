@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import { z } from "zod";
 import { hash } from "bcryptjs";
-import { unauthorized, notFound, badRequest, validationError, internalError } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
+import { unauthorized, notFound, badRequest, validationError, internalError } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
 
 const logger = createLogger('api:user');
 

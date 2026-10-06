@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { OpenAIProvider } from '@/lib/ai/openai-provider';
-import { GeminiProvider } from '@/lib/ai/gemini-provider';
-import { AzureOpenAIProvider } from '@/lib/ai/azure-provider';
-import { createLogger } from '@/lib/logger';
+import { OpenAIProvider } from '@grow/shared/ai/openai-provider';
+import { GeminiProvider } from '@grow/shared/ai/gemini-provider';
+import { AzureOpenAIProvider } from '@grow/shared/ai/azure-provider';
+import { createLogger } from '@grow/shared/logger';
 
 const logger = createLogger('api:ai:test');
 

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getAppConfig, updateAppConfig, AppConfig } from "@/lib/config";
-import { internalError, unauthorized, forbidden } from "@/lib/api-errors";
-import { createLogger } from "@/lib/logger";
-import { OpenAIInstance } from "@/types/api";
+import { getAppConfig, updateAppConfig, AppConfig } from "@grow/shared/config";
+import { internalError, unauthorized, forbidden } from "@grow/shared/api-errors";
+import { createLogger } from "@grow/shared/logger";
+import { OpenAIInstance } from "@grow/shared/types/api";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { requireAdmin } from "@/lib/auth-utils";
+import { requireAdmin } from "@grow/shared/auth-utils";
 
 const logger = createLogger('api:settings');
 

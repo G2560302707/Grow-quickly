@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
-import { requireAdmin } from "@/lib/auth-utils"
-import { forbidden, internalError } from "@/lib/api-errors"
-import { createLogger } from "@/lib/logger"
+import { prisma } from "@grow/shared/prisma"
+import { requireAdmin } from "@grow/shared/auth-utils"
+import { forbidden, internalError } from "@grow/shared/api-errors"
+import { createLogger } from "@grow/shared/logger"
 
 const logger = createLogger('api:admin:dashboard')
 

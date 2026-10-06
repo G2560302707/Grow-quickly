@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@grow/shared/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { internalError, unauthorized, forbidden } from "@/lib/api-errors";
+import { internalError, unauthorized, forbidden } from "@grow/shared/api-errors";
 import {
     MATH_CURRICULUM, MATH_GRADE_ORDER,
     PHYSICS_CURRICULUM, PHYSICS_GRADE_ORDER,
@@ -14,7 +14,7 @@ import {
     GEOGRAPHY_CURRICULUM, GEOGRAPHY_GRADE_ORDER,
     POLITICS_CURRICULUM, POLITICS_GRADE_ORDER
 } from "@/lib/tag-data";
-import { createLogger } from "@/lib/logger";
+import { createLogger } from "@grow/shared/logger";
 import { findParentTagIdForGrade } from "@/lib/tag-recognition";
 
 const logger = createLogger('api:admin:migrate-tags');

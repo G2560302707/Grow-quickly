@@ -6,14 +6,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, RefreshCw, CheckCircle, Eye, Send, XCircle, ArrowLeft, House } from "lucide-react";
-import { ParsedQuestion } from "@/lib/ai/types";
+import { ParsedQuestion } from "@grow/shared/ai/types";
 import { parseChoiceOptions, parseCorrectOption } from "@/lib/practice-choice";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { apiClient } from "@/lib/api-client";
-import { AppConfig } from "@/types/api";
+import { AppConfig } from "@grow/shared/types/api";
 import { frontendLogger } from "@/lib/frontend-logger";
 
 export const dynamic = 'force-dynamic';

@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // Mock Prisma client
-vi.mock('@/lib/prisma', () => ({
+vi.mock('@grow/shared/prisma', () => ({
     prisma: {
         errorItem: mocks.mockPrismaErrorItem,
     },
