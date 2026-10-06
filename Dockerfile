@@ -66,8 +66,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Copy Prisma schema and migrations for runtime usage if needed (e.g. for migrations)
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 
-# Copy config directory for runtime
-COPY --from=builder --chown=nextjs:nodejs /app/config ./config
+# Create empty config directory (mounted as a volume in compose; the app-config.json
+# with AI keys must NEVER be baked into the image — configure via admin UI on first run)
+RUN mkdir -p /app/config && chown -R nextjs:nodejs /app/config
 
 # Copy pre-compiled runtime scripts
 COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts

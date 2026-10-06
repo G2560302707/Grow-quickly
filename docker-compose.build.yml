@@ -1,0 +1,10 @@
+# 本地构建部署（不拉取 ghcr.io 预构建镜像）：
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+# 学习端镜像将在本机构建（管理端本就本地构建）；数据/配置卷挂载与主 compose 文件一致。
+services:
+  wrong-notebook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wrong-notebook:local
+    container_name: wrong-notebook

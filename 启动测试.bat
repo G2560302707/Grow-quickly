@@ -2,6 +2,8 @@
 rem =========================================================================
 rem  Grow quickly - Smart Notebook one-click launcher
 rem  Usage: double-click this file. (No admin needed normally.)
+rem  Starts: web (learning app, port 3000) + admin console (port 3001),
+rem  then opens the browser automatically.
 rem =========================================================================
 
 cd /d "%~dp0"
@@ -39,7 +41,11 @@ if not exist "node_modules\.bin\next.cmd" (
     echo  [OK] node_modules ready
 )
 
-rem ---------- 3. Check database ----------
+rem ---------- 3. Prisma client + database ----------
+rem  Generate Prisma client first (fresh clone has no generated client)
+echo  [INFO] Generating Prisma client...
+call npx prisma generate >nul 2>&1
+
 if not exist "prisma\dev.db" (
     echo  [INFO] Database not found, initializing...
     call npx prisma migrate dev --skip-generate >nul 2>&1
@@ -73,7 +79,7 @@ echo ================================================
 echo.
 
 rem ---- Admin console runs in its own window ----
-start "管理后台 3001" cmd /k "cd /d %~dp0admin && npm run dev"
+start "Admin Console 3001" cmd /k "cd /d %~dp0admin && npm run dev"
 
 rem ---- Open browser after a short delay (non-blocking) ----
 start "" /b cmd /c "timeout /t 3 /nobreak >nul & start http://localhost:3000"

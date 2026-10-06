@@ -48,3 +48,17 @@ test_output*.txt
 README.md
 docs
 doc
+
+# 本地数据与证书（运行时通过卷挂载，绝不打入镜像）
+data
+certs
+*.pem
+
+# 应用配置文件（含 AI 密钥/SMTP，运行时通过卷挂载或管理端首次配置）
+config
+
+# 各工作区/子项目的本地依赖（防止覆盖容器内按 Linux 平台安装的依赖）
+**/node_modules
+
+# uniapp 构建产物
+uniapp/dist
