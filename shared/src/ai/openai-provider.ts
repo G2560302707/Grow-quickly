@@ -369,7 +369,7 @@ export class OpenAIProvider implements AIService {
                         'Content-Type': 'application/json',
                     },
                     signal: AbortSignal.timeout(this.timeoutMs),
-                    body: JSON.stringify({ model: this.model, messages, max_tokens: 4096 }),
+                    body: JSON.stringify({ model: this.model, messages, max_tokens: 8192 }),
                 }), { label: 'openai:longcat:detectQuestions' });
 
                 if (!res.ok) {
@@ -395,7 +395,7 @@ export class OpenAIProvider implements AIService {
                             ],
                         },
                     ],
-                    max_tokens: 4096,
+                    max_tokens: 8192,
                 });
                 text = response.choices?.[0]?.message?.content || "";
             }

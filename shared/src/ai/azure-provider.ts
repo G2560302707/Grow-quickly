@@ -280,7 +280,7 @@ export class AzureOpenAIProvider implements AIService {
                         ],
                     },
                 ],
-                max_tokens: 4096,
+                max_tokens: 8192,
             });
 
             this.logCompletion('detectQuestions', startTime, response.usage);

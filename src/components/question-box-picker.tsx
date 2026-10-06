@@ -35,7 +35,7 @@ export function QuestionBoxPicker({
 
     return (
         <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 gap-0">
+            <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 gap-0" aria-describedby={undefined}>
                 <DialogHeader className="p-4 border-b shrink-0">
                     <DialogTitle>{t.common.detect?.title || "选择要识别的题"}</DialogTitle>
                 </DialogHeader>
@@ -53,7 +53,7 @@ export function QuestionBoxPicker({
                                 <button
                                     key={`${q.number}-${i}`}
                                     type="button"
-                                    className="absolute border-2 border-dashed border-white/90 bg-white/10 hover:bg-white/30 hover:border-solid rounded transition-colors flex items-start justify-start cursor-pointer"
+                                    className="absolute border-2 border-dashed border-blue-600 bg-blue-500/15 hover:bg-blue-500/35 hover:border-solid rounded transition-colors flex items-start justify-start cursor-pointer"
                                     style={{
                                         left: `${q.bbox.x1}%`,
                                         top: `${q.bbox.y1}%`,
@@ -62,7 +62,7 @@ export function QuestionBoxPicker({
                                     }}
                                     onClick={() => onSelect(q.bbox)}
                                 >
-                                    <span className="bg-black/70 text-white text-xs leading-none px-1.5 py-1 rounded-br rounded-tl">
+                                    <span className="bg-blue-600 text-white text-xs leading-none px-1.5 py-1 rounded-br rounded-tl">
                                         {q.label || `#${q.number}`}
                                     </span>
                                 </button>

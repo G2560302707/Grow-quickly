@@ -404,19 +404,19 @@ function doCrop(percent: { x1: number; y1: number; x2: number; y2: number }): Pr
 /* ---------- 题号框 ---------- */
 .pick-box {
 	position: absolute;
-	border: 3rpx dashed rgba(255, 255, 255, 0.9);
-	background: rgba(255, 255, 255, 0.12);
+	border: 3rpx dashed var(--brand-600, #2f6bff);
+	background: rgba(47, 107, 255, 0.14);
 	border-radius: 8rpx;
 	display: flex;
 	align-items: flex-start;
 	justify-content: flex-start;
 }
 .pick-box-hover {
-	background: rgba(255, 255, 255, 0.3);
+	background: rgba(47, 107, 255, 0.35);
 	border-style: solid;
 }
 .pick-label {
-	background: rgba(0, 0, 0, 0.65);
+	background: var(--brand-600, #2f6bff);
 	color: #fff;
 	font-size: 22rpx;
 	line-height: 1;
