@@ -59,7 +59,7 @@ export default function AdminToolsPage() {
     };
 
     return (
-        <div className="space-y-4 max-w-5xl">
+        <div className="space-y-4 max-w-5xl mx-auto">
             <h1 className="text-2xl font-bold">系统工具</h1>
 
             <div className="grid gap-4 md:grid-cols-2">

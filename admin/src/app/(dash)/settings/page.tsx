@@ -322,7 +322,7 @@ export default function AdminSettingsPage() {
     };
 
     return (
-        <div className="space-y-4 max-w-6xl">
+        <div className="space-y-4 max-w-6xl mx-auto">
             <h1 className="text-2xl font-bold">系统设置</h1>
 
             <Tabs defaultValue="ai" className="w-full">
