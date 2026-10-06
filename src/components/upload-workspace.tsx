@@ -4,7 +4,7 @@
  * 上传与识别工作区（从首页 page.tsx 原样抽取，行为零变化）
  * 包含：图片上传/裁剪/AI 识别、AI 解题、直接录入三种模式，以及识别后的校对编辑器。
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { UploadZone } from "@/components/upload-zone";
@@ -13,13 +13,14 @@ import { ParsedQuestion } from "@grow/shared/ai";
 import { apiClient } from "@grow/shared/api-client";
 import { AnalyzeResponse, Notebook, AppConfig } from "@grow/shared/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { processImageFile } from "@/lib/image-utils";
+import { processImageFile, cropImageByPercent } from "@/lib/image-utils";
 import { Upload, PenLine } from "lucide-react";
 import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { TextInputZone } from "@/components/text-input-zone";
 import { DirectTextEditor } from "@/components/direct-text-editor";
-import { alertDialog } from "@/components/ui/app-dialog";
+import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
+import { QuestionBoxPicker, type DetectedBox } from "@/components/question-box-picker";
 
 // 裁剪组件仅在用户点击裁剪时才需要，懒加载以减小首屏包体
 const ImageCropper = dynamic(
@@ -51,6 +52,11 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
     // Cropper state
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
     const [isCropperOpen, setIsCropperOpen] = useState(false);
+
+    // 整页题目框选：AI 定位结果与原图（用于同图连续录题）
+    const [detectedQuestions, setDetectedQuestions] = useState<DetectedBox[] | null>(null);
+    const [isBoxPickerOpen, setIsBoxPickerOpen] = useState(false);
+    const originalFileRef = useRef<File | null>(null);
 
     // Timeout Config
     const aiTimeout = config?.timeouts?.analyze || 180000;
@@ -111,8 +117,69 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
 
     const onImageSelect = (file: File) => {
         const imageUrl = URL.createObjectURL(file);
+        if (croppingImage) {
+            URL.revokeObjectURL(croppingImage);
+        }
         setCroppingImage(imageUrl);
+        originalFileRef.current = file;
+        // 先请求 AI 定位整页题目：有题号框则弹框选，否则回退自由裁剪
+        runDetect(imageUrl, file);
+    };
+
+    const runDetect = async (imageUrl: string, file: File) => {
+        setAnalysisStep('detecting');
+        let questions: DetectedBox[] = [];
+        try {
+            const base64 = await processImageFile(file);
+            const data = await apiClient.post<{ questions: DetectedBox[] }>("/api/analyze/detect", {
+                imageBase64: base64,
+                language,
+            }, { timeout: aiTimeout });
+            questions = data?.questions || [];
+        } catch (err) {
+            // 定位失败不阻塞录题：静默回退自由裁剪，后续 /api/analyze 会给出具体错误
+            frontendLogger.info('[HomeDetect]', 'Detect failed, falling back to free crop', {
+                error: err instanceof Error ? err.message : String(err),
+            });
+            questions = [];
+        }
+        setAnalysisStep('idle');
+        setDetectedQuestions(questions);
+        if (questions.length > 0) {
+            setIsBoxPickerOpen(true);
+        } else {
+            setIsCropperOpen(true);
+        }
+    };
+
+    /** 点题号框：按百分比 bbox 从原图裁出该题，直接进入识别 */
+    const handleBoxSelect = async (bbox: DetectedBox["bbox"]) => {
+        setIsBoxPickerOpen(false);
+        if (!croppingImage) return;
+        try {
+            const blob = await cropImageByPercent(croppingImage, bbox);
+            const file = new File([blob], "question-crop.jpg", { type: "image/jpeg" });
+            handleAnalyze(file);
+        } catch (e) {
+            console.error('[HomeDetect] crop by bbox failed', e);
+            // 裁剪失败兜底：转自由裁剪
+            setIsCropperOpen(true);
+        }
+    };
+
+    const handleFreeCropFromPicker = () => {
+        setIsBoxPickerOpen(false);
         setIsCropperOpen(true);
+    };
+
+    /** 从校对页返回/再次进入上传页时，可用原图继续框选 */
+    const reopenPickerOrCropper = () => {
+        if (!croppingImage) return;
+        if (detectedQuestions && detectedQuestions.length > 0) {
+            setIsBoxPickerOpen(true);
+        } else {
+            setIsCropperOpen(true);
+        }
     };
 
     const handleCropComplete = async (croppedBlob: Blob) => {
@@ -284,7 +351,25 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
             setStep("upload");
             setParsedData(null);
             setCurrentImage(null);
-            await alertDialog({ description: t.common?.messages?.saveSuccess || 'Saved successfully!' });
+
+            // 同一张整页图可能还有其他题：询问「完成并跳转」还是「再录一题」
+            if (croppingImage) {
+                const done = await confirmDialog({
+                    description: t.common.detect?.savedContinue || "已保存到错题本。要用这张图继续框选录下一题吗？",
+                    confirmText: t.common.detect?.doneBtn || "完成",
+                    cancelText: t.common.detect?.nextBtn || "再录一题",
+                });
+                if (!done) {
+                    if (detectedQuestions && detectedQuestions.length > 0) {
+                        setIsBoxPickerOpen(true);
+                    } else {
+                        setIsCropperOpen(true);
+                    }
+                    return;
+                }
+            } else {
+                await alertDialog({ description: t.common?.messages?.saveSuccess || 'Saved successfully!' });
+            }
 
             // Redirect to notebook page if subjectId is present
             if (finalData.subjectId) {
@@ -433,6 +518,7 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
         switch (analysisStep) {
             case 'compressing': return t.common.progress?.compressing || "Compressing...";
             case 'uploading': return t.common.progress?.uploading || "Uploading...";
+            case 'detecting': return t.common.progress?.detecting || "正在定位题目...";
             case 'analyzing': return t.common.progress?.analyzing || "Analyzing...";
             case 'processing': return t.common.progress?.processing || "Processing...";
             case 'saving': return "保存中...";
@@ -488,7 +574,20 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
                     </div>
 
                     {inputMode === "image" ? (
-                        <UploadZone onImageSelect={onImageSelect} isAnalyzing={analysisStep !== 'idle'} />
+                        <>
+                            <UploadZone onImageSelect={onImageSelect} isAnalyzing={analysisStep !== 'idle'} />
+                            {croppingImage && (
+                                <div className="flex justify-center">
+                                    <button
+                                        type="button"
+                                        className="text-sm text-primary hover:underline"
+                                        onClick={reopenPickerOrCropper}
+                                    >
+                                        {t.common.detect?.reuseImage || "继续用当前图片框选录题"}
+                                    </button>
+                                </div>
+                            )}
+                        </>
                     ) : inputMode === "text" ? (
                         <TextInputZone
                             onSubmit={handleTextSubmit}
@@ -520,6 +619,17 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
                     open={isCropperOpen}
                     onClose={() => setIsCropperOpen(false)}
                     onCropComplete={handleCropComplete}
+                />
+            )}
+
+            {croppingImage && detectedQuestions && detectedQuestions.length > 0 && (
+                <QuestionBoxPicker
+                    imageSrc={croppingImage}
+                    questions={detectedQuestions}
+                    open={isBoxPickerOpen}
+                    onClose={() => setIsBoxPickerOpen(false)}
+                    onSelect={handleBoxSelect}
+                    onFreeCrop={handleFreeCropFromPicker}
                 />
             )}
 

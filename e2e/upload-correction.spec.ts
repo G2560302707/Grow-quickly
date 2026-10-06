@@ -22,6 +22,15 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
         });
     });
 
+    // Mock 整页题目定位：空数组 → 回退到原有自由裁剪弹窗
+    await page.route('**/api/analyze/detect', async route => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ questions: [] })
+        });
+    });
+
     // 1. Login
     await page.goto('/login');
     await page.getByLabel(/邮箱|Email/).fill('admin@localhost');
@@ -98,9 +107,9 @@ test('Upload image, correct, save, and verify in notebook', async ({ page }) => 
     // Click "Save to Notebook" / "保存"
     await page.getByRole('button', { name: /保存|Save/ }).click();
 
-    // 保存成功后会弹出应用内提示对话框（alertDialog），确认后才开始跳转错题本
+    // 保存成功后弹出确认弹窗（完成并跳转 / 再录一题），点「完成」才开始跳转错题本
     await expect(page.getByRole('dialog').last()).toBeVisible({ timeout: 10000 });
-    await page.getByRole('dialog').last().getByRole('button', { name: /确认|确定|OK|Confirm/ }).click();
+    await page.getByRole('dialog').last().getByRole('button', { name: /确认|确定|完成|OK|Confirm|Done/ }).click();
 
     // 10. Verify Redirection and Content
     // Should redirect to /notebooks/[id]

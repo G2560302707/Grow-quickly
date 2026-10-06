@@ -98,3 +98,46 @@ export async function processImageFile(file: File): Promise<string> {
         });
     }
 }
+
+export interface BoundingBox {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+}
+
+/**
+ * 按百分比包围盒从图片中裁剪区域（题目框选点题用）
+ * @param imageSrc 图片地址（blob URL / data URL 均可）
+ * @param bbox 0-100 百分比坐标
+ * @returns JPEG Blob
+ */
+export async function cropImageByPercent(imageSrc: string, bbox: BoundingBox): Promise<Blob> {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('图片加载失败'));
+        el.src = imageSrc;
+    });
+
+    const sx = (img.naturalWidth * bbox.x1) / 100;
+    const sy = (img.naturalHeight * bbox.y1) / 100;
+    const sw = (img.naturalWidth * (bbox.x2 - bbox.x1)) / 100;
+    const sh = (img.naturalHeight * (bbox.y2 - bbox.y1)) / 100;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(sw));
+    canvas.height = Math.max(1, Math.round(sh));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        throw new Error('无法获取 Canvas 上下文');
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas 为空'));
+        }, 'image/jpeg');
+    });
+}

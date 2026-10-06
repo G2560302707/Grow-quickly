@@ -30,13 +30,14 @@
 					<view class="camera-hump" />
 				</view>
 				<text class="upload-text">点击拍照</text>
-				<text class="upload-hint">对准题目，光线充足效果更好</text>
+				<text class="upload-hint">支持整页多题，AI 自动定位题目</text>
 			</view>
 			<view v-else class="preview-wrap">
 				<image :src="imagePath" class="preview-image" mode="aspectFit" @tap="preview" />
 				<view class="preview-actions">
 					<button class="btn-outline small-btn" hover-class="button-hover" @tap="chooseImage('camera')">重拍</button>
 					<button class="btn-outline small-btn" hover-class="button-hover" @tap="chooseImage('album')">换一张</button>
+					<button class="btn-outline small-btn" hover-class="button-hover" @tap="reopenCrop">重新框选</button>
 				</view>
 			</view>
 			<view class="alt-row">
@@ -103,14 +104,33 @@
 				{{ saving ? "保存中..." : "保存到错题本" }}
 			</button>
 		</view>
+
+		<!-- 裁剪 / 题号框选浮层 -->
+		<CropOverlay
+			:show="showCropOverlay"
+			:src="originalPath"
+			:questions="detected"
+			:detecting="detecting"
+			@close="onCropClose"
+			@confirm="onCropConfirm"
+		/>
 	</view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { onShow } from "@dcloudio/uni-app";
-import { listNotebooks, analyzeImage, createErrorItem, type Notebook, type ParsedQuestion } from "@/api";
+import {
+	listNotebooks,
+	analyzeImage,
+	createErrorItem,
+	detectQuestions,
+	type Notebook,
+	type ParsedQuestion,
+	type DetectedQuestionBox,
+} from "@/api";
 import MdView from "@/components/MdView.vue";
+import CropOverlay from "@/components/crop-overlay.vue";
 
 const notebooks = ref<Notebook[]>([]);
 const selectedNotebookId = ref("");
@@ -119,6 +139,12 @@ const analyzing = ref(false);
 const saving = ref(false);
 const errorMsg = ref("");
 const result = ref<ParsedQuestion | null>(null);
+
+// 整页原图与题目定位（用于框选/重框选/连续录题）
+const originalPath = ref("");
+const showCropOverlay = ref(false);
+const detected = ref<DetectedQuestionBox[]>([]);
+const detecting = ref(false);
 
 const notebookNames = computed(() => notebooks.value.map(nb => nb.name));
 const selectedNotebook = computed(() =>
@@ -149,10 +175,51 @@ function chooseImage(sourceType: "camera" | "album") {
 		sourceType: [sourceType],
 		success: (res) => {
 			imagePath.value = res.tempFilePaths[0];
+			originalPath.value = res.tempFilePaths[0];
 			result.value = null;
 			errorMsg.value = "";
+			detected.value = [];
+			// 打开裁剪浮层并同时请求 AI 题目定位
+			showCropOverlay.value = true;
+			startDetect();
 		},
 	});
+}
+
+/** 请求 AI 定位整页中的各题位置；失败时浮层回退为自由框选 */
+async function startDetect() {
+	detecting.value = true;
+	try {
+		const base64 = await readImageAsBase64(originalPath.value);
+		const res = await detectQuestions(base64);
+		detected.value = res?.questions || [];
+	} catch (e) {
+		detected.value = [];
+	} finally {
+		detecting.value = false;
+	}
+}
+
+/** 保存成功后对同一张原图继续框选下一题 */
+function reopenCrop() {
+	if (!originalPath.value) return;
+	result.value = null;
+	errorMsg.value = "";
+	showCropOverlay.value = true;
+}
+
+function onCropClose() {
+	showCropOverlay.value = false;
+}
+
+function onCropConfirm(payload: { path: string; autoStart: boolean }) {
+	imagePath.value = payload.path;
+	showCropOverlay.value = false;
+	result.value = null;
+	errorMsg.value = "";
+	if (payload.autoStart) {
+		handleAnalyze();
+	}
 }
 
 function preview() {
@@ -225,8 +292,24 @@ async function handleSave() {
 		});
 		uni.showToast({ title: "已保存", icon: "success" });
 		result.value = null;
-		imagePath.value = "";
-		uni.navigateTo({ url: `/pages/detail/detail?id=${item.id}` });
+		// 同一张图可能还有其他题：询问是否继续框选
+		uni.showModal({
+			title: "已保存",
+			content: "继续用这张图框选下一题吗？",
+			confirmText: "继续框选",
+			cancelText: "查看详情",
+			success: (m) => {
+				if (m.confirm && originalPath.value) {
+					imagePath.value = originalPath.value;
+					showCropOverlay.value = true;
+				} else {
+					imagePath.value = "";
+					originalPath.value = "";
+					detected.value = [];
+					uni.navigateTo({ url: `/pages/detail/detail?id=${item.id}` });
+				}
+			},
+		});
 	} catch (e: any) {
 		uni.showToast({ title: e?.message || "保存失败", icon: "none" });
 	} finally {

@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
-import { AIService, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt } from './prompts';
-import { safeParseParsedQuestion } from './schema';
+import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt } from './prompts';
+import { safeParseParsedQuestion, parseDetectedQuestions } from './schema';
 import { getAppConfig } from '../config';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
 import { createLogger } from '../logger';
@@ -223,6 +223,56 @@ export class GeminiProvider implements AIService {
             });
             this.handleError(error);
             throw error;
+        }
+    }
+
+    async detectQuestions(imageBase64: string, mimeType: string = "image/jpeg"): Promise<DetectedQuestion[]> {
+        const config = getAppConfig();
+        const prompt = generateDetectPrompt({ customTemplate: config.prompts?.detect });
+
+        logger.box('📍 Question Detect Request', {
+            provider: 'Gemini',
+            endpoint: `${this.baseUrl}/v1beta/models/${this.modelName}:generateContent`,
+            imageSize: `${imageBase64.length} bytes`,
+            mimeType,
+            model: this.modelName,
+        });
+
+        let text = "";
+        try {
+            const startTime = Date.now();
+            const response = await retryOperation(() => this.ai.models.generateContent({
+                model: this.modelName,
+                contents: [
+                    { text: prompt },
+                    { inlineData: { data: imageBase64, mimeType } }
+                ]
+            }), { label: 'gemini:detectQuestions' });
+
+            logger.info({
+                provider: 'Gemini',
+                model: this.modelName,
+                durationMs: Date.now() - startTime,
+            }, 'Gemini detectQuestions completed');
+
+            text = response.text || '';
+            logger.box('🤖 Detect Raw Response', text);
+
+            if (!text) throw new Error("Empty response from AI");
+        } catch (error) {
+            logger.box('❌ Error during question detect', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            this.handleError(error);
+            throw error;
+        }
+
+        // 解析放在 try 外：解析失败直接抛 AI_RESPONSE_ERROR，避免被 handleError 映射成 AI_UNKNOWN_ERROR
+        try {
+            return parseDetectedQuestions(text);
+        } catch (error) {
+            logger.error({ error }, 'Detect response parse failed');
+            throw new Error("AI_RESPONSE_ERROR");
         }
     }
 

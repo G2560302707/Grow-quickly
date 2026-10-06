@@ -204,6 +204,28 @@ export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE
 {{grade_instruction}}
 {{provider_hints}}`;
 
+/**
+ * 整页题目定位提示词：只检测题号与包围盒，不做解答、不转录内容。
+ * 供 /api/analyze/detect 使用，前端按百分比 bbox 框选后走现有单题识别链路。
+ */
+export const DEFAULT_DETECT_TEMPLATE = `【角色与核心任务 (ROLE AND CORE TASK)】
+你是一张试卷/练习册照片的版面分析助手。你的任务是找出图中每道题目的位置：只做定位，不做解答，也不转录题目内容。
+
+【任务要求 (REQUIREMENTS)】
+1. 找出图中所有以题号开头的题目（如 "1." "2、" "12．" "一、5" 等），每道题输出一个包围盒。
+2. 包围盒应覆盖该题从题号所在行开始，到下一题题号之前（或本题选项/材料结束）的全部内容。
+3. bbox 使用百分比坐标：x1/y1 为左上角，x2/y2 为右下角，取值范围 0-100，相对于整张图片的宽度与高度；x2 必须大于 x1，y2 必须大于 y1。
+4. 双栏排版时按栏划分：左栏题目的 x2 不应超过约 50，右栏题目的 x1 不应小于约 50。
+5. 只输出图中真实可见的题号，禁止猜测或编造；看不清的题宁可跳过。
+6. 按题号从小到大排序。
+
+【输出格式 (OUTPUT FORMAT)】
+你的响应必须**只有以下 JSON 数组**，不要包含 markdown 代码块标记，也不要任何其他文字：
+[{"number": 1, "label": "1", "bbox": {"x1": 5, "y1": 8, "x2": 95, "y2": 22}}, {"number": 2, "label": "2", "bbox": {"x1": 5, "y1": 22, "x2": 95, "y2": 41}}]
+
+number 为题号数字；若题号非纯数字（如 "二、5"），number 填其中的数字，label 保留原文题号。
+如果图中没有可识别的题号（单题截图、无题号排版等），输出空数组 []`;
+
 export const DEFAULT_SIMILAR_TEMPLATE = `你是一位资深的**公务员考试行测**出题专家。你的核心任务是根据原错题**举一反三**，生成一道同模块、同考点的高质量变式训练题，用于检验迁移掌握情况。
 
 ### 变式要求
@@ -396,6 +418,17 @@ ${englishTagsString}`;
     knowledge_points_list: tagsSection || "可根据行测/申论考点自由标注精准标签名称。",
     ai_subject_list: AI_SUBJECT_PROMPT_LIST,
     grade_instruction: generateGradeInstruction(gradeSemester),
+    provider_hints: options?.providerHints || ''
+  }).trim();
+}
+
+/**
+ * 生成整页题目定位提示词（/api/analyze/detect）
+ * @param options - 可选自定义模板
+ */
+export function generateDetectPrompt(options?: PromptOptions): string {
+  const template = options?.customTemplate || DEFAULT_DETECT_TEMPLATE;
+  return replaceVariables(template, {
     provider_hints: options?.providerHints || ''
   }).trim();
 }

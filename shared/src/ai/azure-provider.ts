@@ -1,8 +1,8 @@
 import { AzureOpenAI } from "openai";
-import { AIService, ParsedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateReanswerPrompt, generateGeogebraPrompt } from './prompts';
+import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateReanswerPrompt, generateGeogebraPrompt, generateDetectPrompt } from './prompts';
 import { getAppConfig } from '../config';
-import { safeParseParsedQuestion } from './schema';
+import { safeParseParsedQuestion, parseDetectedQuestions } from './schema';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
 import { createLogger } from '../logger';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
@@ -248,6 +248,61 @@ export class AzureOpenAIProvider implements AIService {
             });
             this.handleError(error);
             throw error;
+        }
+    }
+
+    async detectQuestions(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<DetectedQuestion[]> {
+        const config = getAppConfig();
+        const systemPrompt = generateDetectPrompt({ customTemplate: config.prompts?.detect });
+
+        logger.box('📍 Question Detect Request', {
+            provider: 'Azure OpenAI',
+            endpoint: this.endpoint,
+            imageSize: `${imageBase64.length} bytes`,
+            mimeType,
+            deployment: this.deployment,
+        });
+
+        let text = "";
+        try {
+            const startTime = Date.now();
+            const response = await this.client.chat.completions.create({
+                model: this.deployment,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "image_url",
+                                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+                            },
+                        ],
+                    },
+                ],
+                max_tokens: 4096,
+            });
+
+            this.logCompletion('detectQuestions', startTime, response.usage);
+
+            text = response.choices?.[0]?.message?.content || "";
+            logger.box('🤖 Detect Raw Response', text);
+
+            if (!text) throw new Error("Empty response from AI");
+        } catch (error) {
+            logger.box('❌ Error during question detect', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            this.handleError(error);
+            throw error;
+        }
+
+        // 解析放在 try 外：解析失败直接抛 AI_RESPONSE_ERROR，避免被 handleError 映射成 AI_UNKNOWN_ERROR
+        try {
+            return parseDetectedQuestions(text);
+        } catch (error) {
+            logger.error({ error }, 'Detect response parse failed');
+            throw new Error("AI_RESPONSE_ERROR");
         }
     }
 

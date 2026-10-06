@@ -1,8 +1,8 @@
 import OpenAI from "openai";
-import { AIService, ParsedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt } from './prompts';
+import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt } from './prompts';
 import { getAppConfig } from '../config';
-import { safeParseParsedQuestion } from './schema';
+import { safeParseParsedQuestion, parseDetectedQuestions } from './schema';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
 import { createLogger } from '../logger';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
@@ -328,6 +328,100 @@ export class OpenAIProvider implements AIService {
             });
             this.handleError(error);
             throw error;
+        }
+    }
+
+    async detectQuestions(imageBase64: string, mimeType: string = "image/jpeg"): Promise<DetectedQuestion[]> {
+        const config = getAppConfig();
+        const systemPrompt = generateDetectPrompt({ customTemplate: config.prompts?.detect });
+
+        logger.box('📍 Question Detect Request', {
+            provider: 'OpenAI',
+            endpoint: `${this.baseURL}/chat/completions`,
+            imageSize: `${imageBase64.length} bytes`,
+            mimeType,
+            model: this.model,
+        });
+
+        let text = "";
+        try {
+            const startTime = Date.now();
+
+            if (this.isLongCat) {
+                // LongCat 使用不同的多模态格式，绕过 SDK 直接请求（与 analyzeImage 同一适配）
+                const messages = this.adaptMessagesForLongCat([
+                    { role: "system", content: systemPrompt },
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "image_url",
+                                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+                            },
+                        ],
+                    },
+                ]);
+
+                const res = await retryOperation(() => fetch(`${this.baseURL}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    signal: AbortSignal.timeout(this.timeoutMs),
+                    body: JSON.stringify({ model: this.model, messages, max_tokens: 4096 }),
+                }), { label: 'openai:longcat:detectQuestions' });
+
+                if (!res.ok) {
+                    const errBody = await res.text();
+                    logger.error({ status: res.status, body: errBody }, 'LongCat API error');
+                    throw new Error(`${res.status} status code (${errBody})`);
+                }
+
+                const response = await res.json();
+                text = response?.choices?.[0]?.message?.content || "";
+            } else {
+                const response = await this.openai.chat.completions.create({
+                    model: this.model,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        {
+                            role: "user",
+                            content: [
+                                {
+                                    type: "image_url",
+                                    image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+                                },
+                            ],
+                        },
+                    ],
+                    max_tokens: 4096,
+                });
+                text = response.choices?.[0]?.message?.content || "";
+            }
+
+            logger.info({
+                provider: 'OpenAI',
+                model: this.model,
+                durationMs: Date.now() - startTime,
+            }, 'OpenAI detectQuestions completed');
+            logger.box('🤖 Detect Raw Response', text);
+
+            if (!text) throw new Error("Empty response from AI");
+        } catch (error) {
+            logger.box('❌ Error during question detect', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            this.handleError(error);
+            throw error;
+        }
+
+        // 解析放在 try 外：解析失败直接抛 AI_RESPONSE_ERROR，避免被 handleError 映射成 AI_UNKNOWN_ERROR
+        try {
+            return parseDetectedQuestions(text);
+        } catch (error) {
+            logger.error({ error }, 'Detect response parse failed');
+            throw new Error("AI_RESPONSE_ERROR");
         }
     }
 

@@ -40,6 +40,7 @@ export interface AppConfig {
     prompts?: {
         analyze?: string;
         similar?: string;
+        detect?: string; // 整页题目定位（/api/analyze/detect）
     };
     timeouts?: {
         analyze?: number; // 毫秒
@@ -137,6 +138,7 @@ const DEFAULT_CONFIG: AppConfig = {
     prompts: {
         analyze: '',
         similar: '',
+        detect: '',
     },
     timeouts: {
         analyze: 180000,

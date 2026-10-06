@@ -293,6 +293,21 @@ export function analyzeImage(imageBase64: string, subjectId?: string): Promise<P
     });
 }
 
+/** 整页题目定位结果：bbox 为 0-100 百分比坐标 */
+export interface DetectedQuestionBox {
+    number: number;
+    label?: string;
+    bbox: { x1: number; y1: number; x2: number; y2: number };
+}
+
+/** 整页拍照后先定位题目位置，前端框选某题再走 analyzeImage 单题识别 */
+export function detectQuestions(imageBase64: string): Promise<{ questions: DetectedQuestionBox[] }> {
+    return request("/api/analyze/detect", {
+        method: "POST",
+        data: { imageBase64, language: "zh" },
+    });
+}
+
 // ---------- 举一反三 ----------
 
 export function generatePractice(
