@@ -4,7 +4,10 @@ import { createLogger } from './logger';
 
 const logger = createLogger('config');
 
-const CONFIG_FILE_PATH = path.join(process.cwd(), 'config', 'app-config.json');
+// 配置文件路径：默认相对 cwd（学习端行为不变）；管理端等以子目录为 cwd 的进程
+// 通过 APP_CONFIG_PATH 指向同一份 config/app-config.json，保证两端读写同一配置
+const CONFIG_FILE_PATH = process.env.APP_CONFIG_PATH
+    || path.join(process.cwd(), 'config', 'app-config.json');
 
 // OpenAI 实例配置
 export interface OpenAIInstance {
