@@ -1,9 +1,13 @@
+import { PageHeader } from "@/components/page-header";
 import { UserManagement } from "@/components/admin/user-management";
 
 export default function AdminUsersPage() {
     return (
-        <div className="space-y-4">
-            <h1 className="text-2xl font-bold">用户管理</h1>
+        <div>
+            <PageHeader
+                title="用户管理"
+                description="管理注册用户、注册开关与账号状态"
+            />
             <UserManagement />
         </div>
     );

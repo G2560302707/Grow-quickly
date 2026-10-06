@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertTriangle, RefreshCw, FlaskConical } from "lucide-react";
 import { apiClient } from "@grow/shared/api-client";
+import { PageHeader } from "@/components/page-header";
 import { alertDialog, confirmDialog, promptDialog } from "@/components/ui/app-dialog";
 
 export default function AdminToolsPage() {
@@ -59,12 +60,12 @@ export default function AdminToolsPage() {
     };
 
     return (
-        <div className="space-y-4 max-w-5xl mx-auto">
-            <h1 className="text-2xl font-bold">系统工具</h1>
+        <div className="space-y-6">
+            <PageHeader title="系统工具" description="数据维护与系统级操作，请谨慎执行" />
 
             <div className="grid gap-4 md:grid-cols-2">
                 {/* Prompt/公式调试 */}
-                <div className="p-5 border rounded-lg bg-white flex flex-col">
+                <div className="p-6 rounded-xl border bg-card shadow-sm flex flex-col">
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                             <span className="text-sm font-bold flex items-center gap-2">
@@ -82,7 +83,7 @@ export default function AdminToolsPage() {
                 </div>
 
                 {/* Migrate Tags */}
-                <div className="p-5 border border-blue-200 rounded-lg bg-blue-50 flex flex-col">
+                <div className="p-6 rounded-xl border border-blue-200 bg-blue-50 flex flex-col">
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                             <span className="text-sm text-blue-900 font-bold flex items-center gap-2">
@@ -110,7 +111,7 @@ export default function AdminToolsPage() {
                 </div>
 
                 {/* System Reset：危险操作独占整行 */}
-                <div className="p-5 border border-red-600/50 rounded-lg bg-red-100/50 md:col-span-2">
+                <div className="p-6 rounded-xl border border-red-600/50 bg-red-100/50 md:col-span-2">
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                             <span className="text-sm text-red-900 font-bold flex items-center gap-2">

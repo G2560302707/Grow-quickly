@@ -1,9 +1,13 @@
+import { PageHeader } from "@/components/page-header";
 import { FeedbackManagement } from "@/components/admin/feedback-management";
 
 export default function AdminFeedbackPage() {
     return (
-        <div className="space-y-4">
-            <h1 className="text-2xl font-bold">反馈管理</h1>
+        <div>
+            <PageHeader
+                title="反馈管理"
+                description="查看与处理用户提交的反馈"
+            />
             <FeedbackManagement />
         </div>
     );

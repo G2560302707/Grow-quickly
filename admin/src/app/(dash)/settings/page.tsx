@@ -22,6 +22,7 @@ import { apiClient } from "@grow/shared/api-client";
 import { AppConfig, OpenAIInstance } from "@grow/shared/types/api";
 import { ModelSelector } from "@/components/ui/model-selector";
 import { PromptSettings } from "@/components/settings/prompt-settings";
+import { PageHeader } from "@/components/page-header";
 import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
 
 const MAX_OPENAI_INSTANCES = 10;
@@ -322,8 +323,8 @@ export default function AdminSettingsPage() {
     };
 
     return (
-        <div className="space-y-4 max-w-6xl mx-auto">
-            <h1 className="text-2xl font-bold">系统设置</h1>
+        <div className="space-y-6">
+            <PageHeader title="系统设置" description="AI 供应商、提示词与邮件通知配置" />
 
             <Tabs defaultValue="ai" className="w-full">
                 <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3 gap-1 h-auto">

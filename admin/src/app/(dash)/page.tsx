@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@grow/shared/api-client";
-import { Loader2, Users, BookOpen, PenTool, Layers, TrendingUp, CheckCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Eye, BarChart3, ArrowLeft } from "lucide-react";
+import { Loader2, Users, BookOpen, PenTool, Layers, TrendingUp, CheckCircle, Clock, AlertCircle, ChevronDown, ChevronUp, Eye, BarChart3 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -366,20 +367,9 @@ export default function AdminPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
+        <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
-                    <ArrowLeft className="h-4 w-4 mr-1" />
-                    {"返回"}
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold">{"管理员仪表盘"}</h1>
-                    <p className="text-sm text-muted-foreground">
-                        {"查看全站用户和错题统计"}
-                    </p>
-                </div>
-            </div>
+            <PageHeader title="管理员仪表盘" description="查看全站用户和错题统计" />
 
             {/* Overview Cards */}
             <OverviewCards data={data} />
@@ -394,7 +384,7 @@ export default function AdminPage() {
             <SubjectDistributionChart data={data} />
 
             {/* User List */}
-            <Card className="border-0 shadow-sm">
+            <Card>
                 <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center gap-2">
                         <Users className="h-5 w-5 text-blue-500" />
@@ -407,7 +397,7 @@ export default function AdminPage() {
                 <CardContent>
                     <UserTable
                         users={data.userStats}
-                        onViewDetail={(userId) => router.push(`/admin/user/${userId}`)}
+                        onViewDetail={(userId) => router.push(`/users/${userId}`)}
                     />
                 </CardContent>
             </Card>
