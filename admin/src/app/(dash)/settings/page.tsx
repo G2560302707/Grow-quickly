@@ -322,7 +322,7 @@ export default function AdminSettingsPage() {
     };
 
     return (
-        <div className="space-y-4 max-w-4xl">
+        <div className="space-y-4 max-w-6xl">
             <h1 className="text-2xl font-bold">系统设置</h1>
 
             <Tabs defaultValue="ai" className="w-full">
@@ -432,96 +432,102 @@ export default function AdminSettingsPage() {
 
                                     {/* 实例配置表单 */}
                                     {getSelectedInstance() && (
-                                        <div className="space-y-3 p-3 border rounded-md bg-background">
-                                            <div className="space-y-2">
-                                                <Label>实例名称 <span className="text-destructive">*</span></Label>
-                                                <Input
-                                                    value={getSelectedInstance()?.name || ''}
-                                                    onChange={(e) => updateOpenAIInstance('name', e.target.value)}
-                                                    placeholder="e.g. 智谱 GLM-4V"
-                                                    className={!getSelectedInstance()?.name?.trim() ? 'border-destructive' : ''}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>API Key <span className="text-destructive">*</span></Label>
-                                                <div className="relative">
+                                        <div className="space-y-4 p-4 border rounded-md bg-background">
+                                            <div className="grid gap-4 lg:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <Label>实例名称 <span className="text-destructive">*</span></Label>
                                                     <Input
-                                                        type={showApiKey ? "text" : "password"}
-                                                        value={getSelectedInstance()?.apiKey || ''}
-                                                        onChange={(e) => updateOpenAIInstance('apiKey', e.target.value)}
-                                                        placeholder="sk-..."
-                                                        className={`pr-10 ${!getSelectedInstance()?.apiKey?.trim() ? 'border-destructive' : ''}`}
+                                                        value={getSelectedInstance()?.name || ''}
+                                                        onChange={(e) => updateOpenAIInstance('name', e.target.value)}
+                                                        placeholder="e.g. 智谱 GLM-4V"
+                                                        className={!getSelectedInstance()?.name?.trim() ? 'border-destructive' : ''}
                                                     />
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                                        onClick={() => setShowApiKey(!showApiKey)}
-                                                    >
-                                                        {showApiKey ? (
-                                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                                        ) : (
-                                                            <Eye className="h-4 w-4 text-muted-foreground" />
-                                                        )}
-                                                    </Button>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>API Key <span className="text-destructive">*</span></Label>
+                                                    <div className="relative">
+                                                        <Input
+                                                            type={showApiKey ? "text" : "password"}
+                                                            value={getSelectedInstance()?.apiKey || ''}
+                                                            onChange={(e) => updateOpenAIInstance('apiKey', e.target.value)}
+                                                            placeholder="sk-..."
+                                                            className={`pr-10 ${!getSelectedInstance()?.apiKey?.trim() ? 'border-destructive' : ''}`}
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                            onClick={() => setShowApiKey(!showApiKey)}
+                                                        >
+                                                            {showApiKey ? (
+                                                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                            ) : (
+                                                                <Eye className="h-4 w-4 text-muted-foreground" />
+                                                            )}
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="space-y-2 pt-4 border-t">
-                                                <Label>Base URL <span className="text-destructive">*</span></Label>
-                                                <Input
-                                                    value={getSelectedInstance()?.baseUrl || ''}
-                                                    onChange={(e) => updateOpenAIInstance('baseUrl', e.target.value)}
-                                                    placeholder="https://api.openai.com/v1"
-                                                    className={!getSelectedInstance()?.baseUrl?.trim() ? 'border-destructive' : ''}
+                                            <div className="grid gap-4 lg:grid-cols-2">
+                                                <div className="space-y-2">
+                                                    <Label>Base URL <span className="text-destructive">*</span></Label>
+                                                    <Input
+                                                        value={getSelectedInstance()?.baseUrl || ''}
+                                                        onChange={(e) => updateOpenAIInstance('baseUrl', e.target.value)}
+                                                        placeholder="https://api.openai.com/v1"
+                                                        className={!getSelectedInstance()?.baseUrl?.trim() ? 'border-destructive' : ''}
+                                                    />
+                                                </div>
+                                                <ModelSelector
+                                                    provider="openai"
+                                                    apiKey={getSelectedInstance()?.apiKey}
+                                                    baseUrl={getSelectedInstance()?.baseUrl}
+                                                    currentModel={getSelectedInstance()?.model}
+                                                    onModelChange={(model) => updateOpenAIInstance('model', model)}
                                                 />
                                             </div>
-                                            <ModelSelector
-                                                provider="openai"
-                                                apiKey={getSelectedInstance()?.apiKey}
-                                                baseUrl={getSelectedInstance()?.baseUrl}
-                                                currentModel={getSelectedInstance()?.model}
-                                                onModelChange={(model) => updateOpenAIInstance('model', model)}
-                                            />
                                         </div>
                                     )}
                                 </div>
                             )}
 
                             {config.aiProvider === 'gemini' && (
-                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                                    <div className="space-y-2">
-                                        <Label>API Key</Label>
-                                        <div className="relative">
-                                            <Input
-                                                type={showApiKey ? "text" : "password"}
-                                                value={config.gemini?.apiKey || ''}
-                                                onChange={(e) => updateConfig('gemini', 'apiKey', e.target.value)}
-                                                placeholder="AIza..."
-                                                className="pr-10"
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                                onClick={() => setShowApiKey(!showApiKey)}
-                                            >
-                                                {showApiKey ? (
-                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                                ) : (
-                                                    <Eye className="h-4 w-4 text-muted-foreground" />
-                                                )}
-                                            </Button>
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="grid gap-4 lg:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label>API Key</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    type={showApiKey ? "text" : "password"}
+                                                    value={config.gemini?.apiKey || ''}
+                                                    onChange={(e) => updateConfig('gemini', 'apiKey', e.target.value)}
+                                                    placeholder="AIza..."
+                                                    className="pr-10"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowApiKey(!showApiKey)}
+                                                >
+                                                    {showApiKey ? (
+                                                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                    ) : (
+                                                        <Eye className="h-4 w-4 text-muted-foreground" />
+                                                    )}
+                                                </Button>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Base URL（可选）</Label>
-                                        <Input
-                                            value={config.gemini?.baseUrl || ''}
-                                            onChange={(e) => updateConfig('gemini', 'baseUrl', e.target.value)}
-                                            placeholder="https://generativelanguage.googleapis.com"
-                                        />
+                                        <div className="space-y-2">
+                                            <Label>Base URL（可选）</Label>
+                                            <Input
+                                                value={config.gemini?.baseUrl || ''}
+                                                onChange={(e) => updateConfig('gemini', 'baseUrl', e.target.value)}
+                                                placeholder="https://generativelanguage.googleapis.com"
+                                            />
+                                        </div>
                                     </div>
                                     <ModelSelector
                                         provider="gemini"
@@ -534,57 +540,61 @@ export default function AdminSettingsPage() {
                             )}
 
                             {config.aiProvider === 'azure' && (
-                                <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                                    <div className="space-y-2">
-                                        <Label>Azure Endpoint <span className="text-destructive">*</span></Label>
-                                        <Input
-                                            value={config.azure?.endpoint || ''}
-                                            onChange={(e) => setConfig(prev => ({ ...prev, azure: { ...prev.azure, endpoint: e.target.value } }))}
-                                            placeholder="https://your-resource.openai.azure.com"
-                                            className={!config.azure?.endpoint?.trim() ? 'border-destructive' : ''}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Deployment Name <span className="text-destructive">*</span></Label>
-                                        <Input
-                                            value={config.azure?.deploymentName || ''}
-                                            onChange={(e) => setConfig(prev => ({ ...prev, azure: { ...prev.azure, deploymentName: e.target.value } }))}
-                                            placeholder="gpt-4o-deployment"
-                                            className={!config.azure?.deploymentName?.trim() ? 'border-destructive' : ''}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>API Key <span className="text-destructive">*</span></Label>
-                                        <div className="relative">
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="grid gap-4 lg:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label>Azure Endpoint <span className="text-destructive">*</span></Label>
                                             <Input
-                                                type={showApiKey ? "text" : "password"}
-                                                value={config.azure?.apiKey || ''}
-                                                onChange={(e) => setConfig(prev => ({ ...prev, azure: { ...prev.azure, apiKey: e.target.value } }))}
-                                                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                                className={`pr-10 ${!config.azure?.apiKey?.trim() ? 'border-destructive' : ''}`}
+                                                value={config.azure?.endpoint || ''}
+                                                onChange={(e) => setConfig(prev => ({ ...prev, azure: { ...prev.azure, endpoint: e.target.value } }))}
+                                                placeholder="https://your-resource.openai.azure.com"
+                                                className={!config.azure?.endpoint?.trim() ? 'border-destructive' : ''}
                                             />
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                                onClick={() => setShowApiKey(!showApiKey)}
-                                            >
-                                                {showApiKey ? (
-                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                                ) : (
-                                                    <Eye className="h-4 w-4 text-muted-foreground" />
-                                                )}
-                                            </Button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Deployment Name <span className="text-destructive">*</span></Label>
+                                            <Input
+                                                value={config.azure?.deploymentName || ''}
+                                                onChange={(e) => setConfig(prev => ({ ...prev, azure: { ...prev.azure, deploymentName: e.target.value } }))}
+                                                placeholder="gpt-4o-deployment"
+                                                className={!config.azure?.deploymentName?.trim() ? 'border-destructive' : ''}
+                                            />
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>API Version</Label>
-                                        <Input
-                                            value={config.azure?.apiVersion || ''}
-                                            onChange={(e) => setConfig(prev => ({ ...prev, azure: { ...prev.azure, apiVersion: e.target.value } }))}
-                                            placeholder="2024-02-15-preview"
-                                        />
+                                    <div className="grid gap-4 lg:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <Label>API Key <span className="text-destructive">*</span></Label>
+                                            <div className="relative">
+                                                <Input
+                                                    type={showApiKey ? "text" : "password"}
+                                                    value={config.azure?.apiKey || ''}
+                                                    onChange={(e) => setConfig(prev => ({ ...prev, azure: { ...prev.azure, apiKey: e.target.value } }))}
+                                                    placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                                    className={`pr-10 ${!config.azure?.apiKey?.trim() ? 'border-destructive' : ''}`}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                                    onClick={() => setShowApiKey(!showApiKey)}
+                                                >
+                                                    {showApiKey ? (
+                                                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                                    ) : (
+                                                        <Eye className="h-4 w-4 text-muted-foreground" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>API Version</Label>
+                                            <Input
+                                                value={config.azure?.apiVersion || ''}
+                                                onChange={(e) => setConfig(prev => ({ ...prev, azure: { ...prev.azure, apiVersion: e.target.value } }))}
+                                                placeholder="2024-02-15-preview"
+                                            />
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>模型显示名</Label>
@@ -693,7 +703,7 @@ export default function AdminSettingsPage() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label>SMTP 主机</Label>
                                 <Input

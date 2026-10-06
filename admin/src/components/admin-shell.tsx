@@ -73,7 +73,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     </Button>
                 </div>
             </aside>
-            <main className="flex-1 overflow-auto p-6">{children}</main>
+            <main className="flex-1 overflow-auto p-8 xl:p-10">{children}</main>
         </div>
     );
 }

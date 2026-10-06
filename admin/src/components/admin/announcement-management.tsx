@@ -101,9 +101,9 @@ export function AnnouncementManagement() {
     };
 
     return (
-        <div className="space-y-4 py-4">
-            {/* 发布 / 编辑表单 */}
-            <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+        <div className="grid gap-6 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)] items-start py-4">
+            {/* 发布 / 编辑表单：宽屏固定在左侧 */}
+            <div className="space-y-3 border rounded-lg p-5 bg-muted/30 lg:sticky lg:top-6">
                 <div className="flex items-center justify-between">
                     <Label>{editingId ? "编辑公告" : "发布新公告"}</Label>
                     {editingId && (
@@ -132,21 +132,21 @@ export function AnnouncementManagement() {
                 </Button>
             </div>
 
-            {/* 公告列表 */}
+            {/* 公告列表：宽屏占满右侧 */}
             {loading ? (
                 <div className="flex justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             ) : items.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">
-                    还没有公告，使用上方表单发布第一条吧。
+                    还没有公告，使用左侧表单发布第一条吧。
                 </p>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-3 min-w-0">
                     {items.map(item => (
                         <div
                             key={item.id}
-                            className={`border rounded-lg p-3 space-y-2 ${
+                            className={`border rounded-lg p-4 space-y-2 ${
                                 item.isActive ? "bg-card" : "bg-muted/40 opacity-70"
                             }`}
                         >

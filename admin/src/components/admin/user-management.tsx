@@ -151,7 +151,7 @@ export function UserManagement() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleToggleStatus(user)}
-                                    disabled={user.id === (session?.user as any).id}
+                                    disabled={user.id === (session?.user as any)?.id}
                                 >
                                     {user.isActive ? (
                                         <Ban className="h-4 w-4 text-orange-500" />
@@ -163,7 +163,7 @@ export function UserManagement() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => handleDelete(user)}
-                                    disabled={user.id === (session?.user as any).id}
+                                    disabled={user.id === (session?.user as any)?.id}
                                 >
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
@@ -219,7 +219,7 @@ export function UserManagement() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => handleToggleStatus(user)}
-                                        disabled={user.id === (session?.user as any).id}
+                                        disabled={user.id === (session?.user as any)?.id}
                                         title={user.isActive ? "禁用" : "启用"}
                                     >
                                         {user.isActive ? (
@@ -232,7 +232,7 @@ export function UserManagement() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => handleDelete(user)}
-                                        disabled={user.id === (session?.user as any).id}
+                                        disabled={user.id === (session?.user as any)?.id}
                                         title={"删除用户"}
                                     >
                                         <Trash2 className="h-4 w-4 text-destructive" />
