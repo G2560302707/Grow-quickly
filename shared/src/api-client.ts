@@ -39,11 +39,16 @@ async function request<T>(url: string, options: RequestOptions = {}): Promise<T>
         clearTimeout(timeoutId);
 
         if (!res.ok) {
-            let errorData;
-            try {
-                errorData = await res.json();
-            } catch {
-                errorData = await res.text();
+            // body 流只能读一次：先整体读成 text，再尝试按 JSON 解析，
+            // 避免 json() 失败后再 text() 触发 "body stream already read" 掩盖真实错误
+            const raw = await res.text().catch(() => '');
+            let errorData: unknown = null;
+            if (raw) {
+                try {
+                    errorData = JSON.parse(raw);
+                } catch {
+                    errorData = raw;
+                }
             }
             throw new ApiError(res.status, res.statusText, errorData);
         }

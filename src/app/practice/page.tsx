@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { apiClient } from "@grow/shared/api-client";
-import { AppConfig } from "@grow/shared/types/api";
 import { frontendLogger } from "@/lib/frontend-logger";
 
 export const dynamic = 'force-dynamic';
@@ -47,24 +46,10 @@ function PracticeContent() {
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
     const [savedErrorItemId, setSavedErrorItemId] = useState<string | null>(null);
-    const [config, setConfig] = useState<AppConfig | null>(null);
 
     // 选择题：解析选项与正确项（解析失败回退自由输入）
     const choice = question ? parseChoiceOptions(question.questionText) : null;
     const correctLabel = question ? parseCorrectOption(question.answerText) : null;
-
-    useEffect(() => {
-        apiClient.get<AppConfig>("/api/settings")
-            .then(data => {
-                setConfig(data);
-                if (data.timeouts?.analyze) {
-                    frontendLogger.info('[Config]', 'Loaded timeout settings', {
-                        analyze: data.timeouts.analyze
-                    });
-                }
-            })
-            .catch(err => console.error(err));
-    }, []);
 
     // 从待做题库「去做」直达答题：加载指定的题库题
     const pooledQuestionId = searchParams.get("questionId");
@@ -145,7 +130,7 @@ function PracticeContent() {
             }
 
             setFromPool(false);
-            const timeout = config?.timeouts?.analyze || 180000;
+            const timeout = 180000;
             frontendLogger.info('[Practice]', 'Generating question', {
                 timeout
             });

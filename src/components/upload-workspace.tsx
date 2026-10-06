@@ -11,7 +11,7 @@ import { UploadZone } from "@/components/upload-zone";
 import { CorrectionEditor } from "@/components/correction-editor";
 import { ParsedQuestion } from "@grow/shared/ai";
 import { apiClient } from "@grow/shared/api-client";
-import { AnalyzeResponse, Notebook, AppConfig } from "@grow/shared/types/api";
+import { AnalyzeResponse, Notebook } from "@grow/shared/types/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile, cropImageByPercent } from "@/lib/image-utils";
 import { Upload, PenLine } from "lucide-react";
@@ -44,7 +44,8 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
     const [notebooks, setNotebooks] = useState<{ id: string; name: string }[]>([]);
     const [autoSelectedNotebookId, setAutoSelectedNotebookId] = useState<string | null>(null);
 
-    const [config, setConfig] = useState<AppConfig | null>(null);
+    // 设置页已迁管理端（/api/settings 在学习端不存在）；AI 超时以后端读共享配置为准，前端用默认 fetch 超时
+    const aiTimeout = 180000;
 
     // Input mode: "image" for photo upload, "text" for AI solve, "direct" for manual entry
     const [inputMode, setInputMode] = useState<"image" | "text" | "direct">("image");
@@ -59,7 +60,6 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
     const originalFileRef = useRef<File | null>(null);
 
     // Timeout Config
-    const aiTimeout = config?.timeouts?.analyze || 180000;
     const safetyTimeout = aiTimeout + 10000;
 
     // Cleanup Blob URL to prevent memory leak
@@ -76,18 +76,6 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
         apiClient.get<Notebook[]>("/api/notebooks")
             .then(data => setNotebooks(data))
             .catch(err => console.error("Failed to fetch notebooks:", err));
-
-        // Fetch settings for timeouts
-        apiClient.get<AppConfig>("/api/settings")
-            .then(data => {
-                setConfig(data);
-                if (data.timeouts?.analyze) {
-                    frontendLogger.info('[Config]', 'Loaded timeout settings', {
-                        analyze: data.timeouts.analyze
-                    });
-                }
-            })
-            .catch(err => console.error("Failed to fetch config:", err));
     }, []);
 
     // Simulate progress for smoother UX with timeout protection

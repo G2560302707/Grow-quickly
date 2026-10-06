@@ -88,6 +88,17 @@ test.describe('Authentication Flow', () => {
         // Verify Admin Login and Home Page
         await page.waitForURL('**/');
 
+    });
+
+    // 2026-10 管理后台拆分：用户管理整体迁至管理端应用（admin/，:3001），
+    // 学习端设置弹窗已无「用户管理」tab，原用例在此必然超时。
+    // 待管理端用例补齐后恢复；跳过期间注册产生的 jason@qq.com 会留在库中，
+    // 上方注册用例对「邮箱已被注册」做了兼容（回退登录），幂等不受影响。
+    test.fixme('Admin deletes registered user', async ({ page }) => {
+        // 需改为先访问管理端登录页（http://127.0.0.1:3001/login）登录 admin，
+        // 再进入管理端用户管理删除 jason@qq.com。原步骤留作参考：
+        const user = { email: 'jason@qq.com' };
+
         // --- Go to Settings > User Management ---
         // Open Settings (Button with gear icon, sr-only text "Settings" or "设置")
         await page.getByRole('button').filter({ has: page.locator('svg.lucide-settings') }).click();

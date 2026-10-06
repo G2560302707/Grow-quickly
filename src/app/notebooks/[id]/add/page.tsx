@@ -8,7 +8,7 @@ import { CorrectionEditor } from "@/components/correction-editor";
 import { ImageCropper } from "@/components/image-cropper";
 import { ParsedQuestion } from "@grow/shared/ai";
 import { apiClient } from "@grow/shared/api-client";
-import { AnalyzeResponse, Notebook, AppConfig } from "@grow/shared/types/api";
+import { AnalyzeResponse, Notebook } from "@grow/shared/types/api";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { processImageFile } from "@/lib/image-utils";
@@ -30,7 +30,6 @@ export default function AddErrorPage() {
     const [currentImage, setCurrentImage] = useState<string | null>(null);
     const { t, language } = useLanguage();
     const [notebook, setNotebook] = useState<Notebook | null>(null);
-    const [config, setConfig] = useState<AppConfig | null>(null);
 
     // Input mode: "image" for photo upload, "text" for manual text input
     const [inputMode, setInputMode] = useState<"image" | "text">("image");
@@ -40,7 +39,8 @@ export default function AddErrorPage() {
     const [isCropperOpen, setIsCropperOpen] = useState(false);
 
     // Timeout Config
-    const aiTimeout = config?.timeouts?.analyze || 180000;
+    // 设置页已迁管理端（/api/settings 在学习端不存在）；AI 超时以后端读共享配置为准，前端用默认 fetch 超时
+    const aiTimeout = 180000;
     const safetyTimeout = aiTimeout + 10000;
 
     // Cleanup Blob URL to prevent memory leak
@@ -60,18 +60,6 @@ export default function AddErrorPage() {
                 console.error("Failed to fetch notebook:", err);
                 router.push("/notebooks");
             });
-
-        // Fetch settings for timeouts
-        apiClient.get<AppConfig>("/api/settings")
-            .then(data => {
-                setConfig(data);
-                if (data.timeouts?.analyze) {
-                    frontendLogger.info('[Config]', 'Loaded timeout settings', {
-                        analyze: data.timeouts.analyze
-                    });
-                }
-            })
-            .catch(err => console.error("Failed to fetch config:", err));
     }, [notebookId, router]);
 
     // Simulate progress for smoother UX with timeout protection
