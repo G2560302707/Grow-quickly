@@ -18,6 +18,13 @@ const mocks = vi.hoisted(() => ({
     mockPrismaPracticeRecord: {
         create: vi.fn(),
     },
+    mockPrismaPracticeQuestion: {
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        count: vi.fn(),
+    },
     mockPrismaSubject: {
         findFirst: vi.fn(),
         create: vi.fn(),
@@ -45,8 +52,16 @@ vi.mock('@/lib/prisma', () => ({
         errorItem: mocks.mockPrismaErrorItem,
         user: mocks.mockPrismaUser,
         practiceRecord: mocks.mockPrismaPracticeRecord,
+        practiceQuestion: mocks.mockPrismaPracticeQuestion,
         subject: mocks.mockPrismaSubject,
         knowledgeTag: mocks.mockPrismaKnowledgeTag,
+        $transaction: vi.fn(async (fn: (tx: any) => Promise<any>) =>
+            fn({
+                practiceRecord: mocks.mockPrismaPracticeRecord,
+                practiceQuestion: mocks.mockPrismaPracticeQuestion,
+                errorItem: mocks.mockPrismaErrorItem,
+            })
+        ),
     },
 }));
 
@@ -74,6 +89,10 @@ describe('/api/practice', () => {
         resetRateLimits();
         vi.clearAllMocks();
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
+        // 生成即入库：默认成功创建题库题
+        mocks.mockPrismaPracticeQuestion.create.mockResolvedValue({ id: 'pool-question-1' });
+        // 默认不带 questionId 作答
+        mocks.mockPrismaPracticeQuestion.findFirst.mockResolvedValue(null);
     });
 
     describe('POST /api/practice/generate (生成类似题目)', () => {
@@ -409,6 +428,45 @@ describe('/api/practice', () => {
             expect(data.subject).toBe('其他');
         });
 
+
+        it('生成即入库：练习题落库为待做（channel=similar）并返回 questionId', async () => {
+            mocks.mockPrismaErrorItem.findUnique.mockResolvedValue({
+                id: 'error-item-1',
+                userId: 'user-123',
+                questionText: '求解 x + 2 = 5',
+                knowledgePoints: '["一元一次方程"]',
+                subject: { id: 'math', name: '数学' },
+            });
+            mocks.mockAIService.generateSimilarQuestion.mockResolvedValue({
+                questionText: '求解 3x + 1 = 10',
+                answerText: 'x = 3',
+                analysis: '解析',
+                knowledgePoints: [],
+            });
+
+            const request = new Request('http://localhost/api/practice/generate', {
+                method: 'POST',
+                body: JSON.stringify({ errorItemId: 'error-item-1', language: 'zh', difficulty: 'hard' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await GENERATE_POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.questionId).toBe('pool-question-1');
+            expect(mocks.mockPrismaPracticeQuestion.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        userId: 'user-123',
+                        channel: 'similar',
+                        difficulty: 'hard',
+                        errorItemId: 'error-item-1',
+                    }),
+                })
+            );
+        });
+
         it('应该处理 AI 服务错误', async () => {
             mocks.mockPrismaErrorItem.findUnique.mockResolvedValue(mockErrorItem);
             mocks.mockAIService.generateSimilarQuestion.mockRejectedValue(
@@ -502,6 +560,7 @@ describe('/api/practice', () => {
                 expect.objectContaining({
                     data: expect.objectContaining({
                         origin: 'smart',
+                        sourceType: 'practice',
                         subjectId: 'subject-1',
                         mistakeStatus: 'wrong_attempt',
                         questionText: '下列属于公务员法定处分种类的是？',
@@ -655,6 +714,75 @@ describe('/api/practice', () => {
 
             expect(response.status).toBe(500);
             expect(data.message).toBe('Failed to save record');
+        });
+
+
+        it('带 questionId 作答：联动题库状态为已答，归因与渠道取自题库题', async () => {
+            mocks.mockPrismaPracticeQuestion.findFirst.mockResolvedValue({
+                id: 'pool-question-1',
+                channel: 'smart',
+                tagId: 'tag-1',
+                errorItemId: 'error-item-9',
+            });
+            mocks.mockPrismaPracticeRecord.create.mockResolvedValue({
+                id: 'record-q',
+                userId: 'user-123',
+                isCorrect: true,
+                createdAt: new Date(),
+            });
+
+            const request = new Request('http://localhost/api/practice/record', {
+                method: 'POST',
+                body: JSON.stringify({
+                    subject: '常识判断',
+                    difficulty: 'medium',
+                    isCorrect: true,
+                    questionId: 'pool-question-1',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await RECORD_POST(request);
+            expect(response.status).toBe(200);
+            expect(mocks.mockPrismaPracticeRecord.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        channel: 'smart',
+                        questionId: 'pool-question-1',
+                        tagId: 'tag-1',
+                        errorItemId: 'error-item-9',
+                    }),
+                })
+            );
+            expect(mocks.mockPrismaPracticeQuestion.update).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    where: { id: 'pool-question-1' },
+                    data: expect.objectContaining({ status: 'answered', isCorrect: true }),
+                })
+            );
+        });
+
+        it('不带 questionId 时按归因推导渠道（无归因 → free）', async () => {
+            mocks.mockPrismaPracticeRecord.create.mockResolvedValue({
+                id: 'record-c1',
+                isCorrect: true,
+                createdAt: new Date(),
+            });
+
+            const request = new Request('http://localhost/api/practice/record', {
+                method: 'POST',
+                body: JSON.stringify({ subject: '数学', difficulty: 'medium', isCorrect: true }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await RECORD_POST(request);
+            expect(response.status).toBe(200);
+            expect(mocks.mockPrismaPracticeRecord.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({ channel: 'free' }),
+                })
+            );
+            expect(mocks.mockPrismaPracticeQuestion.update).not.toHaveBeenCalled();
         });
     });
 });

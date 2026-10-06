@@ -50,6 +50,8 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
     // 当前列表请求的中断控制器
     const abortRef = useRef<AbortController | null>(null);
     const [masteryFilter, setMasteryFilter] = useState<"all" | "mastered" | "unmastered">("all");
+    // 来源大类筛选：manual(拍照/手动录入的真错题) / practice(练习答错自动收录)
+    const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | "manual" | "practice">("all");
     const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month">("all");
     const [gradeFilter, setGradeFilter] = useState("");
     const [chapterFilter, setChapterFilter] = useState("");
@@ -74,6 +76,9 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
         if (search) params.append("query", search);
         if (masteryFilter !== "all") {
             params.append("mastery", masteryFilter === "mastered" ? "1" : "0");
+        }
+        if (sourceTypeFilter !== "all") {
+            params.append("sourceType", sourceTypeFilter);
         }
         if (timeFilter !== "all") {
             params.append("timeRange", timeFilter);
@@ -181,13 +186,14 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
     }, [search]);
 
     // 追踪筛选条件是否变化（用于判断是否需要重置页码）
-    const prevFiltersRef = useRef({ search: debouncedSearch, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter });
+    const prevFiltersRef = useRef({ search: debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter });
 
     useEffect(() => {
         const prevFilters = prevFiltersRef.current;
         const filtersChanged =
             prevFilters.search !== debouncedSearch ||
             prevFilters.masteryFilter !== masteryFilter ||
+            prevFilters.sourceTypeFilter !== sourceTypeFilter ||
             prevFilters.timeFilter !== timeFilter ||
             prevFilters.selectedTag !== selectedTag ||
             prevFilters.subjectId !== subjectId ||
@@ -196,7 +202,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             prevFilters.paperLevelFilter !== paperLevelFilter;
 
         // 更新 ref
-        prevFiltersRef.current = { search: debouncedSearch, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter };
+        prevFiltersRef.current = { search: debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter };
 
         if (filtersChanged && page !== 1) {
             // 筛选条件变化且不在第一页，重置到第一页（会再次触发此 effect）
@@ -207,7 +213,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
         // 正常请求数据
         fetchItems();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, debouncedSearch, masteryFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter]);
+    }, [page, debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter]);
 
     const fetchItems = async () => {
         // 中断上一次未完成的请求，避免过期响应覆盖新数据
@@ -222,6 +228,9 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             if (debouncedSearch) params.append("query", debouncedSearch);
             if (masteryFilter !== "all") {
                 params.append("mastery", masteryFilter === "mastered" ? "1" : "0");
+            }
+            if (sourceTypeFilter !== "all") {
+                params.append("sourceType", sourceTypeFilter);
             }
             if (timeFilter !== "all") {
                 params.append("timeRange", timeFilter);
@@ -285,6 +294,19 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setMasteryFilter("mastered")}>
                             {masteryFilter === "mastered" && "✓ "}{t.filter.mastered || "Mastered"}
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+
+                        <DropdownMenuLabel>来源</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => setSourceTypeFilter("all")}>
+                            {sourceTypeFilter === "all" && "✓ "}全部来源
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSourceTypeFilter("manual")}>
+                            {sourceTypeFilter === "manual" && "✓ "}手动录入
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSourceTypeFilter("practice")}>
+                            {sourceTypeFilter === "practice" && "✓ "}练习收录
                         </DropdownMenuItem>
 
                         <DropdownMenuSeparator />

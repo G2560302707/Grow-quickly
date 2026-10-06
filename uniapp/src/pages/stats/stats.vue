@@ -52,26 +52,48 @@
 				<view v-else class="empty-tip empty-inline">还没有错题，去"识别"页添加吧</view>
 			</view>
 
-			<!-- 练习概况 -->
+			<!-- 练习概况：自由练习与错题强化（举一反三+薄弱点专项）分渠道统计 -->
 			<view class="card fade-up">
 				<view class="section-head">
 					<text class="section-title">练习概况</text>
-					<text class="section-extra">来自举一反三</text>
+					<text class="section-extra">按渠道分开统计</text>
 				</view>
 				<template v-if="practice.overallStats.total > 0">
+					<view class="channel-row-head">
+						<text class="channel-row-title">自由练习</text>
+					</view>
 					<view class="stat-row">
 						<view class="stat-cell">
-							<text class="stat-num num">{{ practice.overallStats.total }}</text>
+							<text class="stat-num num">{{ freeStats.total }}</text>
 							<text class="stat-label">练习次数</text>
 						</view>
 						<view class="stat-divider" />
 						<view class="stat-cell">
-							<text class="stat-num num">{{ practice.overallStats.correct }}</text>
+							<text class="stat-num num">{{ freeStats.correct }}</text>
 							<text class="stat-label">答对</text>
 						</view>
 						<view class="stat-divider" />
 						<view class="stat-cell">
-							<text class="stat-num stat-num-gold num">{{ practice.overallStats.rate }}<text class="stat-unit">%</text></text>
+							<text class="stat-num stat-num-gold num">{{ freeStats.rate }}<text class="stat-unit">%</text></text>
+							<text class="stat-label">答对率</text>
+						</view>
+					</view>
+					<view class="channel-row-head channel-row-head-sec">
+						<text class="channel-row-title">错题强化（举一反三 + 薄弱点专项）</text>
+					</view>
+					<view class="stat-row">
+						<view class="stat-cell">
+							<text class="stat-num num">{{ reinforcedStats.total }}</text>
+							<text class="stat-label">练习次数</text>
+						</view>
+						<view class="stat-divider" />
+						<view class="stat-cell">
+							<text class="stat-num num">{{ reinforcedStats.correct }}</text>
+							<text class="stat-label">答对</text>
+						</view>
+						<view class="stat-divider" />
+						<view class="stat-cell">
+							<text class="stat-num stat-num-gold num">{{ reinforcedStats.rate }}<text class="stat-unit">%</text></text>
 							<text class="stat-label">答对率</text>
 						</view>
 					</view>
@@ -204,6 +226,10 @@ interface NormalizedPractice {
 	activityStats: { date: string; total: number; correct: number }[];
 	difficultyStats: { name: string; value: number }[];
 	overallStats: { total: number; correct: number; rate: number };
+	channelStats: {
+		free: { total: number; correct: number; rate: number };
+		reinforced: { total: number; correct: number; rate: number };
+	};
 }
 
 const practice = ref<NormalizedPractice>({
@@ -211,7 +237,15 @@ const practice = ref<NormalizedPractice>({
 	activityStats: [],
 	difficultyStats: [],
 	overallStats: { total: 0, correct: 0, rate: 0 },
+	channelStats: {
+		free: { total: 0, correct: 0, rate: 0 },
+		reinforced: { total: 0, correct: 0, rate: 0 },
+	},
 });
+
+/** 渠道双轨：接口未返回时以总口径兜底展示 */
+const freeStats = computed(() => practice.value.channelStats?.free || { total: 0, correct: 0, rate: 0 });
+const reinforcedStats = computed(() => practice.value.channelStats?.reinforced || { total: 0, correct: 0, rate: 0 });
 
 const weakness = ref<WeaknessReport>({
 	generatedAt: "",
@@ -322,14 +356,19 @@ onShow(async () => {
 });
 
 function normalizePractice(p: PracticeStats): NormalizedPractice {
+	const toStat = (v: any) => ({
+		total: Number(v?.total) || 0,
+		correct: Number(v?.correct) || 0,
+		rate: Number(v?.rate) || 0,
+	});
 	return {
 		subjectStats: Array.isArray(p?.subjectStats) ? p.subjectStats : [],
 		activityStats: Array.isArray(p?.activityStats) ? p.activityStats : [],
 		difficultyStats: Array.isArray(p?.difficultyStats) ? p.difficultyStats : [],
-		overallStats: {
-			total: Number(p?.overallStats?.total) || 0,
-			correct: Number(p?.overallStats?.correct) || 0,
-			rate: Number(p?.overallStats?.rate) || 0,
+		overallStats: toStat(p?.overallStats),
+		channelStats: {
+			free: toStat(p?.channelStats?.free),
+			reinforced: toStat(p?.channelStats?.reinforced),
 		},
 	};
 }
@@ -434,6 +473,17 @@ function normalizePractice(p: PracticeStats): NormalizedPractice {
 }
 
 /* ---------- 练习概况 ---------- */
+.channel-row-head {
+	margin-bottom: 12rpx;
+}
+.channel-row-head-sec {
+	margin-top: 28rpx;
+}
+.channel-row-title {
+	font-size: 24rpx;
+	font-weight: 600;
+	color: var(--ink-500);
+}
 .stat-row {
 	display: flex;
 	align-items: stretch;

@@ -133,6 +133,12 @@ export async function GET(req: Request) {
             whereClause.paperLevel = paperLevel;
         }
 
+        // 来源大类 filter：manual(拍照/手动录入) / practice(练习答错自动收录)
+        const sourceType = searchParams.get("sourceType");
+        if (sourceType === "manual" || sourceType === "practice") {
+            whereClause.sourceType = sourceType;
+        }
+
         // 将所有 AND 条件合并到 whereClause
         if (andConditions.length > 0) {
             whereClause.AND = andConditions;
@@ -164,6 +170,7 @@ export async function GET(req: Request) {
                           masteryLevel: true,
                           mistakeStatus: true,
                           origin: true,
+                          sourceType: true,
                           knowledgePoints: true,
                           gradeSemester: true,
                           paperLevel: true,

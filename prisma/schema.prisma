@@ -28,6 +28,7 @@ model User {
   errorItems ErrorItem[]
   subjects   Subject[]
   practiceRecords PracticeRecord[]
+  practiceQuestions PracticeQuestion[]
   focusSessions  FocusSession[]
   customTags KnowledgeTag[] // User's custom tags
   feedbacks  Feedback[] // 用户提交的反馈（移动端帮助与反馈页）
@@ -101,6 +102,7 @@ model KnowledgeTag {
 
   // 已归因的定向练习
   practiceRecords PracticeRecord[]
+  practiceQuestions PracticeQuestion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -144,6 +146,7 @@ model ErrorItem {
   mistakeAnalysis  String? // Analysis of why the wrong answer happened
   mistakeStatus    String? // not_attempted, wrong_attempt, unknown
   origin           String? // 题目进入错题本的渠道: similar(举一反三练习) / smart(薄弱点专项练习)；拍照或手动录入为 null
+  sourceType       String? // 数据大类: manual(拍照/手动录入的真错题) / practice(练习答错自动收录)；空值为历史数据
   knowledgePoints  String? // [DEPRECATED] JSON string - kept for migration only
   geogebraCommands String? // GeoGebra commands for interactive demo (JSON or newline-separated)
 
@@ -164,6 +167,7 @@ model ErrorItem {
 
   reviewSchedules ReviewSchedule[]
   practiceRecords PracticeRecord[] // 锚定本题的定向练习
+  practiceQuestions PracticeQuestion[] // 锚定本题的待做/已做练习题
 
   @@index([userId, createdAt])
   @@index([subjectId])
@@ -198,6 +202,9 @@ model PracticeRecord {
   errorItem   ErrorItem? @relation(fields: [errorItemId], references: [id], onDelete: SetNull)
   tagId       String? // 本次练习归属的知识点（薄弱点诊断的练习通道）
   tag         KnowledgeTag? @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  channel     String? // 练习渠道: free(自由练习) / similar(举一反三) / smart(薄弱点专项)；历史数据由迁移回填
+  questionId  String? // 本次作答对应的练习题库题目
+  question    PracticeQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
   questionText String? // 生成题快照（用于出题去重）
   answerText String? // 参考答案快照（练习记录详情展示）
   analysis  String? // 解析快照（练习记录详情展示）
@@ -206,6 +213,44 @@ model PracticeRecord {
 
   @@index([userId, tagId])
   @@index([userId, createdAt])
+}
+
+// 练习题库：AI 生成的每一道练习题生成即入库，做不做都保留（待做/已做/已弃）
+model PracticeQuestion {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channel     String   // free(自由练习) | similar(举一反三) | smart(薄弱点专项)
+  difficulty  String   // easy | medium | hard | harder
+  subject     String?
+
+  // 归因：薄弱点专项挂考点，举一反三锚定原错题
+  tagId       String?
+  tag         KnowledgeTag? @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  errorItemId String?
+  errorItem   ErrorItem?    @relation(fields: [errorItemId], references: [id], onDelete: SetNull)
+
+  // 题目快照：生成时全量落库
+  questionText String
+  answerText  String?
+  analysis    String?
+  eloRating   Int?     // 生成时该考点的能力分（smart 渠道）
+
+  // 生命周期：pending(待做) -> answered(已做) / discarded(已弃，可恢复)
+  status      String   @default("pending")
+  isCorrect   Boolean? // 作答结果（冗余，题库内直接可统计）
+  answeredAt  DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  practiceRecords PracticeRecord[] // 本题的作答流水
+
+  @@index([userId, status])
+  @@index([userId, channel, status])
+  @@index([userId, tagId, status])
+  @@index([userId, difficulty, status])
 }
 
 // 专注会话(番茄钟/模考掐表)

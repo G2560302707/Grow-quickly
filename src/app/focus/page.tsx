@@ -231,16 +231,6 @@ export default function FocusPage() {
         finish(false);
     };
 
-    const saveExamDate = () => {
-        const v = prompt("目标考试日（格式 2026-11-30，国考/省考笔试日）", examTarget);
-        if (v && /^\d{4}-\d{2}-\d{2}$/.test(v.trim())) {
-            setExamTarget(v.trim());
-            localStorage.setItem(EXAM_DATE_KEY, v.trim());
-        } else if (v) {
-            alert("日期格式应为 2026-11-30");
-        }
-    };
-
     const examDaysLeft = examTarget
         ? Math.ceil((new Date(examTarget).getTime() - Date.now()) / 86_400_000)
         : null;
@@ -483,13 +473,33 @@ export default function FocusPage() {
                         <p className="text-2xl font-bold">{stats?.streakDays ?? "—"}</p>
                         <p className="text-xs text-muted-foreground mt-1">连续打卡(天)</p>
                     </div>
-                    <button className="hover:opacity-80 transition-opacity" onClick={saveExamDate} title="设置目标考试日">
-                        <p className="text-2xl font-bold">{examDaysLeft === null ? "—" : examDaysLeft}</p>
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
-                            <CalendarDays className="h-3 w-3" />
-                            {examDaysLeft === null ? "设置考试日" : "距考试(天)"}
-                        </p>
-                    </button>
+                    <div className="relative flex justify-center">
+                        <button className="hover:opacity-80 transition-opacity" title="设置目标考试日">
+                            <p className="text-2xl font-bold">{examDaysLeft === null ? "—" : examDaysLeft}</p>
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                                <CalendarDays className="h-3 w-3" />
+                                {examDaysLeft === null ? "设置考试日" : "距考试(天)"}
+                            </p>
+                        </button>
+                        {/* 原生日期选择器：透明覆盖整个格子，点击即弹系统日历；清空即取消考试日 */}
+                        <input
+                            type="date"
+                            value={examTarget}
+                            onChange={(e) => {
+                                const v = e.target.value;
+                                if (v) {
+                                    setExamTarget(v);
+                                    localStorage.setItem(EXAM_DATE_KEY, v);
+                                } else {
+                                    setExamTarget("");
+                                    localStorage.removeItem(EXAM_DATE_KEY);
+                                }
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            aria-label="设置目标考试日"
+                            title="设置目标考试日"
+                        />
+                    </div>
                 </CardContent>
             </Card>
         </div>

@@ -52,6 +52,9 @@ describe('/api/stats', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(getServerSession).mockResolvedValue(mocks.mockSession);
+        // 渠道双轨口径的兜底 mock：channelRows 分组与分渠道答对数
+        mocks.mockPrismaPracticeRecord.groupBy.mockResolvedValue([]);
+        mocks.mockPrismaPracticeRecord.count.mockResolvedValue(0);
     });
 
     describe('GET /api/stats/practice (获取练习统计)', () => {
@@ -123,6 +126,33 @@ describe('/api/stats', () => {
             expect(data.overallStats.total).toBe(100);
             expect(data.overallStats.correct).toBe(75);
             expect(data.overallStats.rate).toBe('75.0');
+        });
+
+        it('应该返回渠道双轨统计（自由练习 / 错题强化）', async () => {
+            mocks.mockPrismaPracticeRecord.findMany.mockResolvedValue([]);
+            // count 调用顺序：总次数、总答对、free 答对、similar 答对、smart 答对
+            mocks.mockPrismaPracticeRecord.count
+                .mockResolvedValueOnce(4)
+                .mockResolvedValueOnce(3)
+                .mockResolvedValueOnce(2)
+                .mockResolvedValueOnce(1)
+                .mockResolvedValueOnce(0);
+            // 第三次 groupBy 返回渠道分组（前两次为学科/难度分布的默认空数组）
+            mocks.mockPrismaPracticeRecord.groupBy
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([
+                    { channel: 'free', _count: { id: 3 } },
+                    { channel: 'similar', _count: { id: 1 } },
+                ]);
+
+            const request = new Request('http://localhost/api/stats/practice');
+            const response = await GET_PRACTICE_STATS(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.channelStats.free).toEqual({ total: 3, correct: 2, rate: 66.7 });
+            expect(data.channelStats.reinforced).toEqual({ total: 1, correct: 1, rate: 100 });
         });
 
         it('应该处理零记录情况', async () => {

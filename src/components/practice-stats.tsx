@@ -156,6 +156,46 @@ export function PracticeStats() {
                 </Card>
             </div>
 
+            {/* 渠道双轨：自由练习 vs 错题强化（举一反三+薄弱点专项），答对率分渠道才有意义 */}
+            {stats.channelStats && (
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Card className="transition-shadow hover:shadow-md">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">自由练习</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-end gap-6">
+                                <div>
+                                    <div className="text-2xl font-bold">{stats.channelStats.free.total}</div>
+                                    <p className="text-xs text-muted-foreground">练习次数</p>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold">{stats.channelStats.free.rate}%</div>
+                                    <p className="text-xs text-muted-foreground">答对率</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="transition-shadow hover:shadow-md">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">错题强化（举一反三 + 薄弱点专项）</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-end gap-6">
+                                <div>
+                                    <div className="text-2xl font-bold">{stats.channelStats.reinforced.total}</div>
+                                    <p className="text-xs text-muted-foreground">练习次数</p>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold">{stats.channelStats.reinforced.rate}%</div>
+                                    <p className="text-xs text-muted-foreground">答对率</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
             <div className="grid gap-4 md:grid-cols-2">
                 {/* Subject Distribution */}
                 <Card className="col-span-2 md:col-span-1">

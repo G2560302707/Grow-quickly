@@ -18,13 +18,27 @@ import { frontendLogger } from "@/lib/frontend-logger";
 
 export const dynamic = 'force-dynamic';
 
+/** 生成/题库题目：生成接口返回带 questionId（生成即入库） */
+type PracticeQuestion = ParsedQuestion & { questionId?: string | null };
+
+/** 题库单题（"去做/取题"时拉全量内容） */
+interface PoolQuestion {
+    id: string;
+    channel: string;
+    difficulty: string;
+    subject?: string | null;
+    questionText: string;
+    answerText?: string | null;
+    analysis?: string | null;
+}
+
 function PracticeContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const errorItemId = searchParams.get("id");
     const { t, language } = useLanguage();
 
-    const [question, setQuestion] = useState<ParsedQuestion | null>(null);
+    const [question, setQuestion] = useState<PracticeQuestion | null>(null);
     const [loading, setLoading] = useState(false);
     const [showAnswer, setShowAnswer] = useState(false);
     const [userAnswer, setUserAnswer] = useState("");
@@ -52,12 +66,47 @@ function PracticeContent() {
             .catch(err => console.error(err));
     }, []);
 
-    const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard" | "harder">("medium");
+    // 从待做题库「去做」直达答题：加载指定的题库题
+    const pooledQuestionId = searchParams.get("questionId");
+    useEffect(() => {
+        if (!pooledQuestionId) return;
+        setLoading(true);
+        apiClient.get<PoolQuestion>(`/api/practice/questions/${pooledQuestionId}`)
+            .then(full => {
+                setQuestion({
+                    questionText: full.questionText,
+                    answerText: full.answerText || "",
+                    analysis: full.analysis || "",
+                    subject: (full.subject || undefined) as ParsedQuestion["subject"],
+                    knowledgePoints: [],
+                    wrongAnswerText: "",
+                    mistakeAnalysis: "",
+                    mistakeStatus: "unknown",
+                    requiresImage: false,
+                    questionId: full.id,
+                });
+                setDifficulty((full.difficulty as "easy" | "medium" | "hard" | "harder") || null);
+                setFromPool(true);
+            })
+            .catch(err => {
+                console.error(err);
+                setError("题目加载失败，请回到待做题库重试");
+            })
+            .finally(() => setLoading(false));
+    }, [pooledQuestionId]);
+
+    // 难度必须显式选择，没有默认值（不自动出题）
+    const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard" | "harder" | null>(null);
 
     const [error, setError] = useState<string | null>(null);
+    const [fromPool, setFromPool] = useState(false);
 
-    const generateQuestion = async () => {
-        if (!errorItemId) return;
+    /**
+     * 出题：优先从待做题库取同难度存题（零生成成本），池空或 forceNew 时才调 AI。
+     * difficulty 未选择时不动作（按钮已禁用，这里兜底）。
+     */
+    const generateQuestion = async (forceNew = false) => {
+        if (!errorItemId || !difficulty) return;
 
         setLoading(true);
         setError(null);
@@ -68,12 +117,39 @@ function PracticeContent() {
         setShowAnswer(false);
         setSelectedOption(null);
         setSavedErrorItemId(null);
+
         try {
+            if (!forceNew) {
+                const pool = await apiClient.get<{ questions: Array<{ id: string }> }>(
+                    `/api/practice/questions?status=pending&channel=similar&errorItemId=${encodeURIComponent(errorItemId)}&difficulty=${difficulty}&pageSize=1`
+                ).catch(() => null);
+                const hit = pool?.questions?.[0];
+                if (hit) {
+                    const full = await apiClient.get<PoolQuestion>(`/api/practice/questions/${hit.id}`);
+                    setQuestion({
+                        questionText: full.questionText,
+                        answerText: full.answerText || "",
+                        analysis: full.analysis || "",
+                        subject: (full.subject || undefined) as ParsedQuestion["subject"],
+                        knowledgePoints: [],
+                        wrongAnswerText: "",
+                        mistakeAnalysis: "",
+                        mistakeStatus: "unknown",
+                        requiresImage: false,
+                        questionId: full.id,
+                    });
+                    setFromPool(true);
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            setFromPool(false);
             const timeout = config?.timeouts?.analyze || 180000;
             frontendLogger.info('[Practice]', 'Generating question', {
                 timeout
             });
-            const data = await apiClient.post<ParsedQuestion>("/api/practice/generate", {
+            const data = await apiClient.post<PracticeQuestion>("/api/practice/generate", {
                 errorItemId,
                 language,
                 difficulty
@@ -137,13 +213,14 @@ function PracticeContent() {
         setIsCorrect(isMatch);
         setShowAnswer(true);
 
-        // Save practice record（带题目与解析快照，答错时后端自动收录错题本）
+        // Save practice record（题库题带 questionId 联动状态，答错时后端自动收录错题本）
         try {
             const res = await apiClient.post<{ savedErrorItemId?: string | null }>("/api/practice/record", {
                 subject: question.subject || "Unknown",
-                difficulty,
+                difficulty: difficulty || "medium",
                 isCorrect: isMatch,
                 errorItemId: errorItemId || undefined,
+                questionId: question.questionId || undefined,
                 questionText: question.questionText,
                 answerText: question.answerText,
                 analysis: question.analysis,
@@ -198,7 +275,7 @@ function PracticeContent() {
                                 ].map((level) => (
                                     <button
                                         key={level.value}
-                                        onClick={() => setDifficulty(level.value as any)}
+                                        onClick={() => setDifficulty(level.value as "easy" | "medium" | "hard" | "harder")}
                                         className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${difficulty === level.value
                                             ? level.color.replace("bg-", "bg-opacity-100 bg-").replace("text-", "ring-2 ring-offset-1 ring-")
                                             : "bg-transparent hover:bg-muted text-muted-foreground"
@@ -209,20 +286,38 @@ function PracticeContent() {
                                 ))}
                             </div>
                         </div>
+                        {!difficulty && (
+                            <p className="text-xs text-muted-foreground">先选一个难度，再开始练习（不会自动出题）</p>
+                        )}
 
-                        <Button size="lg" onClick={generateQuestion} disabled={loading}>
-                            {loading ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    {t.practice.generating}
-                                </>
-                            ) : (
-                                <>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    {t.practice.generate}
-                                </>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <Button
+                                size="lg"
+                                onClick={() => generateQuestion(false)}
+                                disabled={loading || !difficulty}
+                                title={difficulty ? "优先取用待做题库的存题，池空才生成新题" : "请先选择难度"}
+                            >
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        {t.practice.generating}
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        {t.practice.generate}
+                                    </>
+                                )}
+                            </Button>
+                            {difficulty && (
+                                <Button size="lg" variant="outline" onClick={() => generateQuestion(true)} disabled={loading}>
+                                    跳过存题，生成新题
+                                </Button>
                             )}
-                        </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center max-w-md">
+                            生成的题会自动存入待做题库，做不做都不丢；有存题时优先做存题，不花生成费
+                        </p>
                     </div>
                 )}
             </div>
@@ -235,11 +330,12 @@ function PracticeContent() {
                                 <span>{t.app.practiceProblem}</span>
                                 <div className="flex items-center gap-2">
                                     <select
-                                        value={difficulty}
-                                        onChange={(e) => setDifficulty(e.target.value as any)}
+                                        value={difficulty || ""}
+                                        onChange={(e) => setDifficulty(e.target.value as "easy" | "medium" | "hard" | "harder")}
                                         className="h-8 text-xs border rounded px-2 bg-background"
                                         disabled={loading}
                                     >
+                                        {!difficulty && <option value="">选择难度</option>}
                                         <option value="easy">{t.practice.difficulty?.easy || "Easy"}</option>
                                         <option value="medium">{t.practice.difficulty?.medium || "Medium"}</option>
                                         <option value="hard">{t.practice.difficulty?.hard || "Hard"}</option>
@@ -248,8 +344,8 @@ function PracticeContent() {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={generateQuestion}
-                                        disabled={loading}
+                                        onClick={() => generateQuestion(true)}
+                                        disabled={loading || !difficulty}
                                     >
                                         {loading ? (
                                             <>
@@ -267,6 +363,9 @@ function PracticeContent() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
+                            {fromPool && (
+                                <p className="text-xs text-muted-foreground mb-2">本题取自待做题库（未花费生成）</p>
+                            )}
                             <MarkdownRenderer content={question.questionText} className="font-medium" />
                         </CardContent>
                     </Card>
@@ -400,9 +499,9 @@ function PracticeContent() {
 
                     {isSubmitted && (
                         <div className="flex gap-3 justify-center">
-                            <Button variant="outline" onClick={generateQuestion} disabled={loading}>
+                            <Button variant="outline" onClick={() => generateQuestion(false)} disabled={loading || !difficulty}>
                                 <RefreshCw className="mr-2 h-4 w-4" />
-                                再来一题
+                                再来一题（优先做存题）
                             </Button>
                             <Button variant="ghost" onClick={() => router.back()}>
                                 {t.common?.back || "返回"}

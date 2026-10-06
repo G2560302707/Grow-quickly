@@ -10,6 +10,8 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:practice:generate');
 
+const DIFFICULTIES = ["easy", "medium", "hard", "harder"] as const;
+
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
 
@@ -69,7 +71,26 @@ export async function POST(req: Request) {
             ? subjectName as typeof AI_SUBJECT_OPTIONS[number]
             : "其他";
 
-        return NextResponse.json(similarQuestion);
+        // 生成即入库：AI 生成的题是花钱产生的资产，未作答也保留在待做题库（channel=similar 锚定原错题）
+        let questionId: string | null = null;
+        if ((similarQuestion.questionText || "").trim()) {
+            const saved = await prisma.practiceQuestion.create({
+                data: {
+                    userId: user.id,
+                    channel: "similar",
+                    difficulty: DIFFICULTIES.includes(difficulty) ? difficulty : "medium",
+                    subject: subjectName,
+                    errorItemId: errorItemWithSubject.id,
+                    questionText: similarQuestion.questionText || "",
+                    answerText: similarQuestion.answerText ?? null,
+                    analysis: similarQuestion.analysis ?? null,
+                },
+                select: { id: true },
+            });
+            questionId = saved.id;
+        }
+
+        return NextResponse.json({ ...similarQuestion, questionId });
     } catch (error) {
         logger.error({ error }, 'Error generating practice');
         // 不把 AI provider 的原始错误信息回传前端，避免泄漏内部细节

@@ -2,12 +2,12 @@
 
 /**
  * 专项练习页：针对薄弱点考点连续出题（默认 5 题一组）。
- * 走 POST /api/practice/smart（后端按该考点错题+错因接地生成，Elo 自适应难度），
- * 每题作答后带 tagId/errorItemId 归因记录，结束后展示小结。
+ * 出题面板先选难度（固定四档或 ELO 自适应），点「开始会话」才出题，不自动生成；
+ * 固定难度时优先从待做题库取题（零生成成本），池空才调 AI 生成；
+ * 每题生成即入库，作答后带 tagId/errorItemId/questionId 归因记录，结束后展示小结。
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, CheckCircle, XCircle, ArrowLeft, Target, RefreshCw } from "lucide-react";
@@ -18,13 +18,13 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { apiClient } from "@/lib/api-client";
 import { Progress } from "@/components/ui/progress";
 import {
-    alertDialog,
     confirmDialog,
 } from "@/components/ui/app-dialog";
 
 const SESSION_TOTAL = 5;
 
 interface SmartQuestion extends ParsedQuestion {
+    questionId?: string | null;
     meta?: {
         tagId: string;
         tagName: string;
@@ -35,6 +35,30 @@ interface SmartQuestion extends ParsedQuestion {
         duplicate?: boolean;
     };
 }
+
+/** 题库单题（取题时拉全量内容） */
+interface PoolQuestion {
+    id: string;
+    channel: string;
+    difficulty: string;
+    subject?: string | null;
+    tagId?: string | null;
+    errorItemId?: string | null;
+    eloRating?: number | null;
+    questionText: string;
+    answerText?: string | null;
+    analysis?: string | null;
+}
+
+type SetupDifficulty = "easy" | "medium" | "hard" | "harder" | "adaptive";
+
+const DIFFICULTY_OPTIONS: { value: SetupDifficulty; label: string }[] = [
+    { value: "easy", label: "简单" },
+    { value: "medium", label: "中等" },
+    { value: "hard", label: "困难" },
+    { value: "harder", label: "挑战" },
+    { value: "adaptive", label: "自适应" },
+];
 
 function normalize(str: string) {
     return str.trim().toLowerCase().replace(/[.,;!]/g, "");
@@ -48,8 +72,11 @@ function SmartPracticeContent() {
         ? decodeURIComponent(searchParams.get("tagName") as string)
         : "薄弱点专项";
 
+    // 出题面板 → 会话进行中；不自动出题，选难度后点「开始会话」才生成
+    const [phase, setPhase] = useState<"setup" | "running">("setup");
+    const [setupDifficulty, setSetupDifficulty] = useState<SetupDifficulty | null>(null);
     const [question, setQuestion] = useState<SmartQuestion | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [userAnswer, setUserAnswer] = useState("");
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -61,6 +88,41 @@ function SmartPracticeContent() {
     const [ratings, setRatings] = useState<number[]>([]);
     const [done, setDone] = useState(false);
 
+    const fixedDifficulty = setupDifficulty && setupDifficulty !== "adaptive" ? setupDifficulty : null;
+
+    /** 固定难度时优先从待做题库取题（同考点+同难度），池空返回 null */
+    const takeFromPool = useCallback(async (): Promise<SmartQuestion | null> => {
+        if (!fixedDifficulty || !tagId) return null;
+        const pool = await apiClient
+            .get<{ questions: Array<{ id: string }> }>(
+                `/api/practice/questions?status=pending&channel=smart&tagId=${encodeURIComponent(tagId)}&difficulty=${fixedDifficulty}&pageSize=1`
+            )
+            .catch(() => null);
+        const hit = pool?.questions?.[0];
+        if (!hit) return null;
+        const full = await apiClient.get<PoolQuestion>(`/api/practice/questions/${hit.id}`);
+        return {
+            questionText: full.questionText,
+            answerText: full.answerText || "",
+            analysis: full.analysis || "",
+            subject: (full.subject || undefined) as ParsedQuestion["subject"],
+            knowledgePoints: [],
+            wrongAnswerText: "",
+            mistakeAnalysis: "",
+            mistakeStatus: "unknown",
+            requiresImage: false,
+            questionId: full.id,
+            meta: {
+                tagId,
+                tagName,
+                primaryErrorItemId: full.errorItemId || null,
+                difficulty: full.difficulty,
+                elo: typeof full.eloRating === "number" ? { rating: full.eloRating, attempts: 0 } : undefined,
+                source: "weakness",
+            },
+        };
+    }, [fixedDifficulty, tagId, tagName]);
+
     const generate = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -70,7 +132,22 @@ function SmartPracticeContent() {
         setIsCorrect(null);
         setSavedToNotebook(false);
         try {
-            const data = await apiClient.post<SmartQuestion>("/api/practice/smart", { tagId }, { timeout: 180000 });
+            // 池里有匹配的存题直接取用（零生成成本）
+            const pooled = await takeFromPool().catch(() => null);
+            if (pooled) {
+                setQuestion(pooled);
+                if (typeof pooled.meta?.elo?.rating === "number") {
+                    setRatings(prev => [...prev, pooled.meta!.elo!.rating]);
+                }
+                setLoading(false);
+                return;
+            }
+
+            const data = await apiClient.post<SmartQuestion>(
+                "/api/practice/smart",
+                { tagId, difficulty: fixedDifficulty || undefined },
+                { timeout: 180000 }
+            );
             setQuestion(data);
             if (typeof data.meta?.elo?.rating === "number") {
                 setRatings(prev => [...prev, data.meta!.elo!.rating]);
@@ -80,16 +157,50 @@ function SmartPracticeContent() {
         } finally {
             setLoading(false);
         }
-    }, [tagId]);
-
-    // 首题加载
-    useEffect(() => {
-        if (tagId) generate();
-    }, [tagId, generate]);
+    }, [tagId, fixedDifficulty, takeFromPool]);
 
     // 选择题：从题干解析选项、从参考答案解析正确项（解析失败则回退自由作答）
     const choice = question ? parseChoiceOptions(question.questionText) : null;
     const correctLabel = question ? parseCorrectOption(question.answerText) : null;
+
+    // 从待做题库「去做」直达答题：加载指定的题库题
+    const pooledQuestionId = searchParams.get("questionId");
+    useEffect(() => {
+        if (!pooledQuestionId || !tagId) return;
+        setLoading(true);
+        apiClient.get<PoolQuestion>(`/api/practice/questions/${pooledQuestionId}`)
+            .then(full => {
+                setSetupDifficulty((full.difficulty as SetupDifficulty) || "medium");
+                setQuestion({
+                    questionText: full.questionText,
+                    answerText: full.answerText || "",
+                    analysis: full.analysis || "",
+                    subject: (full.subject || undefined) as ParsedQuestion["subject"],
+                    knowledgePoints: [],
+                    wrongAnswerText: "",
+                    mistakeAnalysis: "",
+                    mistakeStatus: "unknown",
+                    requiresImage: false,
+                    questionId: full.id,
+                    meta: {
+                        tagId,
+                        tagName,
+                        primaryErrorItemId: full.errorItemId || null,
+                        difficulty: full.difficulty,
+                        elo: typeof full.eloRating === "number" ? { rating: full.eloRating, attempts: 0 } : undefined,
+                        source: "weakness",
+                    },
+                });
+                setPhase("running");
+                if (typeof full.eloRating === "number") {
+                    setRatings(prev => [...prev, full.eloRating as number]);
+                }
+            })
+            .catch(e => {
+                setError(e?.message || "题目加载失败，请回到待做题库重试");
+            })
+            .finally(() => setLoading(false));
+    }, [pooledQuestionId, tagId, tagName]);
 
     const recordResult = async (match: boolean) => {
         setIsCorrect(match);
@@ -97,10 +208,11 @@ function SmartPracticeContent() {
         try {
             const res = await apiClient.post<{ savedErrorItemId?: string | null }>("/api/practice/record", {
                 subject: question?.subject || "Unknown",
-                difficulty: question?.meta?.difficulty || "medium",
+                difficulty: question?.meta?.difficulty || fixedDifficulty || "medium",
                 isCorrect: match,
                 tagId: question?.meta?.tagId || tagId,
                 errorItemId: question?.meta?.primaryErrorItemId || undefined,
+                questionId: question?.questionId || undefined,
                 questionText: question?.questionText || undefined,
                 answerText: question?.answerText || undefined,
                 analysis: question?.analysis || undefined,
@@ -151,6 +263,12 @@ function SmartPracticeContent() {
         await generate();
     };
 
+    const startSession = () => {
+        if (!setupDifficulty) return;
+        setPhase("running");
+        generate();
+    };
+
     const restart = async () => {
         const ok = await confirmDialog({ description: "开始新的一组练习？当前小结将被清空。" });
         if (!ok) return;
@@ -163,7 +281,7 @@ function SmartPracticeContent() {
 
     const handleBack = async () => {
         if (results.length > 0 && results.length < SESSION_TOTAL) {
-            const ok = await confirmDialog({ description: "练习尚未完成，确定离开吗？" });
+            const ok = await confirmDialog({ description: "练习尚未完成。已生成的题目会保留在待做题库，确定离开吗？" });
             if (!ok) return;
         }
         router.push("/stats");
@@ -173,11 +291,60 @@ function SmartPracticeContent() {
     const lastRating = ratings[ratings.length - 1] ?? 1200;
     const correctCount = results.filter(Boolean).length;
 
+    const renderSetup = () => (
+        <Card className="max-w-2xl mx-auto">
+            <CardHeader className="items-center text-center">
+                <CardTitle>开始专项练习 · {tagName}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                    连续 {SESSION_TOTAL} 题，作答后自动进入下一题；先选好难度
+                </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2 justify-center">
+                    {DIFFICULTY_OPTIONS.map(d => (
+                        <button
+                            key={d.value}
+                            type="button"
+                            onClick={() => setSetupDifficulty(d.value)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
+                                setupDifficulty === d.value
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border text-muted-foreground hover:bg-muted"
+                            }`}
+                        >
+                            {d.label}
+                        </button>
+                    ))}
+                </div>
+                {!setupDifficulty && (
+                    <p className="text-xs text-center text-muted-foreground">
+                        先选一个难度（自适应按你的能力值实时调难度），不会自动出题
+                    </p>
+                )}
+                <Button className="w-full" disabled={!setupDifficulty || loading} onClick={startSession}>
+                    {loading ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />正在出题…
+                        </>
+                    ) : (
+                        "开始会话"
+                    )}
+                </Button>
+                <p className="text-xs text-center text-muted-foreground">
+                    生成的题会自动存入待做题库，做不做都不丢；有存题时优先做存题，不花生成费
+                </p>
+            </CardContent>
+        </Card>
+    );
+
     const renderBody = () => {
         if (!tagId) {
             return (
                 <div className="p-8 text-center text-muted-foreground">缺少考点参数，请从统计中心进入专项练习。</div>
             );
+        }
+        if (phase === "setup") {
+            return renderSetup();
         }
         if (done) {
             const allCorrect = correctCount === SESSION_TOTAL;
@@ -211,8 +378,12 @@ function SmartPracticeContent() {
                     <CardContent className="flex flex-col items-center gap-4 py-12">
                         <Loader2 className="h-10 w-10 animate-spin text-primary" />
                         <div className="text-center">
-                            <p className="font-semibold">AI 正在针对薄弱点出题</p>
-                            <p className="text-sm text-muted-foreground mt-1">结合你的错题与错因，定向生成</p>
+                            <p className="font-semibold">
+                                {fixedDifficulty ? "正在取题" : "AI 正在针对薄弱点出题"}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                {fixedDifficulty ? "优先取出待做题库里的存题" : "结合你的错题与错因，定向生成"}
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
@@ -224,7 +395,7 @@ function SmartPracticeContent() {
                     <CardContent className="flex flex-col items-center gap-4 py-12">
                         <p className="text-destructive text-center">{error}</p>
                         <Button variant="outline" onClick={generate}>
-                            <RefreshCw className="mr-2 h-4 w-4" />重新生成
+                            <RefreshCw className="mr-2 h-4 w-4" />重新出题
                         </Button>
                     </CardContent>
                 </Card>
@@ -240,6 +411,7 @@ function SmartPracticeContent() {
                                 <span className="text-xs font-normal text-muted-foreground">
                                     {question.meta?.source === "review_due" ? "到期复习题" : "薄弱点专项"}
                                     {question.meta?.elo ? ` · 能力值 ${question.meta.elo.rating}` : ""}
+                                    {question.questionId ? " · 题库存题" : ""}
                                 </span>
                             </CardTitle>
                         </CardHeader>
@@ -349,11 +521,11 @@ function SmartPracticeContent() {
                         专项练习 · {tagName}
                     </h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        针对薄弱点定向出题，难度随你的作答自动调整
+                        {fixedDifficulty ? `固定难度出题，优先做待做题库的存题` : "针对薄弱点定向出题，难度随你的作答自动调整"}
                     </p>
                 </div>
             </div>
-            {results.length > 0 && !done && (
+            {phase === "running" && results.length > 0 && !done && (
                 <div className="mb-4 max-w-2xl mx-auto">
                     <Progress value={(results.length / SESSION_TOTAL) * 100} className="h-2" />
                     <p className="text-xs text-muted-foreground mt-1 text-right">

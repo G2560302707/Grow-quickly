@@ -184,6 +184,7 @@ export async function POST(req: Request) {
                     paperLevel: paperLevel,
                     geogebraCommands: geogebraCommands || null,
                     masteryLevel: 0,
+                    sourceType: "manual", // 拍照/手动录入的真错题
                     tags: {
                         connect: tagConnections,
                     },

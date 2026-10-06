@@ -274,6 +274,7 @@ async function handleSubmit() {
 /* ---------- 反馈表单 ---------- */
 .fb-types {
 	display: flex;
+	justify-content: center;
 	gap: 16rpx;
 	margin-bottom: 24rpx;
 }

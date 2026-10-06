@@ -54,6 +54,8 @@ interface ImportData {
         source: string | null;
         errorType: string | null;
         userNotes: string | null;
+        origin?: string | null;
+        sourceType?: string | null;
         masteryLevel: number;
         gradeSemester: string | null;
         paperLevel: string | null;
@@ -75,6 +77,12 @@ interface ImportData {
         subject: string | null;
         difficulty: string | null;
         isCorrect: boolean | null;
+        errorItemId?: string | null;
+        tagId?: string | null;
+        channel?: string | null;
+        questionText?: string | null;
+        answerText?: string | null;
+        analysis?: string | null;
         createdAt: string;
     }>;
 }
@@ -265,6 +273,9 @@ export async function POST(req: Request) {
                         source: item.source,
                         errorType: item.errorType,
                         userNotes: item.userNotes,
+                        // 导入数据沿用与迁移一致的推导规则：有 origin 即练习收录，否则手动
+                        origin: item.origin ?? null,
+                        sourceType: item.origin ? "practice" : "manual",
                         masteryLevel: safeMasteryLevel(item.masteryLevel),
                         gradeSemester: item.gradeSemester,
                         paperLevel: item.paperLevel,
@@ -334,6 +345,13 @@ export async function POST(req: Request) {
                         subject: record.subject,
                         difficulty: record.difficulty,
                         isCorrect: record.isCorrect,
+                        // 归因与快照字段完整回环：锚题/考点映射到导入后的新 ID
+                        errorItemId: record.errorItemId ? (errorItemIdMap.get(record.errorItemId) ?? null) : null,
+                        tagId: record.tagId ? (tagIdMap.get(record.tagId) ?? null) : null,
+                        channel: record.channel ?? null,
+                        questionText: record.questionText ?? null,
+                        answerText: record.answerText ?? null,
+                        analysis: record.analysis ?? null,
                         createdAt: safeParseDate(record.createdAt),
                     },
                 });

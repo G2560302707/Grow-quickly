@@ -50,6 +50,15 @@
 			}
 		},
 		{
+			"path": "pages/profile/data-manage",
+			"style": {
+				"navigationBarTitleText": "数据导入导出",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
 			"path": "pages/items/items",
 			"style": {
 				"navigationBarTitleText": "错题列表",
@@ -99,6 +108,16 @@
 			"path": "pages/practice/history",
 			"style": {
 				"navigationBarTitleText": "练习记录",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
+			"path": "pages/practice/pool",
+			"style": {
+				"navigationBarTitleText": "待做题库",
+				"enablePullDownRefresh": true,
 				"navigationBarTextStyle": "black",
 				"navigationBarBackgroundColor": "#ffffff",
 				"backgroundColor": "#f4f5fa"

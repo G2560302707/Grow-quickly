@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { requireAdmin } from "@/lib/auth-utils";
 import { unauthorized, forbidden, badRequest, internalError } from "@/lib/api-errors";
 import { createLogger } from "@/lib/logger";
+import { sendFeedbackNotification } from "@/lib/mailer";
 
 const logger = createLogger('api:feedback');
 
@@ -49,6 +50,16 @@ export async function POST(req: Request) {
                 content,
                 contact: contact || null,
             },
+        });
+
+        // 邮件通知管理员（fire-and-forget）：配置了 SMTP 才发，失败只记日志不阻塞反馈
+        void sendFeedbackNotification({
+            type: feedback.type,
+            content: feedback.content,
+            contact: feedback.contact,
+            userName: user.name,
+            userEmail: user.email,
+            createdAt: feedback.createdAt.toISOString(),
         });
 
         return NextResponse.json({ success: true, id: feedback.id }, { status: 201 });

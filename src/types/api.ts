@@ -136,6 +136,15 @@ export interface AppConfig {
     timeouts?: {
         analyze?: number; // 毫秒
     };
+    smtp?: {
+        host: string;
+        port?: number;
+        secure?: boolean;
+        user: string;
+        pass: string;
+        to?: string;
+        enabled?: boolean;
+    };
 }
 
 
@@ -152,6 +161,10 @@ export interface PracticeStatsData {
     activityStats: { date: string; total: number; correct: number;[key: string]: number | string }[];
     difficultyStats: { name: string; value: number }[];
     overallStats: { total: number; correct: number; rate: string };
+    channelStats?: {
+        free: { total: number; correct: number; rate: number };
+        reinforced: { total: number; correct: number; rate: number };
+    };
 }
 
 export interface TagStats {

@@ -171,10 +171,12 @@
 				<text class="stat-label">连续打卡(天)</text>
 			</view>
 			<view class="stat-divider" />
-			<view class="stat-item stat-item-tap" hover-class="hv" @tap="pickExamDate">
-				<text class="stat-num num">{{ examDaysLeft === null ? "—" : examDaysLeft }}</text>
-				<text class="stat-label">{{ examDaysLeft === null ? "设置考试日" : "距考试(天)" }}</text>
-			</view>
+			<picker class="stat-item" mode="date" :value="examTarget || todayStr" @change="onExamDateChange">
+				<view class="stat-item-inner" hover-class="hv">
+					<text class="stat-num num">{{ examDaysLeft === null ? "—" : examDaysLeft }}</text>
+					<text class="stat-label">{{ examDaysLeft === null ? "设置考试日" : "距考试(天)" }}</text>
+				</view>
+			</picker>
 		</view>
 	</view>
 </template>
@@ -477,23 +479,19 @@ function loadStats() {
 		.catch(() => {});
 }
 
-function pickExamDate() {
-	uni.showModal({
-		title: "设置目标考试日",
-		editable: true,
-		placeholderText: "格式：2026-11-30（国考/省考笔试日）",
-		content: examTarget.value,
-		success: (res) => {
-			if (!res.confirm) return;
-			const v = (res.content || "").trim();
-			if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-				if (v) uni.showToast({ title: "日期格式应为 2026-11-30", icon: "none" });
-				return;
-			}
-			examTarget.value = v;
-			uni.setStorageSync(EXAM_DATE_KEY, v);
-		},
-	});
+/** 原生日期选择器取值（YYYY-MM-DD），不再用文本弹窗手输日期 */
+const todayStr = (() => {
+	const d = new Date();
+	const p = (n: number) => String(n).padStart(2, "0");
+	return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+})();
+
+function onExamDateChange(e: any) {
+	const v = (e?.detail?.value || "").trim();
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+	examTarget.value = v;
+	uni.setStorageSync(EXAM_DATE_KEY, v);
+	uni.showToast({ title: "考试日已设置", icon: "none" });
 }
 
 function fmtMinutes(seconds: number): number {
@@ -869,6 +867,12 @@ onUnmounted(stopTimers);
 }
 .stat-item-tap {
 	position: relative;
+}
+.stat-item-inner {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8rpx;
 }
 .stat-num {
 	font-size: 40rpx;

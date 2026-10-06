@@ -25,6 +25,7 @@ export interface ErrorItem {
     mistakeAnalysis: string | null;
     mistakeStatus?: string | null;
     origin?: string | null; // 来源渠道: similar/smart/practice
+    sourceType?: string | null; // 数据大类: manual(拍照/手动) / practice(练习收录)
     userNotes: string | null;
     masteryLevel: number;
     gradeSemester?: string | null;
@@ -99,6 +100,10 @@ export interface PracticeStats {
     activityStats: { date: string; total: number; correct: number }[];
     difficultyStats: { name: string; value: number }[];
     overallStats: { total?: number; correct?: number; rate?: number | string };
+    channelStats?: {
+        free: { total: number; correct: number; rate: number };
+        reinforced: { total: number; correct: number; rate: number };
+    };
 }
 
 /** 完整练习统计（学习统计页使用，复用网页端已有接口） */
@@ -153,6 +158,7 @@ export function getWeaknessReport(): Promise<WeaknessReport> {
 export type SmartDifficulty = "easy" | "medium" | "hard" | "harder";
 
 export interface SmartQuestion extends ParsedQuestion {
+    questionId?: string | null; // 生成即入库的题库题 ID
     meta?: {
         mode: string;
         tagId: string;
@@ -234,6 +240,7 @@ export function listErrorItems(params: {
     subjectId?: string;
     query?: string;
     mastery?: "0" | "1";
+    sourceType?: "manual" | "practice";
     page?: number;
     pageSize?: number;
 }): Promise<Paginated<ErrorItem>> {
@@ -291,7 +298,7 @@ export function analyzeImage(imageBase64: string, subjectId?: string): Promise<P
 export function generatePractice(
     errorItemId: string,
     difficulty: "easy" | "medium" | "hard" = "medium"
-): Promise<ParsedQuestion> {
+): Promise<ParsedQuestion & { questionId?: string | null }> {
     return request("/api/practice/generate", {
         method: "POST",
         data: { errorItemId, language: "zh", difficulty },
@@ -308,6 +315,8 @@ export interface PracticeRecordItem {
     analysis?: string;
     errorItemId?: string;
     tagId?: string;
+    channel?: string; // free/similar/smart（历史数据由迁移回填）
+    questionId?: string;
     tag?: { name: string };
     createdAt: string;
 }
@@ -324,6 +333,7 @@ export function recordPractice(
     attribution?: {
         tagId?: string;
         errorItemId?: string;
+        questionId?: string; // 题库题作答：后端联动题库状态并以其归因为权威
         questionText?: string;
         answerText?: string;
         analysis?: string;
@@ -334,6 +344,76 @@ export function recordPractice(
         method: "POST",
         data: { subject, difficulty, isCorrect, ...(attribution || {}) },
     });
+}
+
+// ---------- 练习题库（生成即入库，待做/已做/已弃） ----------
+
+export type PracticeChannel = "free" | "similar" | "smart";
+export type PracticeQuestionStatus = "pending" | "answered" | "discarded";
+
+export interface PracticeQuestionItem {
+    id: string;
+    channel: PracticeChannel;
+    difficulty: string;
+    subject?: string | null;
+    tagId?: string | null;
+    errorItemId?: string | null;
+    questionText: string;
+    answerText?: string | null;
+    eloRating?: number | null;
+    status: PracticeQuestionStatus;
+    isCorrect?: boolean | null;
+    answeredAt?: string | null;
+    createdAt: string;
+    tag?: { name: string } | null;
+    errorItem?: { id: string; questionText: string | null } | null;
+}
+
+export function listPracticeQuestions(params: {
+    status?: PracticeQuestionStatus | "all";
+    channel?: PracticeChannel;
+    difficulty?: string;
+    tagId?: string;
+    errorItemId?: string;
+    page?: number;
+    pageSize?: number;
+} = {}): Promise<{
+    total: number;
+    page: number;
+    pageSize: number;
+    pendingCount: number;
+    questions: PracticeQuestionItem[];
+}> {
+    const qs = Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== "" && v !== null)
+        .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+        .join("&");
+    return request("/api/practice/questions" + (qs ? "?" + qs : ""));
+}
+
+export function getPracticeQuestion(id: string): Promise<PracticeQuestionItem> {
+    return request(`/api/practice/questions/${id}`);
+}
+
+/** 不做这道（软删，可恢复）/ 恢复待做 */
+export function patchPracticeQuestion(id: string, action: "discard" | "restore"): Promise<PracticeQuestionItem> {
+    return request(`/api/practice/questions/${id}`, { method: "PATCH", data: { action } });
+}
+
+// ---------- 数据导入导出 ----------
+
+/** 导入备份（POST /api/import，body 为导出的完整 JSON；合并语义，重复自动跳过） */
+export interface ImportStats {
+    subjectsCreated: number;
+    tagsCreated: number;
+    errorItemsCreated: number;
+    reviewSchedulesCreated: number;
+    practiceRecordsCreated: number;
+    tagsLinked: number;
+}
+
+export function importUserData(data: unknown): Promise<{ success?: boolean; stats?: ImportStats }> {
+    return request("/api/import", { method: "POST", data });
 }
 
 // ---------- 专注（番茄钟/模考掐表） ----------
@@ -361,13 +441,21 @@ export function getFocusStats(): Promise<FocusStats> {
     return request("/api/focus/stats");
 }
 
-/** 练习记录列表（分页倒序），用于练习历史窗口 */
-export function listPracticeRecords(params: { page?: number; pageSize?: number } = {}): Promise<{
+/** 练习记录列表（分页倒序），用于练习历史窗口；channel 可按渠道筛选 */
+export function listPracticeRecords(params: {
+    page?: number;
+    pageSize?: number;
+    channel?: PracticeChannel;
+} = {}): Promise<{
     total: number;
     page: number;
     pageSize: number;
     records: PracticeRecordItem[];
 }> {
-    const query = `?page=${params.page || 1}&pageSize=${params.pageSize || 20}`;
-    return request("/api/practice/records" + query);
+    const qs = [
+        `page=${params.page || 1}`,
+        `pageSize=${params.pageSize || 20}`,
+        ...(params.channel ? [`channel=${params.channel}`] : []),
+    ].join("&");
+    return request("/api/practice/records?" + qs);
 }

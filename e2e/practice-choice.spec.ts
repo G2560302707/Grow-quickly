@@ -41,6 +41,11 @@ test('选择题以按钮作答并自动判分', async ({ page }) => {
 
     await page.goto('/practice/smart?tagId=e2e-tag');
 
+    // 出题面板：先选难度，点「开始会话」才出题（不自动生成）
+    await expect(page.getByRole('button', { name: /开始会话/ })).toBeDisabled();
+    await page.getByRole('button', { name: '中等', exact: true }).click();
+    await page.getByRole('button', { name: /开始会话/ }).click();
+
     // 题干剥离选项行后展示，选项渲染为 4 个可点按钮
     await expect(page.getByText('研究样本存在偏差')).toBeVisible();
     const options = page.getByRole('radio');

@@ -71,6 +71,15 @@
 				<text class="menu-text">帮助与反馈</text>
 				<text class="menu-arrow">›</text>
 			</view>
+			<view class="menu-item" hover-class="hv" @tap="goDataManage">
+				<view class="menu-icon menu-icon-blue">
+					<view class="glyph-arrows">
+						<text class="glyph-arrows-text">⇅</text>
+					</view>
+				</view>
+				<text class="menu-text">数据导入导出</text>
+				<text class="menu-arrow">›</text>
+			</view>
 			<view class="menu-item" hover-class="hv" @tap="goProfileEdit">
 				<view class="menu-icon menu-icon-brand">
 					<view class="glyph-user">
@@ -139,6 +148,10 @@ function goFeedback() {
 
 function goProfileEdit() {
 	uni.navigateTo({ url: "/pages/profile-edit/profile-edit" });
+}
+
+function goDataManage() {
+	uni.navigateTo({ url: "/pages/profile/data-manage" });
 }
 
 function handleLogout() {
@@ -342,6 +355,17 @@ function handleLogout() {
 	border-bottom: none;
 	border-radius: 12rpx 12rpx 0 0;
 	margin-top: 4rpx;
+}
+.glyph-arrows {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.glyph-arrows-text {
+	font-size: 30rpx;
+	font-weight: 700;
+	color: var(--brand-600);
+	line-height: 1;
 }
 .glyph-book {
 	position: relative;

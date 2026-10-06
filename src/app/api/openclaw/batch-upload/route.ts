@@ -176,6 +176,7 @@ async function createErrorItem(
             answerText: answerText || null,
             analysis: analysis || null,
             knowledgePoints: JSON.stringify(tagNames),
+            sourceType: "manual", // agent 拍照录入视为手动来源
             gradeSemester: finalGradeSemester,
             paperLevel: null,
             errorType: errorType || null,

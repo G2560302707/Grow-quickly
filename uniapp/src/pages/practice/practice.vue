@@ -1,13 +1,61 @@
 <template>
 	<view class="page">
-		<view v-if="loading" class="card loading-card">
+		<!-- 出题面板：先选难度，点按钮才出题（不自动生成、不默认出题） -->
+		<template v-if="phase === 'setup'">
+			<view class="card setup-card fade-up">
+				<view class="setup-head">
+					<text class="setup-title">{{ setupTitle }}</text>
+					<text class="setup-sub">{{ setupSub }}</text>
+				</view>
+
+				<view class="setup-block">
+					<text class="setup-label">{{ sessionMode ? "会话难度（5 题一组）" : "选择难度" }}</text>
+					<view class="diff-row">
+						<view
+							v-for="d in setupDifficulties"
+							:key="d.value"
+							class="diff-chip"
+							:class="{ 'diff-chip-active': setupDifficulty === d.value }"
+							hover-class="hv"
+							@tap="setupDifficulty = d.value"
+						>
+							{{ d.label }}
+						</view>
+					</view>
+					<text v-if="!setupDifficulty" class="setup-hint">先选一个难度（自适应模式按你的能力值实时调难度）</text>
+				</view>
+
+				<view class="setup-actions">
+					<button
+						class="btn-primary setup-btn"
+						:disabled="!setupDifficulty || setupLoading"
+						hover-class="button-hover"
+						@tap="startPractice(false)"
+					>
+						{{ setupLoading ? "正在出题…" : sessionMode ? "开始会话" : "开始练习" }}
+					</button>
+					<button
+						v-if="setupDifficulty"
+						class="btn-outline setup-btn"
+						:disabled="setupLoading"
+						hover-class="button-hover"
+						@tap="startPractice(true)"
+					>
+						{{ setupLoading ? "正在生成…" : "跳过存题，生成新题" }}
+					</button>
+				</view>
+				<text class="setup-note">生成的题会自动存入待做题库，做不做都不丢；有存题时优先做存题，不花生成费</text>
+			</view>
+		</template>
+
+		<view v-else-if="loading" class="card loading-card">
 			<view class="ai-indicator">
 				<view class="ai-dot" />
 				<view class="ai-dot ai-dot-2" />
 				<view class="ai-dot ai-dot-3" />
 			</view>
-			<text class="loading-title">{{ smartMode ? "AI 正在针对薄弱点出题" : "AI 正在出题" }}</text>
-			<text class="loading-sub">{{ smartMode ? "结合你的错题与错因，定向生成" : "根据你的错题定制同类练习" }}</text>
+			<text class="loading-title">{{ fromPool ? "正在取出待做题" : smartMode ? "AI 正在针对薄弱点出题" : "AI 正在出题" }}</text>
+			<text class="loading-sub">{{ fromPool ? "题库里有没做完的题，直接取用" : smartMode ? "结合你的错题与错因，定向生成" : "根据你的错题定制同类练习" }}</text>
 			<view v-if="sessionMode" class="session-progress">
 				<text class="session-progress-text num">{{ Math.min(sessionIndex + 1, sessionTotal) }} / {{ sessionTotal }}</text>
 			</view>
@@ -18,7 +66,7 @@
 		<view v-else-if="errorMsg" class="card error-card">
 			<view class="error-glyph">!</view>
 			<text class="error-msg">{{ errorMsg }}</text>
-			<button class="btn-outline retry-btn" hover-class="button-hover" @tap="generate">重新生成</button>
+			<button class="btn-outline retry-btn" hover-class="button-hover" @tap="retry">重新出题</button>
 		</view>
 
 		<!-- 会话小结 -->
@@ -48,22 +96,6 @@
 		</template>
 
 		<template v-else-if="question">
-			<!-- 难度选择（会话模式由 Elo 自适应，隐藏手动选择） -->
-			<view v-if="!sessionMode" class="seg-wrap">
-				<view class="seg">
-					<view
-						v-for="d in difficulties"
-						:key="d.value"
-						class="seg-item"
-						:class="{ 'seg-item-active': difficulty === d.value }"
-						hover-class="hv"
-						@tap="switchDifficulty(d.value)"
-					>
-						{{ d.label }}
-					</view>
-				</view>
-			</view>
-
 			<view class="card fade-up">
 				<view class="section-head">
 					<text class="section-title">练习题</text>
@@ -196,14 +228,24 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
-import { generatePractice, recordPractice, smartGenerate, type ParsedQuestion, type SmartQuestion } from "@/api";
+import {
+	generatePractice,
+	recordPractice,
+	smartGenerate,
+	listPracticeQuestions,
+	getPracticeQuestion,
+	type ParsedQuestion,
+	type SmartQuestion,
+} from "@/api";
 import { parseChoiceOptions, parseCorrectOption } from "@/utils/practice-choice";
 import MdView from "@/components/MdView.vue";
 
+/** 全部难度档位（与网页端对齐，多了"挑战"）；自适应仅在会话模式作为附加选项 */
 const difficulties = [
 	{ value: "easy", label: "简单" },
 	{ value: "medium", label: "中等" },
 	{ value: "hard", label: "困难" },
+	{ value: "harder", label: "挑战" },
 ] as const;
 
 const SESSION_TOTAL = 5;
@@ -214,9 +256,9 @@ const subjectName = ref("其他");
 const question = ref<SmartQuestion | null>(null);
 const answer = ref("");
 const revealed = ref(false);
-const loading = ref(true);
+const loading = ref(false);
 const errorMsg = ref("");
-const difficulty = ref<"easy" | "medium" | "hard">("medium");
+const difficulty = ref<"easy" | "medium" | "hard" | "harder">("medium");
 
 // 选择题：解析出的选项与作答状态
 const selectedOption = ref<number | null>(null);
@@ -226,6 +268,31 @@ const finished = ref(false);
 const lastSavedErrorItemId = ref<string | null>(null);
 const choice = computed(() => (question.value ? parseChoiceOptions(question.value.questionText) : null));
 const correctLabel = computed(() => parseCorrectOption(question.value?.answerText));
+
+// ---------- 出题面板状态 ----------
+// phase=setup：先选难度再出题（不自动生成）；phase=answering：答题流程
+const phase = ref<"setup" | "answering">("setup");
+const setupDifficulty = ref<"easy" | "medium" | "hard" | "harder" | "adaptive" | "">("");
+const setupLoading = ref(false);
+/** 当前题是否取自待做题库（用于提示与重试语义） */
+const fromPool = ref(false);
+/** 会话中每题的取题偏好：固定难度时池优先，自适应时直接生成 */
+const sessionAdaptive = computed(() => sessionMode.value && setupDifficulty.value === "adaptive");
+
+const setupDifficulties = computed(() =>
+	sessionMode.value ? [...difficulties, { value: "adaptive" as const, label: "自适应" }] : difficulties
+);
+
+const setupTitle = computed(() =>
+	smartMode.value ? `薄弱点专项 · ${subjectName.value}` : errorItemId.value ? `举一反三 · ${subjectName.value}` : "自由练习"
+);
+const setupSub = computed(() =>
+	sessionMode.value
+		? "连续 5 题，作答后自动进入下一题"
+		: smartMode.value
+			? "针对这个考点定向出题，先把难度选好"
+			: "先把难度选好，再点开始练习"
+);
 
 function selectOption(idx: number) {
 	if (revealed.value) return;
@@ -286,10 +353,131 @@ onLoad((query) => {
 			sessionIndex.value = 1;
 		}
 	}
-	generate();
+	// 从待做题库「去做」直达答题：加载指定的题库题，不出题面板
+	const pooledId = (query?.questionId as string) || "";
+	if (pooledId) {
+		phase.value = "answering";
+		loading.value = true;
+		getPracticeQuestion(pooledId)
+			.then((q) => {
+				if (q.tag?.name) subjectName.value = q.tag.name;
+				else if (q.subject) subjectName.value = q.subject;
+				// 带入难度上下文：之后「再来一题」取题/生成保持同一难度口径
+				if (q.difficulty && q.difficulty !== "adaptive") {
+					setupDifficulty.value = q.difficulty as typeof setupDifficulty.value;
+					difficulty.value = q.difficulty as typeof difficulty.value;
+				}
+				applyPooledQuestion(q);
+				fromPool.value = true;
+			})
+			.catch((e: any) => {
+				errorMsg.value = e?.message || "题目加载失败";
+			})
+			.finally(() => {
+				loading.value = false;
+			});
+		return;
+	}
+	// 不再自动出题：进入出题面板，由用户选难度后手动开始
+	phase.value = "setup";
 });
 
-async function generate() {
+/** 出题面板 → 开始练习/会话。forceNew=true 跳过题库存题直接生成 */
+async function startPractice(forceNew: boolean) {
+	if (!setupDifficulty.value || setupLoading.value) return;
+	phase.value = "answering";
+	loading.value = true;
+	await nextQuestion(forceNew);
+}
+
+/** 重试：沿用上一次的取题偏好 */
+function retry() {
+	errorMsg.value = "";
+	if (sessionMode.value) {
+		loading.value = true;
+		nextQuestion(false);
+	} else {
+		loading.value = true;
+		fetchOrGenerate(false);
+	}
+}
+
+/** 取一题：优先从待做题库取（同渠道+同难度+同上下文），池空或要求新题才调 AI 生成 */
+async function fetchOrGenerate(forceNew: boolean): Promise<boolean> {
+	const fixed = setupDifficulty.value === "adaptive" ? null : (setupDifficulty.value as "easy" | "medium" | "hard" | "harder");
+	if (!forceNew && fixed) {
+		try {
+			const pool = await listPracticeQuestions({
+				status: "pending",
+				channel: smartMode.value ? "smart" : "similar",
+				difficulty: fixed,
+				...(smartMode.value && smartTagId.value ? { tagId: smartTagId.value } : {}),
+				...(!smartMode.value && errorItemId.value ? { errorItemId: errorItemId.value } : {}),
+				pageSize: 1,
+			});
+			const hit = pool.questions[0];
+			if (hit) {
+				const full = await getPracticeQuestion(hit.id);
+				applyPooledQuestion(full);
+				fromPool.value = true;
+				uni.showToast({ title: "已从待做题库取题", icon: "none" });
+				return true;
+			}
+		} catch (e) {
+			// 题库查询失败不阻塞生成路径
+		}
+	}
+
+	fromPool.value = false;
+	try {
+		if (smartMode.value) {
+			const res = await smartGenerate({
+				tagId: smartTagId.value,
+				difficulty: sessionMode.value && !fixed ? undefined : fixed || undefined,
+			});
+			question.value = res;
+			if (typeof res.meta?.difficulty === "string") {
+				difficulty.value = res.meta.difficulty as typeof difficulty.value;
+			}
+			if (sessionMode.value && typeof res.meta?.elo?.rating === "number") {
+				sessionRatings.value.push(res.meta.elo.rating);
+			}
+		} else {
+			question.value = await generatePractice(errorItemId.value, fixed || "medium");
+		}
+		if (fixed) difficulty.value = fixed;
+		return true;
+	} catch (e: any) {
+		errorMsg.value = e?.message || "生成练习题失败";
+		return false;
+	}
+}
+
+/** 把题库题适配成答题界面需要的形状 */
+function applyPooledQuestion(q: any) {
+	const meta = q.channel === "smart"
+		? {
+			mode: "weakness",
+			tagId: q.tagId || smartTagId.value,
+			tagName: q.tag?.name || subjectName.value,
+			primaryErrorItemId: q.errorItemId || null,
+			difficulty: q.difficulty,
+			elo: typeof q.eloRating === "number" ? { rating: q.eloRating, attempts: 0 } : undefined,
+			source: "weakness",
+		}
+		: undefined;
+	question.value = {
+		questionText: q.questionText,
+		answerText: q.answerText || undefined,
+		analysis: q.analysis || undefined,
+		subject: q.subject || undefined,
+		questionId: q.id,
+		meta,
+	};
+}
+
+/** 会话推进 / 首题加载：记录上一题结果后取下一题 */
+async function nextQuestion(forceNew: boolean) {
 	loading.value = true;
 	errorMsg.value = "";
 	revealed.value = false;
@@ -298,30 +486,12 @@ async function generate() {
 	autoResult.value = null;
 	finished.value = false;
 	lastSavedErrorItemId.value = null;
-	try {
-		if (smartMode.value) {
-			const res = await smartGenerate({
-				tagId: smartTagId.value,
-				difficulty: sessionMode.value ? undefined : difficulty.value,
-			});
-			question.value = res;
-			if (sessionMode.value && typeof res.meta?.elo?.rating === "number") {
-				sessionRatings.value.push(res.meta.elo.rating);
-			}
-		} else {
-			question.value = await generatePractice(errorItemId.value, difficulty.value);
-		}
-	} catch (e: any) {
-		errorMsg.value = e?.message || "生成练习题失败";
-	} finally {
-		loading.value = false;
+	const ok = await fetchOrGenerate(forceNew);
+	loading.value = false;
+	if (!ok) return;
+	if (sessionMode.value) {
+		sessionIndex.value = sessionResults.value.length + 1;
 	}
-}
-
-function switchDifficulty(value: "easy" | "medium" | "hard") {
-	if (difficulty.value === value) return;
-	difficulty.value = value;
-	generate();
 }
 
 async function record(isCorrect: boolean) {
@@ -345,17 +515,20 @@ async function record(isCorrect: boolean) {
 		question.value = null;
 		return;
 	}
-	sessionIndex.value += 1;
-	await generate();
+	await nextQuestion(false);
 }
 
-/** 上报练习记录（含题目与解析快照，答错时后端会自动收录错题本并返回错题 ID） */
+/** 上报练习记录（题库题带 questionId 联动状态，答错时后端会自动收录错题本并返回错题 ID） */
 async function doRecord(isCorrect: boolean): Promise<boolean> {
-	const meta = smartMode.value ? question.value?.meta : null;
+	const meta = question.value?.meta;
 	try {
-		const res = await recordPractice(subjectName.value, difficulty.value, isCorrect, {
-			tagId: meta?.tagId,
-			errorItemId: meta?.primaryErrorItemId || undefined,
+		const res = await recordPractice(subjectName.value, question.value?.meta?.difficulty || difficulty.value, isCorrect, {
+			tagId: smartMode.value ? (meta?.tagId || smartTagId.value) : undefined,
+			// 举一反三锚定入口带入的原错题；专项模式用后端返回的锚题
+			errorItemId: smartMode.value
+				? (meta?.primaryErrorItemId || undefined)
+				: (errorItemId.value || undefined),
+			questionId: question.value?.questionId || undefined,
 			questionText: question.value?.questionText || undefined,
 			answerText: question.value?.answerText || undefined,
 			analysis: question.value?.analysis || undefined,
@@ -370,8 +543,10 @@ async function doRecord(isCorrect: boolean): Promise<boolean> {
 	}
 }
 
+/** 再来一题：优先做待做题库里的存题（零成本），池空才生成新题 */
 function practiceAgain() {
-	generate();
+	loading.value = true;
+	nextQuestion(false);
 }
 
 function finishPractice() {
@@ -382,7 +557,8 @@ function restartSession() {
 	sessionResults.value = [];
 	sessionRatings.value = [];
 	sessionIndex.value = 1;
-	generate();
+	loading.value = true;
+	nextQuestion(false);
 }
 
 function finishSession() {
@@ -760,4 +936,77 @@ function finishSession() {
 	color: var(--danger-600);
 	border-color: rgba(217, 58, 69, 0.3);
 }
+
+/* ---------- 出题面板 ---------- */
+.setup-card {
+	display: flex;
+	flex-direction: column;
+	padding: 36rpx 32rpx;
+	gap: 28rpx;
+}
+.setup-head {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10rpx;
+	text-align: center;
+}
+.setup-title {
+	font-size: 34rpx;
+	font-weight: 700;
+	color: var(--ink-900);
+}
+.setup-sub {
+	font-size: 24rpx;
+	color: var(--ink-400);
+}
+.setup-block {
+	display: flex;
+	flex-direction: column;
+	gap: 16rpx;
+}
+.setup-label {
+	font-size: 26rpx;
+	font-weight: 600;
+	color: var(--ink-700);
+}
+.diff-row {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 16rpx;
+}
+.diff-chip {
+	font-size: 26rpx;
+	color: var(--ink-600);
+	background: var(--bg-fill);
+	border-radius: 999rpx;
+	padding: 14rpx 34rpx;
+	border: 2rpx solid transparent;
+}
+.diff-chip-active {
+	color: var(--brand-600);
+	background: var(--brand-50);
+	border-color: var(--brand-600);
+	font-weight: 600;
+}
+.setup-hint {
+	font-size: 22rpx;
+	color: var(--ink-400);
+	text-align: center;
+}
+.setup-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 16rpx;
+}
+.setup-btn {
+	width: 100%;
+}
+.setup-note {
+	font-size: 22rpx;
+	color: var(--ink-400);
+	line-height: 1.6;
+}
+
 </style>

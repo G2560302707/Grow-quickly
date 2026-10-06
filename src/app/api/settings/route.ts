@@ -27,6 +27,8 @@ function maskConfig(config: AppConfig): AppConfig {
         },
         gemini: { ...config.gemini, apiKey: config.gemini?.apiKey ? MASKED_KEY : '' },
         azure: { ...config.azure, apiKey: config.azure?.apiKey ? MASKED_KEY : '' },
+        // SMTP 凭据同样不下发给普通用户
+        smtp: undefined,
     };
 }
 
@@ -78,6 +80,11 @@ export async function POST(req: Request) {
         // For Azure, preserve original key if masked
         if (body.azure?.apiKey === MASKED_KEY) {
             body.azure.apiKey = currentConfig.azure?.apiKey;
+        }
+
+        // For SMTP, preserve original pass if masked
+        if (body.smtp?.pass === MASKED_KEY) {
+            body.smtp.pass = currentConfig.smtp?.pass || '';
         }
 
         const updatedConfig = updateAppConfig(body);

@@ -41,6 +41,25 @@ export interface AppConfig {
     timeouts?: {
         analyze?: number; // 毫秒
     };
+    smtp?: {
+        host: string;
+        port?: number;     // 默认 465（secure）或 587
+        secure?: boolean;  // true=SSL(465)，false=STARTTLS(587) 或不加密
+        user: string;      // 发件邮箱账号
+        pass: string;      // 授权码/密码
+        to?: string;       // 收件邮箱，缺省发给 user 自己
+        enabled?: boolean; // 关闭后仅保存配置不发通知
+    };
+}
+
+/** 反馈邮件通知的载荷 */
+export interface FeedbackNotificationPayload {
+    type: string;      // feature | bug | other
+    content: string;
+    contact?: string | null;
+    userName?: string | null;
+    userEmail?: string;
+    createdAt: string;
 }
 
 // 旧版 OpenAI 配置格式（用于迁移检测）

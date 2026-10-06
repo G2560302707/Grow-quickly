@@ -4,16 +4,49 @@
 			<view v-for="i in 3" :key="'sk' + i" class="skel sk-line" :class="i === 1 ? 'sk-lg' : 'sk-md'" />
 		</view>
 
-		<view v-else-if="!records.length && !loading" class="card empty-card">
+		<view v-else-if="!records.length && !loading && channelFilter === ''" class="card empty-card">
 			<text class="empty-title">还没有练习记录</text>
 			<text class="empty-sub">做完一道练习题，这里就会留下痕迹</text>
 		</view>
 
 		<template v-else>
+			<!-- 待做题库入口：生成的题都保留在这里，等著你做 -->
+			<view class="card pool-entry fade-up" hover-class="card-hover" @tap="goPool">
+				<view class="pool-entry-left">
+					<text class="pool-title">待做题库</text>
+					<text class="pool-sub">生成的题都保留在这里，不做也不丢</text>
+				</view>
+				<view class="pool-entry-right">
+					<text class="pool-count num">{{ pendingCount }}</text>
+					<text class="pool-count-unit">待做</text>
+				</view>
+			</view>
+
 			<view class="card total-card fade-up">
 				<text class="total-text">共 <text class="num total-num">{{ total }}</text> 次练习</text>
 				<text class="total-sub">练过的题都在这里，答错的已自动收进错题本</text>
 			</view>
+
+			<!-- 渠道筛选：练习数据按来源分开看 -->
+			<view class="filter-row fade-up">
+				<view
+					v-for="c in channelTabs"
+					:key="c.value"
+					class="chip"
+					:class="{ 'chip-active': channelFilter === c.value }"
+					hover-class="hv"
+					@tap="switchChannel(c.value)"
+				>
+					{{ c.label }}
+				</view>
+			</view>
+
+			<template v-if="!records.length && !loading">
+				<view class="card empty-card">
+					<text class="empty-title">该渠道还没有练习记录</text>
+					<text class="empty-sub">换个渠道看看，或去做几题</text>
+				</view>
+			</template>
 
 			<view
 				v-for="r in records"
@@ -44,13 +77,27 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { onReachBottom } from "@dcloudio/uni-app";
-import { listPracticeRecords, type PracticeRecordItem } from "@/api";
+import { onReachBottom, onShow } from "@dcloudio/uni-app";
+import {
+	listPracticeRecords,
+	listPracticeQuestions,
+	type PracticeRecordItem,
+	type PracticeChannel,
+} from "@/api";
 
 const PAGE_SIZE = 20;
 
+const channelTabs = [
+	{ value: "", label: "全部" },
+	{ value: "free" as const, label: "自由练习" },
+	{ value: "similar" as const, label: "举一反三" },
+	{ value: "smart" as const, label: "薄弱点专项" },
+];
+
 const records = ref<PracticeRecordItem[]>([]);
 const total = ref(0);
+const pendingCount = ref(0);
+const channelFilter = ref<PracticeChannel | "">("");
 const page = ref(1);
 const loading = ref(true);
 const loadingMore = ref(false);
@@ -61,7 +108,11 @@ async function load(reset = false) {
 		loading.value = true;
 	}
 	try {
-		const res = await listPracticeRecords({ page: page.value, pageSize: PAGE_SIZE });
+		const res = await listPracticeRecords({
+			page: page.value,
+			pageSize: PAGE_SIZE,
+			channel: channelFilter.value || undefined,
+		});
 		total.value = res.total;
 		records.value = reset ? res.records : [...records.value, ...res.records];
 	} catch (e: any) {
@@ -72,6 +123,26 @@ async function load(reset = false) {
 	}
 }
 
+/** 待做题库入口计数 */
+async function loadPending() {
+	try {
+		const res = await listPracticeQuestions({ status: "pending", pageSize: 1 });
+		pendingCount.value = res.pendingCount;
+	} catch (e) {
+		// 入口计数失败不打断列表
+	}
+}
+
+function switchChannel(v: PracticeChannel | "") {
+	if (channelFilter.value === v) return;
+	channelFilter.value = v;
+	load(true);
+}
+
+function goPool() {
+	uni.navigateTo({ url: "/pages/practice/pool" });
+}
+
 onReachBottom(() => {
 	if (loading.value || loadingMore.value) return;
 	if (records.value.length >= total.value) return;
@@ -80,10 +151,16 @@ onReachBottom(() => {
 	load();
 });
 
-/** 来源渠道：tagId → 薄弱点专项，errorItemId → 举一反三，其余 → 自由练习 */
+onShow(() => {
+	load(true);
+	loadPending();
+});
+
+/** 渠道标签：优先用后端固化的 channel 字段，异常时兜底按归因推导 */
 function sourceLabel(r: PracticeRecordItem): string {
-	if (r.tagId) return r.tag?.name ? `薄弱点专项 · ${r.tag.name}` : "薄弱点专项";
-	if (r.errorItemId) return "举一反三";
+	const c = r.channel || (r.tagId ? "smart" : r.errorItemId ? "similar" : "free");
+	if (c === "smart") return r.tag?.name ? `薄弱点专项 · ${r.tag.name}` : "薄弱点专项";
+	if (c === "similar") return "举一反三";
 	return "自由练习";
 }
 
@@ -104,11 +181,43 @@ function formatDate(iso?: string): string {
 function openSource(r: PracticeRecordItem) {
 	uni.navigateTo({ url: `/pages/practice/record-detail?id=${r.id}` });
 }
-
-load(true);
 </script>
 
 <style scoped>
+.pool-entry {
+	display: flex;
+	align-items: center;
+	padding: 28rpx 32rpx;
+}
+.pool-entry-left {
+	display: flex;
+	flex-direction: column;
+	gap: 6rpx;
+	flex: 1;
+}
+.pool-title {
+	font-size: 30rpx;
+	font-weight: 700;
+	color: var(--ink-900);
+}
+.pool-sub {
+	font-size: 22rpx;
+	color: var(--ink-400);
+}
+.pool-entry-right {
+	display: flex;
+	align-items: baseline;
+	gap: 6rpx;
+}
+.pool-count {
+	font-size: 44rpx;
+	font-weight: 700;
+	color: var(--brand-600);
+}
+.pool-count-unit {
+	font-size: 22rpx;
+	color: var(--ink-400);
+}
 .total-card {
 	display: flex;
 	flex-direction: column;
@@ -126,6 +235,27 @@ load(true);
 	font-size: 24rpx;
 	color: var(--ink-400);
 	margin-top: 8rpx;
+}
+.filter-row {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 14rpx;
+	margin-bottom: 6rpx;
+}
+.chip {
+	font-size: 24rpx;
+	color: var(--ink-600);
+	background: var(--bg-card);
+	border-radius: 999rpx;
+	padding: 10rpx 26rpx;
+	border: 2rpx solid var(--line-100);
+}
+.chip-active {
+	color: var(--brand-600);
+	background: var(--brand-50);
+	border-color: var(--brand-600);
+	font-weight: 600;
 }
 
 .record-card {

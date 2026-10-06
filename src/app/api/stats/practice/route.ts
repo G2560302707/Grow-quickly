@@ -87,6 +87,33 @@ export async function GET(req: Request) {
             where: { userId, isCorrect: true }
         });
 
+        // 5. 渠道双轨口径：自由练习 vs 错题强化（举一反三 + 薄弱点专项）
+        // 定向复习的答对率与新鲜练习不同质，分渠道才有意义
+        const channelRows = await prisma.practiceRecord.groupBy({
+            by: ['channel'],
+            where: { userId },
+            _count: { id: true }
+        });
+        const correctRows = await Promise.all(["free", "similar", "smart"].map(channel =>
+            prisma.practiceRecord.count({ where: { userId, channel, isCorrect: true } })
+        ));
+        const correctByChannel: Record<string, number> = {
+            free: correctRows[0],
+            similar: correctRows[1],
+            smart: correctRows[2],
+        };
+        const buildStat = (channels: (string | null)[]) => {
+            const total = channelRows
+                .filter(r => channels.includes(r.channel))
+                .reduce((sum, r) => sum + r._count.id, 0);
+            const correct = channels.reduce((sum, c) => sum + (correctByChannel[c as string] || 0), 0);
+            return {
+                total,
+                correct,
+                rate: total > 0 ? Number((correct / total * 100).toFixed(1)) : 0
+            };
+        };
+
         return NextResponse.json({
             subjectStats: subjectStats.map(s => ({ name: s.subject || 'Unknown', value: s._count.id })),
             activityStats: chartData,
@@ -95,6 +122,10 @@ export async function GET(req: Request) {
                 total: totalRecords,
                 correct: correctRecords,
                 rate: totalRecords > 0 ? (correctRecords / totalRecords * 100).toFixed(1) : 0
+            },
+            channelStats: {
+                free: buildStat(["free"]),
+                reinforced: buildStat(["similar", "smart"])
             }
         });
 

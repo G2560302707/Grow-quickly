@@ -20,7 +20,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw, Plus, Zap, CheckCircle2, XCircle, Download, Upload, BarChart3 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Settings, Trash2, Loader2, AlertTriangle, Save, Eye, EyeOff, Languages, User, Bot, Shield, RefreshCw, Plus, Zap, CheckCircle2, XCircle, Download, Upload, BarChart3, Mail, Send } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -73,6 +74,8 @@ export function SettingsDialog() {
 
     // AI 连接测试状态
     const [testing, setTesting] = useState(false);
+    const [smtpTesting, setSmtpTesting] = useState(false);
+    const [smtpTestResult, setSmtpTestResult] = useState<{ ok: boolean; message: string } | null>(null);
     const [testResult, setTestResult] = useState<{
         success: boolean;
         textSupport: boolean;
@@ -180,6 +183,30 @@ export function SettingsDialog() {
             return t.settings?.ai?.validationApiKeyRequired || 'API Key is required';
         }
         return null;
+    };
+
+    /** 更新邮件通知表单（smtp 节整体合并） */
+    const updateSmtp = (patch: Partial<NonNullable<AppConfig["smtp"]>>) => {
+        setConfig(prev => ({
+            ...prev,
+            smtp: { host: "", user: "", pass: "", ...(prev.smtp || {}), ...patch },
+        }));
+    };
+
+    /** 用当前表单值（未保存也可）发送测试邮件 */
+    const handleSmtpTest = async () => {
+        setSmtpTesting(true);
+        setSmtpTestResult(null);
+        try {
+            const res = await apiClient.post<{ ok: boolean; message: string }>("/api/settings/smtp-test", {
+                smtp: config.smtp,
+            });
+            setSmtpTestResult(res);
+        } catch (e: any) {
+            setSmtpTestResult({ ok: false, message: e?.message || "测试请求失败" });
+        } finally {
+            setSmtpTesting(false);
+        }
     };
 
     const handleSaveSettings = async () => {
@@ -675,7 +702,7 @@ export function SettingsDialog() {
                 </DialogHeader>
 
                 <Tabs defaultValue="general" className="w-full">
-                    <TabsList className={`grid w-full grid-cols-4 ${(session?.user as any)?.role === 'admin' ? 'sm:grid-cols-9' : 'sm:grid-cols-4'} gap-1 h-auto`}>
+                    <TabsList className={`grid w-full grid-cols-4 ${(session?.user as any)?.role === 'admin' ? 'sm:grid-cols-10' : 'sm:grid-cols-4'} gap-1 h-auto`}>
                         <TabsTrigger value="general" className="px-2 sm:px-3">
                             <Languages className="h-4 w-4 sm:mr-2" />
                             <span className="hidden sm:inline">{t.settings?.tabs?.general || "General"}</span>
@@ -705,6 +732,10 @@ export function SettingsDialog() {
                                 <TabsTrigger value="feedback" className="px-2 sm:px-3">
                                     <MessageSquareText className="h-4 w-4 sm:mr-2" />
                                     <span className="hidden sm:inline">反馈管理</span>
+                                </TabsTrigger>
+                                <TabsTrigger value="email" className="px-2 sm:px-3">
+                                    <Mail className="h-4 w-4 sm:mr-2" />
+                                    <span className="hidden sm:inline">邮件通知</span>
                                 </TabsTrigger>
                             </>
                         )}
@@ -1279,6 +1310,104 @@ export function SettingsDialog() {
                         (session?.user as any)?.role === 'admin' && (
                             <TabsContent value="feedback" className="py-4">
                                 <FeedbackManagement />
+                            </TabsContent>
+                        )
+                    }
+
+                    {/* Email Notification Tab (admin) */}
+                    {
+                        (session?.user as any)?.role === 'admin' && (
+                            <TabsContent value="email" className="space-y-4 py-4">
+                                <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div>
+                                            <Label>启用反馈邮件通知</Label>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                用户在"帮助与反馈"提交内容后，立即推送到你的邮箱；关闭后仅保存配置
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={config.smtp?.enabled !== false}
+                                            onCheckedChange={(v) => updateSmtp({ enabled: v })}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>SMTP 主机</Label>
+                                            <Input
+                                                placeholder="smtp.qq.com / smtp.163.com"
+                                                value={config.smtp?.host || ""}
+                                                onChange={(e) => updateSmtp({ host: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>端口</Label>
+                                            <Input
+                                                type="number"
+                                                placeholder="465（SSL）或 587（STARTTLS）"
+                                                value={config.smtp?.port ?? ""}
+                                                onChange={(e) => updateSmtp({ port: e.target.value ? parseInt(e.target.value, 10) : undefined })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>发件邮箱账号</Label>
+                                            <Input
+                                                placeholder="you@qq.com"
+                                                value={config.smtp?.user || ""}
+                                                onChange={(e) => updateSmtp({ user: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>授权码 / 密码</Label>
+                                            <Input
+                                                type="password"
+                                                placeholder="邮箱设置里生成的 SMTP 授权码"
+                                                value={config.smtp?.pass || ""}
+                                                onChange={(e) => updateSmtp({ pass: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>收件邮箱（可选）</Label>
+                                            <Input
+                                                placeholder="缺省发到发件邮箱自己"
+                                                value={config.smtp?.to || ""}
+                                                onChange={(e) => updateSmtp({ to: e.target.value || undefined })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>加密方式</Label>
+                                            <div className="flex items-center gap-2 h-10">
+                                                <Switch
+                                                    checked={config.smtp?.secure ?? true}
+                                                    onCheckedChange={(v) => updateSmtp({ secure: v })}
+                                                />
+                                                <span className="text-sm text-muted-foreground">
+                                                    {(config.smtp?.secure ?? true) ? "SSL（465 端口）" : "STARTTLS / 不加密"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3">
+                                        <Button variant="outline" onClick={handleSmtpTest} disabled={smtpTesting}>
+                                            {smtpTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                            发送测试邮件
+                                        </Button>
+                                        {smtpTestResult && (
+                                            <span className={`text-sm ${(smtpTestResult as any).ok ? "text-green-600" : "text-destructive"}`}>
+                                                {(smtpTestResult as any).ok ? "✓ " : "✗ "}{(smtpTestResult as any).message}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        QQ/163 邮箱需在邮箱设置中开启 SMTP 服务并生成授权码；测试成功后记得点下方保存。
+                                    </p>
+                                </div>
+                                <Button onClick={handleSaveSettings} disabled={saving} className="w-full">
+                                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    {t.settings?.save || "Save Settings"}
+                                </Button>
                             </TabsContent>
                         )
                     }

@@ -30,6 +30,19 @@
 				</view>
 				<text class="filter-count num">共 {{ total }} 题</text>
 			</view>
+			<!-- 来源大类筛选：真错题与练习收录的题分开看 -->
+			<view class="filter-row">
+				<view
+					v-for="s in sourceFilters"
+					:key="s.value"
+					class="chip"
+					:class="{ 'chip-active': sourceTypeFilter === s.value }"
+					hover-class="hv"
+					@tap="switchSource(s.value)"
+				>
+					{{ s.label }}
+				</view>
+			</view>
 		</view>
 
 		<template v-if="loading && items.length === 0">
@@ -88,6 +101,12 @@ const masteryFilters = [
 	{ value: "1", label: "已掌握" },
 ] as const;
 
+const sourceFilters = [
+	{ value: "", label: "全部来源" },
+	{ value: "manual", label: "手动录入" },
+	{ value: "practice", label: "练习收录" },
+] as const;
+
 const subjectId = ref("");
 const items = ref<ErrorItem[]>([]);
 const page = ref(1);
@@ -100,6 +119,7 @@ const errorMsg = ref("");
 const searchText = ref("");
 const activeQuery = ref("");
 const masteryFilter = ref<"" | "0" | "1">("");
+const sourceTypeFilter = ref<"" | "manual" | "practice">("");
 
 onLoad((query) => {
 	subjectId.value = (query?.subjectId as string) || "";
@@ -127,6 +147,7 @@ async function refreshLoadedPages() {
 	if (refreshing.value || loading.value || loadingMore.value) return;
 	const targetPage = page.value;
 	const targetFilter = masteryFilter.value;
+	const targetSource = sourceTypeFilter.value;
 	refreshing.value = true;
 	try {
 		const results = await Promise.all(
@@ -135,13 +156,14 @@ async function refreshLoadedPages() {
 					subjectId: subjectId.value,
 					query: activeQuery.value || undefined,
 					mastery: (targetFilter || undefined) as "0" | "1" | undefined,
+					sourceType: (targetSource || undefined) as "manual" | "practice" | undefined,
 					page: i + 1,
 					pageSize: PAGE_SIZE,
 				})
 			)
 		);
 		// 请求期间页码或筛选变了则丢弃结果，避免覆盖新状态
-		if (targetPage !== page.value || targetFilter !== masteryFilter.value) return;
+		if (targetPage !== page.value || targetFilter !== masteryFilter.value || targetSource !== sourceTypeFilter.value) return;
 		items.value = results.flatMap(r => (Array.isArray(r?.items) ? r.items : []));
 		totalPages.value = results[0]?.totalPages ?? 1;
 		total.value = results[0]?.total ?? items.value.length;
@@ -157,6 +179,7 @@ async function fetchPage(targetPage: number, append: boolean) {
 		subjectId: subjectId.value,
 		query: activeQuery.value || undefined,
 		mastery: (masteryFilter.value || undefined) as "0" | "1" | undefined,
+		sourceType: (sourceTypeFilter.value || undefined) as "manual" | "practice" | undefined,
 		page: targetPage,
 		pageSize: PAGE_SIZE,
 	});
@@ -195,6 +218,12 @@ function clearSearch() {
 function switchFilter(value: "" | "0" | "1") {
 	if (masteryFilter.value === value) return;
 	masteryFilter.value = value;
+	loadFirstPage();
+}
+
+function switchSource(value: "" | "manual" | "practice") {
+	if (sourceTypeFilter.value === value) return;
+	sourceTypeFilter.value = value;
 	loadFirstPage();
 }
 
@@ -300,12 +329,17 @@ function masteryClass(level: number): string {
 }
 .filter-row {
 	display: flex;
+	justify-content: center;
 	align-items: center;
 	gap: 16rpx;
 	margin-top: 20rpx;
+	position: relative;
 }
 .filter-count {
-	margin-left: auto;
+	position: absolute;
+	right: 0;
+	top: 50%;
+	transform: translateY(-50%);
 	font-size: 22rpx;
 	color: var(--ink-400);
 }

@@ -145,7 +145,7 @@ export async function POST(req: Request) {
             })),
         });
 
-        // ---- 生成 + 去重：与锚题及近期生成题做二元组相似度检查，超阈值带提示重生成一次 ----
+        // ---- 生成 + 去重：与锚题、近期生成题及题库存题做二元组相似度检查，超阈值带提示重生成一次 ----
         const existingQuestions = [
             ...usable.map(a => a.questionText || ""),
             ...(await prisma.practiceRecord.findMany({
@@ -154,7 +154,14 @@ export async function POST(req: Request) {
                 take: 20,
                 select: { questionText: true },
             })).map(p => p.questionText || ""),
-        ].filter(q => q.trim().length > 0);
+            // 题库存量题（含待做）也参与去重：没做过的生成题同样不能重复生成，避免重复花钱
+            ...(await prisma.practiceQuestion.findMany({
+                where: { userId: user.id, tagId, status: { not: "discarded" } },
+                orderBy: { createdAt: "desc" },
+                take: 20,
+                select: { questionText: true },
+            })).map(q => q.questionText),
+        ].filter(q => q && q.trim().length > 0);
 
         const generateOnce = async (brief: string) =>
             getAIService().generateSimilarQuestion(brief, [tag.name], "zh", difficulty, primaryAnchor?.gradeSemester ?? null);
@@ -186,8 +193,30 @@ export async function POST(req: Request) {
             ? subjectName as typeof AI_SUBJECT_OPTIONS[number]
             : "其他";
 
+        // 生成即入库：题进待做题库（channel=smart），做不做都保留
+        let questionId: string | null = null;
+        if ((question.questionText || "").trim()) {
+            const saved = await prisma.practiceQuestion.create({
+                data: {
+                    userId: user.id,
+                    channel: "smart",
+                    difficulty,
+                    subject: subjectName,
+                    tagId: tag.id,
+                    errorItemId: primaryAnchor?.id ?? null,
+                    questionText: question.questionText || "",
+                    answerText: question.answerText ?? null,
+                    analysis: question.analysis ?? null,
+                    eloRating: Math.round(elo.rating),
+                },
+                select: { id: true },
+            });
+            questionId = saved.id;
+        }
+
         return NextResponse.json({
             ...question,
+            questionId,
             meta: {
                 mode: "weakness",
                 tagId: tag.id,

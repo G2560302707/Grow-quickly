@@ -16,14 +16,23 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { subject, difficulty, isCorrect, errorItemId, tagId, questionText, answerText, analysis, knowledgePoints } = await req.json();
+        const { subject, difficulty, isCorrect, errorItemId, tagId, questionId, questionText, answerText, analysis, knowledgePoints } = await req.json();
 
         // @ts-ignore
         const userId = session.user.id;
 
+        // 题库关联校验：questionId 必须属于当前用户；命中时其归因（锚题/考点/渠道）作为本次作答的权威来源
+        const ownedQuestion = typeof questionId === "string" && questionId
+            ? await prisma.practiceQuestion.findFirst({
+                  where: { id: questionId, userId },
+                  select: { id: true, channel: true, tagId: true, errorItemId: true },
+              })
+            : null;
+
         // 归因字段校验：仅接受属于当前用户的锚题 / 可访问的考点；非法值静默置空，不影响记录本身
-        let safeErrorItemId: string | null = null;
-        if (typeof errorItemId === "string" && errorItemId) {
+        // 传了题库 questionId 时优先用题库上的归因，客户端显式传参作为兜底
+        let safeErrorItemId: string | null = ownedQuestion?.errorItemId ?? null;
+        if (!safeErrorItemId && typeof errorItemId === "string" && errorItemId) {
             const owned = await prisma.errorItem.findFirst({
                 where: { id: errorItemId, userId },
                 select: { id: true },
@@ -31,8 +40,8 @@ export async function POST(req: Request) {
             safeErrorItemId = owned?.id ?? null;
         }
 
-        let safeTagId: string | null = null;
-        if (typeof tagId === "string" && tagId) {
+        let safeTagId: string | null = ownedQuestion?.tagId ?? null;
+        if (!safeTagId && typeof tagId === "string" && tagId) {
             const tag = await prisma.knowledgeTag.findFirst({
                 where: { id: tagId, OR: [{ userId }, { isSystem: true }] },
                 select: { id: true },
@@ -40,18 +49,39 @@ export async function POST(req: Request) {
             safeTagId = tag?.id ?? null;
         }
 
-        const record = await prisma.practiceRecord.create({
-            data: {
-                userId,
-                subject,
-                difficulty,
-                isCorrect,
-                errorItemId: safeErrorItemId,
-                tagId: safeTagId,
-                questionText: typeof questionText === "string" ? questionText.slice(0, 2000) : null,
-                answerText: typeof answerText === "string" ? answerText.slice(0, 4000) : null,
-                analysis: typeof analysis === "string" ? analysis.slice(0, 12000) : null,
-            },
+        // 渠道固化：题库题自带渠道；否则按归因推导（tagId → 薄弱点专项，errorItemId → 举一反三，其余 → 自由练习）
+        const channel = ownedQuestion?.channel ?? (safeTagId ? "smart" : safeErrorItemId ? "similar" : "free");
+
+        const record = await prisma.$transaction(async (tx) => {
+            const created = await tx.practiceRecord.create({
+                data: {
+                    userId,
+                    subject,
+                    difficulty,
+                    isCorrect,
+                    errorItemId: safeErrorItemId,
+                    tagId: safeTagId,
+                    channel,
+                    questionId: ownedQuestion?.id ?? null,
+                    questionText: typeof questionText === "string" ? questionText.slice(0, 2000) : null,
+                    answerText: typeof answerText === "string" ? answerText.slice(0, 4000) : null,
+                    analysis: typeof analysis === "string" ? analysis.slice(0, 12000) : null,
+                },
+            });
+
+            // 题库题随作答落定生命周期：pending -> answered
+            if (ownedQuestion) {
+                await tx.practiceQuestion.update({
+                    where: { id: ownedQuestion.id },
+                    data: {
+                        status: "answered",
+                        isCorrect: typeof isCorrect === "boolean" ? isCorrect : null,
+                        answeredAt: new Date(),
+                    },
+                });
+            }
+
+            return created;
         });
 
         // 练习答错自动收录错题本：AI 生成的练习题是一次性的，错题应沉淀进错题本并标注来源渠道
@@ -147,6 +177,7 @@ async function saveWrongQuestionToNotebook(input: {
             answerText,
             analysis,
             origin,
+            sourceType: "practice", // 练习答错自动收录的题在数据大类上归属"练习收录"
             mistakeStatus: "wrong_attempt",
             ...(tagConnections.length ? { tags: { connect: tagConnections } } : {}),
         },
