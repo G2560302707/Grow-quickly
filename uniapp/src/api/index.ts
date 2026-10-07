@@ -173,12 +173,17 @@ export interface SmartQuestion extends ParsedQuestion {
     };
 }
 
-/** 薄弱点定向出题（不传 tagId 时后端自动取诊断 Top1） */
+/** 薄弱点定向出题（不传 tagId 时后端自动取诊断 Top1）；count>1 为批量（一次 AI 调用生成一组，返回 { questions }） */
 export function smartGenerate(params: {
     tagId?: string;
     difficulty?: SmartDifficulty;
-}): Promise<SmartQuestion> {
-    return request("/api/practice/smart", { method: "POST", data: params });
+    count?: number;
+}, options?: { timeout?: number }): Promise<SmartQuestion & { questions?: SmartQuestion[] }> {
+    return request("/api/practice/smart", {
+        method: "POST",
+        data: params,
+        ...(options?.timeout ? { timeout: options.timeout } : {}),
+    });
 }
 
 // ---------- 系统公告 ----------

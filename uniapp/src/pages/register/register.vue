@@ -22,19 +22,31 @@
 			<template v-else>
 				<view class="field">
 					<text class="field-label">昵称</text>
-					<input v-model="name" class="field-input" type="text" placeholder="怎么称呼你" placeholder-class="ph" :maxlength="30" />
+					<view class="field-box">
+						<text v-if="!name" class="field-ph">怎么称呼你</text>
+						<input v-model="name" class="field-core" type="text" :maxlength="30" />
+					</view>
 				</view>
 				<view class="field">
 					<text class="field-label">邮箱</text>
-					<input v-model="email" class="field-input" type="text" placeholder="用于登录（如 name@example.com）" placeholder-class="ph" />
+					<view class="field-box">
+						<text v-if="!email" class="field-ph">用于登录（如 name@example.com）</text>
+						<input v-model="email" class="field-core" type="text" />
+					</view>
 				</view>
 				<view class="field">
 					<text class="field-label">密码</text>
-					<input v-model="password" class="field-input" type="password" password placeholder="至少 6 位" placeholder-class="ph" />
+					<view class="field-box">
+						<text v-if="!password" class="field-ph">至少 6 位</text>
+						<input v-model="password" class="field-core" type="password" password />
+					</view>
 				</view>
 				<view class="field">
 					<text class="field-label">确认密码</text>
-					<input v-model="confirmPassword" class="field-input" type="password" password placeholder="再输入一次密码" placeholder-class="ph" />
+					<view class="field-box">
+						<text v-if="!confirmPassword" class="field-ph">再输入一次密码</text>
+						<input v-model="confirmPassword" class="field-core" type="password" password />
+					</view>
 				</view>
 				<view v-if="errorMsg" class="error-tip reg-error">{{ errorMsg }}</view>
 				<button class="btn-primary submit-btn" :disabled="loading" hover-class="button-hover" @tap="handleRegister">
@@ -100,10 +112,6 @@ async function handleRegister() {
 			password: password.value,
 			name: name.value.trim(),
 		});
-		// 注册成功直接登录进入首页
-		await login(email.value.trim(), password.value);
-		uni.showToast({ title: "欢迎加入", icon: "success" });
-		uni.reLaunch({ url: "/pages/index/index" });
 	} catch (e: any) {
 		const msg = e?.message || "";
 		if (msg.includes("exists") || msg.includes("already") || msg.includes("409")) {
@@ -113,6 +121,17 @@ async function handleRegister() {
 		} else {
 			errorMsg.value = msg || "注册失败，请稍后重试";
 		}
+		loading.value = false;
+		return;
+	}
+	// 注册已成功。自动登录失败（如网络抖动）不掩盖成功事实，回登录页让用户手动登录
+	try {
+		await login(email.value.trim(), password.value);
+		uni.showToast({ title: "欢迎加入", icon: "success" });
+		uni.reLaunch({ url: "/pages/index/index" });
+	} catch {
+		uni.showToast({ title: "注册成功，请登录", icon: "none" });
+		uni.redirectTo({ url: "/pages/login/login" });
 	} finally {
 		loading.value = false;
 	}
@@ -245,6 +264,31 @@ function goLogin() {
 }
 .field {
 	margin-bottom: 28rpx;
+}
+/* 自绘占位：绕开开发者工具原生 placeholder 镜像渲染 bug（同 login 页） */
+.field-box {
+	position: relative;
+	background: var(--bg-fill);
+	border-radius: 16rpx;
+}
+.field-ph {
+	position: absolute;
+	left: 28rpx;
+	top: 0;
+	height: 88rpx;
+	line-height: 88rpx;
+	font-size: 28rpx;
+	color: var(--ink-300);
+}
+.field-core {
+	position: relative;
+	width: 100%;
+	height: 88rpx;
+	padding: 0 28rpx;
+	box-sizing: border-box;
+	font-size: 28rpx;
+	color: var(--ink-900);
+	background: transparent;
 }
 .field-label {
 	font-size: 24rpx;

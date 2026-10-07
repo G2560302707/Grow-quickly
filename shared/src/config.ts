@@ -40,6 +40,7 @@ export interface AppConfig {
     prompts?: {
         analyze?: string;
         similar?: string;
+        similarBatch?: string; // 举一反三批量出题（/api/practice/smart count>1）
         detect?: string; // 整页题目定位（/api/analyze/detect）
     };
     timeouts?: {
@@ -138,6 +139,7 @@ const DEFAULT_CONFIG: AppConfig = {
     prompts: {
         analyze: '',
         similar: '',
+        similarBatch: '',
         detect: '',
     },
     timeouts: {

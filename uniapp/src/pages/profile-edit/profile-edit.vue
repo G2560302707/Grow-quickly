@@ -18,7 +18,10 @@
 					<view class="field-head">
 						<text class="field-label">昵称</text>
 					</view>
-					<input v-model="name" class="field-input" type="text" placeholder="怎么称呼你" placeholder-class="ph" :maxlength="30" />
+					<view class="field-box">
+						<text v-if="!name" class="field-ph">怎么称呼你</text>
+						<input v-model="name" class="field-core" type="text" :maxlength="30" />
+					</view>
 				</view>
 
 				<view class="divider" />
@@ -28,13 +31,19 @@
 						<text class="field-label">新密码</text>
 						<text class="field-hint">留空表示不修改密码</text>
 					</view>
-					<input v-model="password" class="field-input" type="password" password placeholder="至少 6 位" placeholder-class="ph" />
+					<view class="field-box">
+						<text v-if="!password" class="field-ph">至少 6 位</text>
+						<input v-model="password" class="field-core" type="password" password />
+					</view>
 				</view>
 				<view v-if="password" class="field">
 					<view class="field-head">
 						<text class="field-label">确认新密码</text>
 					</view>
-					<input v-model="confirmPassword" class="field-input" type="password" password placeholder="再输入一次新密码" placeholder-class="ph" />
+					<view class="field-box">
+						<text v-if="!confirmPassword" class="field-ph">再输入一次新密码</text>
+						<input v-model="confirmPassword" class="field-core" type="password" password />
+					</view>
 				</view>
 
 				<view v-if="errorMsg" class="error-tip">{{ errorMsg }}</view>
@@ -129,6 +138,31 @@ async function handleSave() {
 }
 .field {
 	margin-bottom: 28rpx;
+}
+/* 自绘占位：绕开开发者工具原生 placeholder 镜像渲染 bug（同 login 页） */
+.field-box {
+	position: relative;
+	background: var(--bg-fill);
+	border-radius: 16rpx;
+}
+.field-ph {
+	position: absolute;
+	left: 28rpx;
+	top: 0;
+	height: 88rpx;
+	line-height: 88rpx;
+	font-size: 28rpx;
+	color: var(--ink-300);
+}
+.field-core {
+	position: relative;
+	width: 100%;
+	height: 88rpx;
+	padding: 0 28rpx;
+	box-sizing: border-box;
+	font-size: 28rpx;
+	color: var(--ink-900);
+	background: transparent;
 }
 .field-head {
 	display: flex;

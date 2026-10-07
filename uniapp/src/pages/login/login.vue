@@ -25,11 +25,17 @@
 			<text class="form-sub">使用注册邮箱登录，同步网页端全部数据</text>
 			<view class="field">
 				<text class="field-label">邮箱</text>
-				<input v-model="email" class="field-input" type="text" placeholder="请输入邮箱" placeholder-class="ph" />
+				<view class="field-box">
+					<text v-if="!email" class="field-ph">请输入邮箱</text>
+					<input v-model="email" class="field-core" type="text" />
+				</view>
 			</view>
 			<view class="field">
 				<text class="field-label">密码</text>
-				<input v-model="password" class="field-input" type="password" password placeholder="请输入密码" placeholder-class="ph" />
+				<view class="field-box">
+					<text v-if="!password" class="field-ph">请输入密码</text>
+					<input v-model="password" class="field-core" type="password" password />
+				</view>
 			</view>
 			<view v-if="errorMsg" class="error-tip login-error">{{ errorMsg }}</view>
 			<button class="btn-primary submit-btn" :disabled="loading" hover-class="button-hover" @tap="handleLogin">
@@ -221,6 +227,32 @@ function goRegister() {
 }
 .field {
 	margin-bottom: 32rpx;
+}
+/* 输入框采用「外壳 + 透明内核 + 自绘占位」结构：
+   微信开发者工具（部分 Windows 环境）渲染原生 placeholder 会镜像/裁切，自绘文字不受影响 */
+.field-box {
+	position: relative;
+	background: var(--bg-fill);
+	border-radius: 16rpx;
+}
+.field-ph {
+	position: absolute;
+	left: 28rpx;
+	top: 0;
+	height: 88rpx;
+	line-height: 88rpx;
+	font-size: 28rpx;
+	color: var(--ink-300);
+}
+.field-core {
+	position: relative;
+	width: 100%;
+	height: 88rpx;
+	padding: 0 28rpx;
+	box-sizing: border-box;
+	font-size: 28rpx;
+	color: var(--ink-900);
+	background: transparent;
 }
 .field-label {
 	font-size: 24rpx;

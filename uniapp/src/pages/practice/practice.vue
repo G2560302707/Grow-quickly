@@ -54,9 +54,9 @@
 				<view class="ai-dot ai-dot-2" />
 				<view class="ai-dot ai-dot-3" />
 			</view>
-			<text class="loading-title">{{ fromPool ? "正在取出待做题" : smartMode ? "AI 正在针对薄弱点出题" : "AI 正在出题" }}</text>
-			<text class="loading-sub">{{ fromPool ? "题库里有没做完的题，直接取用" : smartMode ? "结合你的错题与错因，定向生成" : "根据你的错题定制同类练习" }}</text>
-			<view v-if="sessionMode" class="session-progress">
+			<text class="loading-title">{{ sessionBatching ? "AI 正在一次性生成整组专项题" : fromPool ? "正在取出待做题" : smartMode ? "AI 正在针对薄弱点出题" : "AI 正在出题" }}</text>
+			<text class="loading-sub">{{ sessionBatching ? "批量生成更快，完成后自动开始答题" : fromPool ? "题库里有没做完的题，直接取用" : smartMode ? "结合你的错题与错因，定向生成" : "根据你的错题定制同类练习" }}</text>
+			<view v-if="sessionMode && !sessionBatching" class="session-progress">
 				<text class="session-progress-text num">{{ Math.min(sessionIndex + 1, sessionTotal) }} / {{ sessionTotal }}</text>
 			</view>
 			<view class="skel sk-line sk-lg" />
@@ -171,7 +171,7 @@
 						hover-class="button-hover"
 						@tap="finishResult"
 					>
-						{{ sessionResults.length + 1 >= SESSION_TOTAL ? "查看小结" : "下一题" }}
+						{{ sessionResults.length + 1 >= sessionTotal ? "查看小结" : "下一题" }}
 					</button>
 					<view v-else class="judge-row">
 						<button class="btn-outline judge-btn judge-wrong" hover-class="button-hover" @tap="record(false)">
@@ -249,7 +249,6 @@ const difficulties = [
 ] as const;
 
 const SESSION_TOTAL = 5;
-const sessionTotal = SESSION_TOTAL;
 
 const errorItemId = ref("");
 const subjectName = ref("其他");
@@ -326,17 +325,20 @@ const smartTagId = ref("");
 const sessionIndex = ref(0); // 当前第几题（1 起）
 const sessionResults = ref<boolean[]>([]);
 const sessionRatings = ref<number[]>([]);
+const sessionQueue = ref<any[]>([]);       // 批量生成的一组题，答题时本地依次弹出
+const sessionTotal = ref(SESSION_TOTAL);   // 会话实际题数（批量去重后可能少于 5）
+const sessionBatching = ref(false);        // 正在批量生成（加载层切换文案）
 
 const sessionCorrectCount = computed(() => sessionResults.value.filter(Boolean).length);
-const sessionDone = computed(() => sessionMode.value && sessionResults.value.length >= SESSION_TOTAL);
-const sessionAllCorrect = computed(() => sessionCorrectCount.value === SESSION_TOTAL);
+const sessionDone = computed(() => sessionMode.value && sessionResults.value.length >= sessionTotal.value);
+const sessionAllCorrect = computed(() => sessionCorrectCount.value === sessionTotal.value);
 const firstRating = computed(() => sessionRatings.value[0] ?? 1200);
 const lastRating = computed(() => sessionRatings.value[sessionRatings.value.length - 1] ?? 1200);
 const summaryTitle = computed(() =>
 	sessionAllCorrect ? "全对！这个考点已经拿下" : sessionCorrectCount.value >= 3 ? "进步明显，继续保持" : "这个考点还需要多练"
 );
 const summarySub = computed(() =>
-	`「${subjectName.value}」专项 ${SESSION_TOTAL} 题完成，难度已按你的作答自动调整`
+	`「${subjectName.value}」专项 ${sessionTotal.value} 题完成，难度已按你的作答自动调整`
 );
 
 onLoad((query) => {
@@ -386,8 +388,87 @@ onLoad((query) => {
 async function startPractice(forceNew: boolean) {
 	if (!setupDifficulty.value || setupLoading.value) return;
 	phase.value = "answering";
+	if (sessionMode.value) {
+		// 会话模式：一次性批量生成整组题（一次 AI 调用），答题时本地翻页
+		loading.value = true;
+		errorMsg.value = "";
+		sessionBatching.value = true;
+		const ok = await prefillSession(forceNew);
+		sessionBatching.value = false;
+		loading.value = false;
+		if (!ok) return;
+		await nextQuestion(false);
+		return;
+	}
 	loading.value = true;
 	await nextQuestion(forceNew);
+}
+
+/** 题库题塑形为会话答题所需的 SmartQuestion 形状 */
+function shapePooled(hit: any) {
+	return {
+		questionText: hit.questionText,
+		answerText: hit.answerText || "",
+		analysis: hit.analysis || "",
+		subject: hit.subject || undefined,
+		knowledgePoints: [] as string[],
+		wrongAnswerText: "",
+		mistakeAnalysis: "",
+		mistakeStatus: "unknown",
+		requiresImage: false,
+		questionId: hit.id,
+		meta: {
+			mode: "weakness",
+			tagId: hit.tagId || smartTagId.value,
+			tagName: hit.tag?.name || subjectName.value,
+			primaryErrorItemId: hit.errorItemId || null,
+			difficulty: hit.difficulty,
+			elo: typeof hit.eloRating === "number" ? { rating: hit.eloRating, attempts: 0 } : undefined,
+			source: "weakness",
+		},
+	};
+}
+
+/** 会话开始前批量备齐整组题：先从待做题库凑数（零成本），不足的一次 AI 批量补齐 */
+async function prefillSession(forceNew: boolean): Promise<boolean> {
+	const fixed = setupDifficulty.value === "adaptive" ? null : (setupDifficulty.value as "easy" | "medium" | "hard" | "harder");
+	const queue: any[] = [];
+	try {
+		if (!forceNew && fixed) {
+			const pool = await listPracticeQuestions({
+				status: "pending",
+				channel: "smart",
+				difficulty: fixed,
+				...(smartTagId.value ? { tagId: smartTagId.value } : {}),
+				pageSize: SESSION_TOTAL,
+			});
+			for (const hit of pool.questions.slice(0, SESSION_TOTAL)) {
+				queue.push(shapePooled(hit));
+			}
+		}
+		const need = SESSION_TOTAL - queue.length;
+		if (need > 0) {
+			// 一次 AI 调用补齐整组（批量出题），避免逐题串行等待
+			const res: any = await smartGenerate(
+				{ tagId: smartTagId.value, difficulty: fixed || undefined, count: need },
+				{ timeout: 300000 }
+			);
+			const batch = Array.isArray(res?.questions) ? res.questions : [];
+			for (const q of batch) {
+				if (q?.questionText) queue.push(q);
+			}
+		}
+	} catch (e: any) {
+		errorMsg.value = e?.message || "题目生成失败";
+		return false;
+	}
+	if (queue.length === 0) {
+		errorMsg.value = errorMsg.value || "题目生成失败，请稍后重试";
+		return false;
+	}
+	sessionQueue.value = queue;
+	sessionTotal.value = queue.length;
+	return true;
 }
 
 /** 重试：沿用上一次的取题偏好 */
@@ -431,16 +512,28 @@ async function fetchOrGenerate(forceNew: boolean): Promise<boolean> {
 	fromPool.value = false;
 	try {
 		if (smartMode.value) {
-			const res = await smartGenerate({
-				tagId: smartTagId.value,
-				difficulty: sessionMode.value && !fixed ? undefined : fixed || undefined,
-			});
-			question.value = res;
-			if (typeof res.meta?.difficulty === "string") {
-				difficulty.value = res.meta.difficulty as typeof difficulty.value;
-			}
-			if (sessionMode.value && typeof res.meta?.elo?.rating === "number") {
-				sessionRatings.value.push(res.meta.elo.rating);
+			if (sessionMode.value && sessionQueue.value.length > 0) {
+				// 会话模式：批量题本地弹出（瞬时），不再逐题调 AI
+				const res = sessionQueue.value.shift() as SmartQuestion;
+				question.value = res;
+				if (typeof res.meta?.difficulty === "string") {
+					difficulty.value = res.meta.difficulty as typeof difficulty.value;
+				}
+				if (typeof res.meta?.elo?.rating === "number") {
+					sessionRatings.value.push(res.meta.elo.rating);
+				}
+			} else {
+				const res = await smartGenerate({
+					tagId: smartTagId.value,
+					difficulty: fixed || undefined,
+				});
+				question.value = res;
+				if (typeof res.meta?.difficulty === "string") {
+					difficulty.value = res.meta.difficulty as typeof difficulty.value;
+				}
+				if (sessionMode.value && typeof res.meta?.elo?.rating === "number") {
+					sessionRatings.value.push(res.meta.elo.rating);
+				}
 			}
 		} else {
 			question.value = await generatePractice(errorItemId.value, fixed || "medium");
@@ -510,7 +603,7 @@ async function record(isCorrect: boolean) {
 
 	// 会话模式：记录结果后自动进入下一题 / 小结
 	sessionResults.value.push(isCorrect);
-	if (sessionResults.value.length >= SESSION_TOTAL) {
+	if (sessionResults.value.length >= sessionTotal.value) {
 		loading.value = false;
 		question.value = null;
 		return;
@@ -557,8 +650,16 @@ function restartSession() {
 	sessionResults.value = [];
 	sessionRatings.value = [];
 	sessionIndex.value = 1;
+	sessionQueue.value = [];
+	sessionTotal.value = SESSION_TOTAL;
 	loading.value = true;
-	nextQuestion(false);
+	errorMsg.value = "";
+	sessionBatching.value = true;
+	prefillSession(false).then((ok) => {
+		sessionBatching.value = false;
+		loading.value = false;
+		if (ok) nextQuestion(false);
+	});
 }
 
 function finishSession() {

@@ -117,6 +117,8 @@ export interface PromptOptions {
   prefetchedChemistryTags?: string[];
   prefetchedBiologyTags?: string[];
   prefetchedEnglishTags?: string[];
+  // 批量出题时注入的防重复旧题（仅批量模板使用）
+  recentQuestions?: string[];
 }
 
 export const DEFAULT_ANALYZE_TEMPLATE = `【角色与核心任务 (ROLE AND CORE TASK)】
@@ -225,6 +227,36 @@ export const DEFAULT_DETECT_TEMPLATE = `【角色与核心任务 (ROLE AND CORE 
 
 number 为题号数字；若题号非纯数字（如 "二、5"），number 填其中的数字，label 保留原文题号。
 如果图中没有可识别的题号（单题截图、无题号排版等），输出空数组 []`;
+
+/**
+ * 举一反三批量出题提示词：一次 AI 调用生成 N 道同考点变式题（JSON 数组输出）。
+ * 会话式练习用，替代逐题串行调用，速度与稳定性都更好。
+ */
+export const DEFAULT_SIMILAR_BATCH_TEMPLATE = `【角色与核心任务 (ROLE AND CORE TASK)】
+你是一位资深的**公务员考试（行测/申论）出题专家**。请根据给定的考点与原错题素材，一次性生成 {{question_count}} 道**同模块、同考点**的高质量变式训练题。
+
+【出题要求】
+1. 同模块同考点：模块与核心考点必须与素材中的原错题一致。
+2. 难度档位：{{difficulty}}
+3. {{question_count}} 道题之间题材、数字、选项结构必须各不相同，严禁互相重复，也严禁与素材里的旧题重复。
+4. 客观题必须有唯一正确选项；解析结构按「考点 → 选项排除 → 步骤 → 易错点」四段书写。
+5. 常识/时政避免依赖过新时政，必要时在答案注明「需人工核对」。
+
+【输出格式 (OUTPUT FORMAT)】
+你的响应必须**只有 JSON 数组**，不要 markdown 代码块标记，不要任何其他文字，恰好 {{question_count}} 个元素：
+[{"question_text":"题干，含全部选项，Markdown 格式，公式用 LaTeX，不要转义反斜杠","answer_text":"正确答案，客观题含选项字母","analysis":"详细解析，含考点/选项排除/步骤/易错点","knowledge_points":["考点1","考点2"]}]
+
+【考点与原错题素材】
+原题: "{{original_question}}"
+{{language_instruction}}
+DIFFICULTY LEVEL: {{difficulty_level}}
+Knowledge Points: {{knowledge_points}}
+
+【严禁与之重复的旧题】
+{{recent_questions}}
+
+{{grade_instruction}}
+{{provider_hints}}`;
 
 export const DEFAULT_SIMILAR_TEMPLATE = `你是一位资深的**公务员考试行测**出题专家。你的核心任务是根据原错题**举一反三**，生成一道同模块、同考点的高质量变式训练题，用于检验迁移掌握情况。
 
@@ -650,6 +682,49 @@ export function generateGeogebraPrompt(
     }
 
     return prompt;
+}
+
+/**
+ * 生成「举一反三」批量出题提示词（一次调用生成 count 道变式题，JSON 数组输出）
+ * @param language - 语言 ('zh' 或 'en')
+ * @param originalQuestion - 原错题/锚文本
+ * @param knowledgePoints - 考点标签
+ * @param difficulty - 难度
+ * @param count - 题目数量（1-5）
+ * @param options - 可选自定义模板与防重复旧题
+ */
+export function generateSimilarQuestionBatchPrompt(
+  originalQuestion: string,
+  knowledgePoints: string[],
+  language: 'zh' | 'en',
+  difficulty: 'easy' | 'medium' | 'hard' | 'harder',
+  count: number,
+  options?: PromptOptions,
+  gradeSemester?: string | null
+): string {
+  const langInstruction = language === 'zh'
+    ? "IMPORTANT: Provide the output based on the 'Original Question' language. 解析必须使用简体中文。"
+    : "Please ensure all fields are in English.";
+
+  const difficultyMap = {
+    'easy': "EASIER than the original. 更直白的数字与更弱的干扰项。",
+    'medium': "SAME difficulty as the original. 标准国考/省考难度。",
+    'hard': "HARDER than the original. 干扰更强或多一步推理/估算。",
+    'harder': "MUCH HARDER (Challenge Level). 更深理解与多步推理。"
+  };
+  const template = options?.customTemplate || DEFAULT_SIMILAR_BATCH_TEMPLATE;
+
+  return replaceVariables(template, {
+    question_count: String(count),
+    difficulty: difficultyMap[difficulty],
+    difficulty_level: difficulty.toUpperCase(),
+    language_instruction: langInstruction,
+    original_question: originalQuestion.replace(/"/g, '\\"').replace(/\n/g, '\\n'),
+    knowledge_points: knowledgePoints.join(", "),
+    recent_questions: (options?.recentQuestions || []).map(q => q.replace(/\s+/g, " ").slice(0, 80)).join("／") || "（无）",
+    grade_instruction: generateGradeInstruction(gradeSemester),
+    provider_hints: options?.providerHints || '',
+  }).trim();
 }
 
 /**

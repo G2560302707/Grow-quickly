@@ -84,3 +84,9 @@ prisma/dev.db.backup-*
 .zcode/
 
 config/app-config.json.bak*
+
+# 微信开发者工具在本机生成的项目配置（含本地设置，不入库）
+uniapp/project.config.json
+uniapp/project.private.config.json
+uniapp/src/project.config.json
+uniapp/src/project.private.config.json

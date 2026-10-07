@@ -31,6 +31,8 @@ export interface AIService {
     /** 整页题目定位：返回每道题的题号与百分比包围盒，供前端框选后走单题识别 */
     detectQuestions(imageBase64: string, mimeType?: string): Promise<DetectedQuestionFromSchema[]>;
     generateSimilarQuestion(originalQuestion: string, knowledgePoints: string[], language?: 'zh' | 'en', difficulty?: DifficultyLevel, gradeSemester?: string | null): Promise<ParsedQuestionFromSchema>;
+    /** 举一反三批量出题：一次 AI 调用生成 count 道同考点变式题 */
+    generateSimilarQuestions(brief: string, knowledgePoints: string[], language?: 'zh' | 'en', difficulty?: DifficultyLevel, count?: number, gradeSemester?: string | null): Promise<ParsedQuestionFromSchema[]>;
     reanswerQuestion(questionText: string, language?: 'zh' | 'en', subject?: string | null, imageBase64?: string, gradeSemester?: string | null): Promise<ReanswerQuestionResult>;
     analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult>;
 }

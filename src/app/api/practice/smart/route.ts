@@ -41,6 +41,8 @@ export async function POST(req: Request) {
     try {
         const body = await req.json().catch(() => ({}));
         const requestedDifficulty = DIFFICULTIES.includes(body?.difficulty) ? body.difficulty as Difficulty : null;
+        // 批量出题：count>1 时一次 AI 调用生成一组（会话模式），1 为默认单题
+        const requestedCount = Math.min(Math.max(Math.round(Number(body?.count)) || 1, 1), 5);
 
         let user;
         if (session.user?.email) {
@@ -165,6 +167,98 @@ export async function POST(req: Request) {
 
         const generateOnce = async (brief: string) =>
             getAIService().generateSimilarQuestion(brief, [tag.name], "zh", difficulty, primaryAnchor?.gradeSemester ?? null);
+
+        // ---- 批量出题：一次 AI 调用生成 requestedCount 道，批内互相去重，逐题入库 ----
+        if (requestedCount > 1) {
+            const generateBatch = async (brief: string) =>
+                getAIService().generateSimilarQuestions(brief, [tag.name], "zh", difficulty, requestedCount, primaryAnchor?.gradeSemester ?? null);
+
+            let batch = await generateBatch(anchorBrief);
+            let kept = batch.filter(q => {
+                const t = (q.questionText || "").trim();
+                return t && !existingQuestions.some(s => bigramSimilarity(t, s) >= DEDUP_THRESHOLD);
+            });
+
+            if (kept.length === 0) {
+                logger.info({ tagId, count: requestedCount }, 'Batch all duplicated, regenerating once with anti-dup instruction');
+                batch = await generateBatch(buildTargetedAnchor({
+                    tagName: tag.name,
+                    exemplars: usable.map(a => ({
+                        id: a.id,
+                        questionText: a.questionText,
+                        mistakeAnalysis: a.mistakeAnalysis,
+                        masteryLevel: a.masteryLevel,
+                    })),
+                    extraInstruction: "严禁与以下旧题在题干素材、数字或选项结构上重复：" + existingQuestions.slice(0, 3).map(q => q.slice(0, 80)).join("／"),
+                }));
+                const seen = [...existingQuestions];
+                kept = [];
+                for (const q of batch) {
+                    const t = (q.questionText || "").trim();
+                    if (!t || seen.some(s => bigramSimilarity(t, s) >= DEDUP_THRESHOLD)) continue;
+                    kept.push(q);
+                    seen.push(t);
+                }
+            }
+
+            const subjectName = primaryAnchor?.subject?.name || "其他";
+            const eloRating = Math.round(elo.rating);
+            const questions = kept.map(q => ({
+                ...q,
+                subject: (AI_SUBJECT_OPTIONS as readonly string[]).includes(subjectName) ? subjectName as typeof AI_SUBJECT_OPTIONS[number] : "其他" as typeof AI_SUBJECT_OPTIONS[number],
+            }));
+
+            // 生成即入库：批量同样逐题进待做题库（await 拿真实 id 供答题联动）
+            const ids: (string | null)[] = [];
+            for (const q of questions) {
+                if ((q.questionText || "").trim()) {
+                    const saved = await prisma.practiceQuestion.create({
+                        data: {
+                            userId: user.id,
+                            channel: "smart",
+                            difficulty,
+                            subject: subjectName,
+                            tagId: tag.id,
+                            errorItemId: primaryAnchor?.id ?? null,
+                            questionText: q.questionText || "",
+                            answerText: q.answerText ?? null,
+                            analysis: q.analysis ?? null,
+                            eloRating,
+                        },
+                        select: { id: true },
+                    });
+                    ids.push(saved.id);
+                } else {
+                    ids.push(null);
+                }
+            }
+
+            const meta = {
+                mode: "weakness",
+                tagId: tag.id,
+                tagName: tag.name,
+                anchorCount: usable.length,
+                primaryErrorItemId: primaryAnchor?.id ?? null,
+                difficulty,
+                difficultySource: requestedDifficulty ? "explicit" : "elo",
+                elo: { rating: elo.rating, attempts: elo.attempts },
+                source: dueItems.length > 0 ? "review_due" : "weakness",
+                duplicate: false,
+            };
+
+            logger.info({ tagId, requested: requestedCount, returned: questions.length }, 'Batch targeted practice generated');
+            return NextResponse.json({
+                questions: questions.map((q, i) => ({ ...q, questionId: ids[i], meta })),
+                meta: {
+                    requested: requestedCount,
+                    returned: questions.length,
+                    tagId: tag.id,
+                    tagName: tag.name,
+                    difficulty,
+                    difficultySource: requestedDifficulty ? "explicit" : "elo",
+                },
+            });
+        }
 
         let question = await generateOnce(anchorBrief);
         const maxSim = (text: string) =>

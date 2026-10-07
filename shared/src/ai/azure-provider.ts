@@ -1,8 +1,8 @@
 import { AzureOpenAI } from "openai";
 import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateReanswerPrompt, generateGeogebraPrompt, generateDetectPrompt } from './prompts';
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateReanswerPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt } from './prompts';
 import { getAppConfig } from '../config';
-import { safeParseParsedQuestion, parseDetectedQuestions } from './schema';
+import { safeParseParsedQuestion, parseDetectedQuestions, parseSimilarBatch } from './schema';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
 import { createLogger } from '../logger';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
@@ -369,6 +369,51 @@ Knowledge Points: ${knowledgePoints.join(", ")}
             logger.box('❌ Error during similar question generation', {
                 error: error instanceof Error ? error.message : String(error),
                 stack: error instanceof Error ? error.stack : undefined
+            });
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async generateSimilarQuestions(brief: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium', count: number = 1, gradeSemester?: string | null): Promise<ParsedQuestion[]> {
+        const config = getAppConfig();
+        const total = Math.min(Math.max(Math.round(count) || 1, 1), 10);
+        const systemPrompt = generateSimilarQuestionBatchPrompt(brief, knowledgePoints, language, difficulty, total, {
+            customTemplate: config.prompts?.similarBatch,
+        }, gradeSemester);
+
+        logger.box('🎯 Generate Similar Questions (batch) Request', {
+            provider: 'Azure OpenAI',
+            endpoint: this.endpoint,
+            deployment: this.deployment,
+            count: total,
+            difficulty,
+            language
+        });
+
+        try {
+            const startTime = Date.now();
+            const response = await this.client.chat.completions.create({
+                model: this.deployment,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: `请一次性生成 ${total} 道变式训练题，严格按系统提示的 JSON 数组格式输出。` },
+                ],
+                max_tokens: 8192,
+            });
+
+            this.logCompletion('generateSimilarQuestions', startTime, response.usage);
+
+            const text = response.choices[0]?.message?.content || "";
+            logger.box('🤖 Batch Raw Response', text);
+
+            if (!text) throw new Error("Empty response from AI");
+            const questions = parseSimilarBatch(text);
+            logger.info({ requested: total, received: questions.length }, 'Batch questions parsed');
+            return questions.slice(0, total);
+        } catch (error) {
+            logger.box('❌ Error during batch question generation', {
+                error: error instanceof Error ? error.message : String(error),
             });
             this.handleError(error);
             throw error;

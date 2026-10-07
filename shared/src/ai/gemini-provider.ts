@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt } from './prompts';
-import { safeParseParsedQuestion, parseDetectedQuestions } from './schema';
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt } from './prompts';
+import { safeParseParsedQuestion, parseDetectedQuestions, parseSimilarBatch } from './schema';
 import { getAppConfig } from '../config';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
 import { createLogger } from '../logger';
@@ -321,6 +321,51 @@ export class GeminiProvider implements AIService {
             logger.box('❌ Error during question generation', {
                 error: error instanceof Error ? error.message : String(error),
                 stack: error instanceof Error ? error.stack : undefined
+            });
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    async generateSimilarQuestions(brief: string, knowledgePoints: string[], language: 'zh' | 'en' = 'zh', difficulty: DifficultyLevel = 'medium', count: number = 1, gradeSemester?: string | null): Promise<ParsedQuestion[]> {
+        const config = getAppConfig();
+        const total = Math.min(Math.max(Math.round(count) || 1, 1), 10);
+        const prompt = generateSimilarQuestionBatchPrompt(brief, knowledgePoints, language, difficulty, total, {
+            customTemplate: config.prompts?.similarBatch,
+        }, gradeSemester);
+
+        logger.box('🎯 Generate Similar Questions (batch) Request', {
+            provider: 'Gemini',
+            endpoint: `${this.baseUrl}/v1beta/models/${this.modelName}:generateContent`,
+            model: this.modelName,
+            count: total,
+            difficulty,
+            language
+        });
+
+        try {
+            const startTime = Date.now();
+            const response = await retryOperation(() => this.ai.models.generateContent({
+                model: this.modelName,
+                contents: prompt
+            }), { label: 'gemini:generateSimilarQuestions' });
+
+            logger.info({
+                provider: 'Gemini',
+                model: this.modelName,
+                durationMs: Date.now() - startTime,
+            }, 'Gemini generateSimilarQuestions (batch) completed');
+
+            const text = response.text || '';
+            logger.box('🤖 Batch Raw Response', text);
+
+            if (!text) throw new Error("Empty response from AI");
+            const questions = parseSimilarBatch(text);
+            logger.info({ requested: total, received: questions.length }, 'Batch questions parsed');
+            return questions.slice(0, total);
+        } catch (error) {
+            logger.box('❌ Error during batch question generation', {
+                error: error instanceof Error ? error.message : String(error),
             });
             this.handleError(error);
             throw error;

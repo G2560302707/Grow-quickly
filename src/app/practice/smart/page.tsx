@@ -87,6 +87,9 @@ function SmartPracticeContent() {
     const [results, setResults] = useState<boolean[]>([]);
     const [ratings, setRatings] = useState<number[]>([]);
     const [done, setDone] = useState(false);
+    // 批量会话：一次 AI 调用生成整组题，答题时本地弹出（会话实际题数去重后可能少于 5）
+    const [sessionQueue, setSessionQueue] = useState<SmartQuestion[]>([]);
+    const [sessionTotal, setSessionTotal] = useState(SESSION_TOTAL);
 
     const fixedDifficulty = setupDifficulty && setupDifficulty !== "adaptive" ? setupDifficulty : null;
 
@@ -123,16 +126,101 @@ function SmartPracticeContent() {
         };
     }, [fixedDifficulty, tagId, tagName]);
 
-    const generate = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const resetAnswerState = () => {
         setUserAnswer("");
         setSelectedOption(null);
         setSubmitted(false);
         setIsCorrect(null);
         setSavedToNotebook(false);
+    };
+
+    /** 会话开始前批量备齐整组题：先从待做题库凑数（零成本），不足的一次 AI 批量补齐；失败返回 null */
+    const prefillSession = useCallback(async (forceNew: boolean): Promise<SmartQuestion[] | null> => {
+        const queue: SmartQuestion[] = [];
         try {
-            // 池里有匹配的存题直接取用（零生成成本）
+            if (!forceNew && fixedDifficulty && tagId) {
+                const pool = await apiClient
+                    .get<{ questions: PoolQuestion[] }>(
+                        `/api/practice/questions?status=pending&channel=smart&tagId=${encodeURIComponent(tagId)}&difficulty=${fixedDifficulty}&pageSize=${SESSION_TOTAL}`
+                    )
+                    .catch(() => null);
+                for (const full of (pool?.questions || []).slice(0, SESSION_TOTAL)) {
+                    queue.push({
+                        questionText: full.questionText,
+                        answerText: full.answerText || "",
+                        analysis: full.analysis || "",
+                        subject: (full.subject || undefined) as ParsedQuestion["subject"],
+                        knowledgePoints: [],
+                        wrongAnswerText: "",
+                        mistakeAnalysis: "",
+                        mistakeStatus: "unknown",
+                        requiresImage: false,
+                        questionId: full.id,
+                        meta: {
+                            tagId,
+                            tagName,
+                            primaryErrorItemId: full.errorItemId || null,
+                            difficulty: full.difficulty,
+                            elo: typeof full.eloRating === "number" ? { rating: full.eloRating, attempts: 0 } : undefined,
+                            source: "weakness",
+                        },
+                    });
+                }
+            }
+            const need = SESSION_TOTAL - queue.length;
+            if (need > 0) {
+                const res = await apiClient.post<{ questions: SmartQuestion[] }>(
+                    "/api/practice/smart",
+                    { tagId, difficulty: fixedDifficulty || undefined, count: need },
+                    { timeout: 300000 }
+                );
+                for (const q of res?.questions || []) {
+                    if (q?.questionText) queue.push(q);
+                }
+            }
+        } catch (e) {
+            const err = e as { data?: { message?: string }; message?: string };
+            setError(err?.data?.message || err?.message || "生成练习题失败，请稍后重试");
+            return null;
+        }
+        if (queue.length === 0) {
+            setError("生成练习题失败，请稍后重试");
+            return null;
+        }
+        setSessionQueue(queue.slice(1));
+        setSessionTotal(queue.length);
+        return queue;
+    }, [fixedDifficulty, tagId, tagName]);
+
+    /** 从队列展示下一题（无副作用的纯展示） */
+    const showFromQueue = (queue: SmartQuestion[]) => {
+        const [next, ...rest] = queue;
+        if (!next) return;
+        setSessionQueue(rest);
+        resetAnswerState();
+        setQuestion(next);
+        if (typeof next.meta?.elo?.rating === "number") {
+            setRatings(prev => [...prev, next.meta!.elo!.rating]);
+        }
+    };
+
+    const generate = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        resetAnswerState();
+        try {
+            // 会话批量题本地弹出（瞬时）；队列空才走「池优先 + 单题生成」旧路径
+            if (sessionQueue.length > 0) {
+                const next = sessionQueue[0];
+                setSessionQueue(q => q.slice(1));
+                setQuestion(next);
+                if (typeof next.meta?.elo?.rating === "number") {
+                    setRatings(prev => [...prev, next.meta!.elo!.rating]);
+                }
+                setLoading(false);
+                return;
+            }
+
             const pooled = await takeFromPool().catch(() => null);
             if (pooled) {
                 setQuestion(pooled);
@@ -157,7 +245,7 @@ function SmartPracticeContent() {
         } finally {
             setLoading(false);
         }
-    }, [tagId, fixedDifficulty, takeFromPool]);
+    }, [sessionQueue, tagId, fixedDifficulty, takeFromPool]);
 
     // 选择题：从题干解析选项、从参考答案解析正确项（解析失败则回退自由作答）
     const choice = question ? parseChoiceOptions(question.questionText) : null;
@@ -254,19 +342,28 @@ function SmartPracticeContent() {
     };
 
     const nextQuestion = async () => {
-        if (results.length >= SESSION_TOTAL) {
+        if (results.length >= sessionTotal) {
             setDone(true);
             setQuestion(null);
             return;
         }
         setSessionIndex(i => i + 1);
-        await generate();
+        if (sessionQueue.length > 0) {
+            showFromQueue(sessionQueue);
+        } else {
+            // 队列意外为空：回退旧的单题取题/生成路径
+            await generate();
+        }
     };
 
-    const startSession = () => {
+    const startSession = async () => {
         if (!setupDifficulty) return;
         setPhase("running");
-        generate();
+        setLoading(true);
+        const queue = await prefillSession(false);
+        setLoading(false);
+        if (!queue) return;
+        showFromQueue(queue);
     };
 
     const restart = async () => {
@@ -276,11 +373,15 @@ function SmartPracticeContent() {
         setRatings([]);
         setSessionIndex(1);
         setDone(false);
-        await generate();
+        setLoading(true);
+        const queue = await prefillSession(false);
+        setLoading(false);
+        if (!queue) return;
+        showFromQueue(queue);
     };
 
     const handleBack = async () => {
-        if (results.length > 0 && results.length < SESSION_TOTAL) {
+        if (results.length > 0 && results.length < sessionTotal) {
             const ok = await confirmDialog({ description: "练习尚未完成。已生成的题目会保留在待做题库，确定离开吗？" });
             if (!ok) return;
         }
@@ -296,7 +397,7 @@ function SmartPracticeContent() {
             <CardHeader className="items-center text-center">
                 <CardTitle>开始专项练习 · {tagName}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                    连续 {SESSION_TOTAL} 题，作答后自动进入下一题；先选好难度
+                    连续 {sessionTotal} 题，作答后自动进入下一题；先选好难度
                 </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -347,18 +448,18 @@ function SmartPracticeContent() {
             return renderSetup();
         }
         if (done) {
-            const allCorrect = correctCount === SESSION_TOTAL;
+            const allCorrect = correctCount === sessionTotal;
             return (
                 <Card className="max-w-2xl mx-auto">
                     <CardHeader className="items-center text-center">
                         <div className={`mx-auto w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold ${allCorrect ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-primary/10 text-primary"}`}>
-                            {correctCount}/{SESSION_TOTAL}
+                            {correctCount}/{sessionTotal}
                         </div>
                         <CardTitle className="text-center mt-2">
                             {allCorrect ? "全对！这个考点已经拿下" : correctCount >= 3 ? "进步明显，继续保持" : "这个考点还需要多练"}
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
-                            「{tagName}」专项 {SESSION_TOTAL} 题完成，难度已按你的作答自动调整
+                            「{tagName}」专项 {sessionTotal} 题完成，难度已按你的作答自动调整
                         </p>
                     </CardHeader>
                     <CardContent className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -379,10 +480,10 @@ function SmartPracticeContent() {
                         <Loader2 className="h-10 w-10 animate-spin text-primary" />
                         <div className="text-center">
                             <p className="font-semibold">
-                                {fixedDifficulty ? "正在取题" : "AI 正在针对薄弱点出题"}
+                                {fixedDifficulty ? "正在准备整组专项题" : "AI 正在批量生成专项题"}
                             </p>
                             <p className="text-sm text-muted-foreground mt-1">
-                                {fixedDifficulty ? "优先取出待做题库里的存题" : "结合你的错题与错因，定向生成"}
+                                {fixedDifficulty ? "优先取出待做题库存题，不足时一次性批量补齐" : "一次调用批量生成整组，完成后自动开始"}
                             </p>
                         </div>
                     </CardContent>
@@ -407,7 +508,7 @@ function SmartPracticeContent() {
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-base flex items-center justify-between">
-                                <span>第 {sessionIndex} / {SESSION_TOTAL} 题</span>
+                                <span>第 {sessionIndex} / {sessionTotal} 题</span>
                                 <span className="text-xs font-normal text-muted-foreground">
                                     {question.meta?.source === "review_due" ? "到期复习题" : "薄弱点专项"}
                                     {question.meta?.elo ? ` · 能力值 ${question.meta.elo.rating}` : ""}
@@ -497,7 +598,7 @@ function SmartPracticeContent() {
                                         </div>
                                     )}
                                     <Button className="w-full" onClick={nextQuestion}>
-                                        {results.length >= SESSION_TOTAL ? "查看小结" : "下一题"}
+                                        {results.length >= sessionTotal ? "查看小结" : "下一题"}
                                     </Button>
                                 </div>
                             )}
@@ -527,9 +628,9 @@ function SmartPracticeContent() {
             </div>
             {phase === "running" && results.length > 0 && !done && (
                 <div className="mb-4 max-w-2xl mx-auto">
-                    <Progress value={(results.length / SESSION_TOTAL) * 100} className="h-2" />
+                    <Progress value={(results.length / sessionTotal) * 100} className="h-2" />
                     <p className="text-xs text-muted-foreground mt-1 text-right">
-                        已完成 {results.length} / {SESSION_TOTAL} · 答对 {correctCount}
+                        已完成 {results.length} / {sessionTotal} · 答对 {correctCount}
                     </p>
                 </div>
             )}

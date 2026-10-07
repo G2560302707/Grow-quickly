@@ -94,3 +94,52 @@ export function parseDetectedQuestions(rawText: string): DetectedQuestionFromSch
 
     return questions;
 }
+
+/**
+ * 解析批量出题的 JSON 数组输出（举一反三 batch）
+ * 每项映射为 ParsedQuestion 形状；缺字段的项填充默认值，无有效题干的项跳过
+ */
+export function parseSimilarBatch(rawText: string): ParsedQuestionFromSchema[] {
+    const start = rawText.indexOf('[');
+    const end = rawText.lastIndexOf(']');
+    if (start === -1 || end === -1 || end <= start) {
+        throw new Error('AI_RESPONSE_ERROR');
+    }
+    let data: unknown;
+    try {
+        data = JSON.parse(rawText.slice(start, end + 1));
+    } catch {
+        throw new Error('AI_RESPONSE_ERROR');
+    }
+    if (!Array.isArray(data)) {
+        throw new Error('AI_RESPONSE_ERROR');
+    }
+
+    const out: ParsedQuestionFromSchema[] = [];
+    for (const item of data) {
+        const it = (item ?? {}) as Record<string, unknown>;
+        const questionText = String(it.question_text ?? it.questionText ?? '').trim();
+        if (!questionText) continue;
+        const answerText = String(it.answer_text ?? it.answerText ?? '').trim();
+        const analysis = String(it.analysis ?? '').trim();
+        const kps = Array.isArray(it.knowledge_points ?? it.knowledgePoints)
+            ? ((it.knowledge_points ?? it.knowledgePoints) as unknown[])
+                .map(k => String(k).trim()).filter(Boolean).slice(0, 5)
+            : [];
+        out.push({
+            questionText,
+            answerText: answerText || "需人工核对",
+            analysis: analysis || "暂无解析",
+            wrongAnswerText: "",
+            mistakeAnalysis: "",
+            mistakeStatus: "unknown",
+            subject: "其他",
+            knowledgePoints: kps,
+            requiresImage: false,
+        });
+    }
+    if (out.length === 0) {
+        throw new Error('AI_RESPONSE_ERROR');
+    }
+    return out;
+}
