@@ -1,10 +1,12 @@
 # P0-1 回归防线：check（lint / 类型）→ test（单元 / 集成 / E2E）
 # 说明：ESLint 存量 error 较多，先设 allow_failure 只减不增，清零后移除该行恢复阻塞。
+# 注意：不用 default:（部分 GitLab 会当成名为 default 的 job）；npm ci 放 before_script 避免 !reference。
 stages:
   - check
   - test
 
-default:
+.check-base:
+  stage: check
   image: node:22
   cache:
     key:
@@ -12,26 +14,21 @@ default:
         - package-lock.json
     paths:
       - .npm
-
-.check-base:
-  stage: check
-  script:
+  before_script:
     - npm ci --prefer-offline
 
 check:lint:
   extends: .check-base
   allow_failure: true # TODO: lint 清零后移除此行
   script:
-    - !reference [.check-base, script]
     - npm run lint
 
 check:type:
   extends: .check-base
   script:
-    - !reference [.check-base, script]
     - npx tsc --noEmit
 
-test:unit:
+.test-base:
   stage: test
   image: node:22
   cache:
@@ -40,21 +37,17 @@ test:unit:
         - package-lock.json
     paths:
       - .npm
-  script:
+  before_script:
     - npm ci --prefer-offline
+
+test:unit:
+  extends: .test-base
+  script:
     - npm run test:unit
 
 test:integration:
-  stage: test
-  image: node:22
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - .npm
+  extends: .test-base
   script:
-    - npm ci --prefer-offline
     - npm run test:integration
 
 # E2E 在 CI 模式下构建产物并启动（playwright.config.ts 的 webServer 走 npm run start）
@@ -71,8 +64,9 @@ test:e2e:
         - package-lock.json
     paths:
       - .npm
-  script:
+  before_script:
     - npm ci --prefer-offline
+  script:
     - npx prisma migrate deploy
     - npx prisma db seed # e2e 依赖种子管理员账号
     - npx playwright test
