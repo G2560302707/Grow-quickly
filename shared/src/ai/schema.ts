@@ -143,3 +143,67 @@ export function parseSimilarBatch(rawText: string): ParsedQuestionFromSchema[] {
     }
     return out;
 }
+
+/**
+ * 题库导入解析结果（管理端离线批量解析原始题目切片）
+ * 字段宽容：AI 输出 snake_case / camelCase 均可接受，逐项整理后由调用方再做业务校验
+ */
+export interface BankImportItem {
+    index: number;
+    questionText: string;
+    answerText: string;
+    analysis: string;
+    subject: string;
+    primaryTag: string;
+    extraTags: string[];
+    difficulty: string;
+    questionType: string;
+    requiresImage: boolean;
+    confidence: 'high' | 'medium' | 'low';
+}
+
+/** 从 AI 原始返回文本中提取题库解析 JSON 数组（容忍 markdown 代码块包裹与缺字段） */
+export function parseBankImportBatch(rawText: string): BankImportItem[] {
+    const start = rawText.indexOf('[');
+    const end = rawText.lastIndexOf(']');
+    if (start === -1 || end === -1 || end <= start) {
+        throw new Error('AI_RESPONSE_ERROR');
+    }
+    let data: unknown;
+    try {
+        data = JSON.parse(rawText.slice(start, end + 1));
+    } catch {
+        throw new Error('AI_RESPONSE_ERROR');
+    }
+    if (!Array.isArray(data)) {
+        throw new Error('AI_RESPONSE_ERROR');
+    }
+
+    const out: BankImportItem[] = [];
+    for (const item of data) {
+        const it = (item ?? {}) as Record<string, unknown>;
+        const questionText = String(it.question_text ?? it.questionText ?? '').trim();
+        if (!questionText) continue;
+        const confidenceRaw = String(it.confidence ?? 'medium').toLowerCase();
+        const confidence = confidenceRaw === 'high' || confidenceRaw === 'low' ? confidenceRaw : 'medium';
+        out.push({
+            index: Number.isFinite(Number(it.index)) ? Number(it.index) : out.length + 1,
+            questionText,
+            answerText: String(it.answer_text ?? it.answerText ?? '').trim(),
+            analysis: String(it.analysis ?? '').trim(),
+            subject: String(it.subject ?? '其他').trim(),
+            primaryTag: String(it.primary_tag ?? it.primaryTag ?? '').trim(),
+            extraTags: Array.isArray(it.extra_tags ?? it.extraTags)
+                ? ((it.extra_tags ?? it.extraTags) as unknown[]).map(k => String(k).trim()).filter(Boolean).slice(0, 4)
+                : [],
+            difficulty: String(it.difficulty ?? 'medium').trim().toLowerCase(),
+            questionType: String(it.question_type ?? it.questionType ?? 'single').trim().toLowerCase(),
+            requiresImage: it.requires_image === true || it.requiresImage === true,
+            confidence,
+        });
+    }
+    if (out.length === 0) {
+        throw new Error('AI_RESPONSE_ERROR');
+    }
+    return out;
+}

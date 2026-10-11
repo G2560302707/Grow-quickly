@@ -24,13 +24,14 @@ RUN apk add --no-cache openssl
 ENV DATABASE_URL="file:/app/prisma/dev.db"
 
 # Pre-compile runtime scripts FIRST (needed for tag seeding)
-RUN npx tsc scripts/rebuild-system-tags.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2020
+RUN npx tsc scripts/rebuild-system-tags.ts scripts/seed-gongkao-tags.ts --outDir dist-scripts --esModuleInterop --resolveJsonModule --skipLibCheck --module commonjs --target ES2020
 
 # Initialize database: generate client, run migrations, seed admin user, seed system tags
 RUN npx prisma generate \
     && npx prisma migrate deploy \
     && npx prisma db seed \
-    && node ./dist-scripts/scripts/rebuild-system-tags.js
+    && node ./dist-scripts/scripts/rebuild-system-tags.js \
+    && node ./dist-scripts/scripts/seed-gongkao-tags.js
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry

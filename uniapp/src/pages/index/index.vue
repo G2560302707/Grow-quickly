@@ -194,12 +194,15 @@ const totalItems = computed(() =>
 onShow(async () => {
 	loading.value = true;
 	errorMsg.value = "";
-	const [session] = await Promise.all([
-		getSession().catch(() => null),
-		loadStats(),
-		loadAnnouncements(),
-	]);
-	if (session?.user?.name) userName.value = session.user.name;
+	// 先确认会话；未登录直接去登录页，避免一串 401
+	const session = await getSession().catch(() => null);
+	if (!session?.user) {
+		loading.value = false;
+		uni.reLaunch({ url: "/pages/login/login" });
+		return;
+	}
+	if (session.user.name) userName.value = session.user.name;
+	await Promise.all([loadStats(), loadAnnouncements()]);
 	try {
 		const list = await listNotebooks();
 		notebooks.value = Array.isArray(list) ? list : [];
@@ -353,15 +356,15 @@ function moduleShadow(name: string): string {
 	opacity: 0.85;
 }
 
-	/* ---------- 公告条 ---------- */
+	/* ---------- 公告条（位于白色概览卡内，勿用白字） ---------- */
 	.notice-bar {
 		display: flex;
 		align-items: center;
-		background: rgba(255, 255, 255, 0.08);
-		border: 1rpx solid rgba(255, 255, 255, 0.14);
+		background: rgba(201, 151, 63, 0.1);
+		border: 1rpx solid rgba(201, 151, 63, 0.28);
 		border-radius: 14rpx;
 		padding: 16rpx 22rpx;
-		margin-top: 24rpx;
+		margin-bottom: 28rpx;
 	}
 	.notice-badge {
 		background: linear-gradient(135deg, #d9ab52, #c9973f);
@@ -376,8 +379,10 @@ function moduleShadow(name: string): string {
 	}
 	.notice-title {
 		flex: 1;
-		color: rgba(255, 255, 255, 0.88);
-		font-size: 24rpx;
+		min-width: 0;
+		color: #1a2332;
+		font-size: 26rpx;
+		font-weight: 500;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -392,9 +397,10 @@ function moduleShadow(name: string): string {
 		box-shadow: 0 0 10rpx rgba(255, 90, 95, 0.8);
 	}
 	.notice-arrow {
-		color: rgba(255, 255, 255, 0.5);
+		color: rgba(26, 35, 50, 0.35);
 		font-size: 36rpx;
 		margin-left: 8rpx;
+		flex-shrink: 0;
 	}
 
 	/* ---------- 概览卡 ---------- */

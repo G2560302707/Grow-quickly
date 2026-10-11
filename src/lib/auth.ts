@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@grow/shared/prisma"
 import { compare } from "bcryptjs"
 import { createLogger } from "@grow/shared/logger"
+import { fetchWechatSession, findOrCreateWechatUser } from "@/lib/wechat-auth"
 
 const logger = createLogger('auth');
 
@@ -37,9 +38,39 @@ export const authOptions: NextAuthOptions = {
             name: "Credentials",
             credentials: {
                 email: { label: "Email", type: "email" },
-                password: { label: "Password", type: "password" }
+                password: { label: "Password", type: "password" },
+                wechatCode: { label: "WeChat Code", type: "text" }
             },
             async authorize(credentials) {
+                // 微信小程序登录：uni.login 的 code 换 openid，按 openid 找/建用户后走同一会话链路
+                if (credentials?.wechatCode) {
+                    const appid = process.env.WECHAT_APPID
+                    const secret = process.env.WECHAT_APP_SECRET
+                    if (!appid || !secret) {
+                        logger.warn('WeChat login attempted but WECHAT_APPID/WECHAT_APP_SECRET not configured');
+                        return null
+                    }
+                    let wechatUser
+                    try {
+                        const { openid } = await fetchWechatSession(credentials.wechatCode, appid, secret)
+                        wechatUser = await findOrCreateWechatUser(openid)
+                    } catch (error) {
+                        logger.warn({ error }, 'WeChat login failed');
+                        return null
+                    }
+                    if (!wechatUser.isActive) {
+                        logger.warn({ userId: wechatUser.id }, 'WeChat user is disabled');
+                        throw new Error("Account is disabled")
+                    }
+                    logger.info({ userId: wechatUser.id }, 'WeChat login successful');
+                    return {
+                        id: wechatUser.id,
+                        email: wechatUser.email,
+                        name: wechatUser.name,
+                        role: wechatUser.role,
+                    }
+                }
+
                 logger.debug({ email: credentials?.email }, 'Authorize called');
                 if (!credentials?.email || !credentials?.password) {
                     logger.debug('Missing credentials');

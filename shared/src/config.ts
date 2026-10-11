@@ -111,18 +111,40 @@ function migrateOpenAIConfig(legacy: LegacyOpenAIConfig): AppConfig['openai'] {
     };
 }
 
+// 收集环境变量注入的默认 OpenAI 兼容实例（优先 DeepSeek）
+const envOpenAIInstances: OpenAIInstance[] = [];
+let envActiveInstanceId: string | undefined;
+
+// DeepSeek：OpenAI 兼容接口，作为默认 AI 供应商
+if (process.env.DEEPSEEK_API_KEY) {
+    envOpenAIInstances.push({
+        id: 'env-deepseek',
+        name: 'DeepSeek (ENV)',
+        apiKey: process.env.DEEPSEEK_API_KEY,
+        baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+        model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+    });
+    envActiveInstanceId = 'env-deepseek';
+}
+
+// 通用 OpenAI 兼容服务（当未配置 DeepSeek 时兜底）
+if (process.env.OPENAI_API_KEY) {
+    envOpenAIInstances.push({
+        id: 'env-default',
+        name: 'OpenAI (ENV)',
+        apiKey: process.env.OPENAI_API_KEY,
+        baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+        model: process.env.OPENAI_MODEL || 'gpt-4o',
+    });
+    envActiveInstanceId = envActiveInstanceId || 'env-default';
+}
+
 const DEFAULT_CONFIG: AppConfig = {
-    aiProvider: (process.env.AI_PROVIDER as 'gemini' | 'openai' | 'azure') || 'gemini',
+    aiProvider: (process.env.AI_PROVIDER as 'gemini' | 'openai' | 'azure') || 'openai',
     allowRegistration: true,
     openai: {
-        instances: process.env.OPENAI_API_KEY ? [{
-            id: 'env-default',
-            name: 'Default (ENV)',
-            apiKey: process.env.OPENAI_API_KEY,
-            baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-            model: process.env.OPENAI_MODEL || 'gpt-4o',
-        }] : [],
-        activeInstanceId: process.env.OPENAI_API_KEY ? 'env-default' : undefined,
+        instances: envOpenAIInstances,
+        activeInstanceId: envActiveInstanceId,
     },
     gemini: {
         apiKey: process.env.GOOGLE_API_KEY,

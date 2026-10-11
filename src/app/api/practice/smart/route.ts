@@ -9,6 +9,7 @@ import { AI_SUBJECT_OPTIONS } from "@grow/shared/subjects";
 import { buildWeaknessReport } from "@/lib/diagnosis";
 import { buildTargetedAnchor, bigramSimilarity } from "@/lib/smart-practice";
 import { replayElo, difficultyForRating } from "@/lib/elo";
+import { pickBankQuestions } from "@/lib/bank-select";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const logger = createLogger('api:practice:smart');
@@ -21,9 +22,10 @@ const ANCHOR_LIMIT = 4;
 
 /**
  * POST /api/practice/smart
- * 薄弱点定向出题：给定考点（缺省时自动取诊断 Top1），检索用户该考点下
- * 权重最高的原错题+错因作为锚，走既有 generateSimilarQuestion 管道接地生成。
- * body: { tagId?: string, difficulty?: "easy"|"medium"|"hard"|"harder" }
+ * 薄弱点定向出题：给定考点（缺省时自动取诊断 Top1）。
+ * 出题顺序：① 全局题库按考点子树+难度抽题（毫秒级、零 AI 成本）；② 库存不足的部分
+ * 检索用户该考点下权重最高的原错题+错因作为锚，走既有 generateSimilarQuestion 管道接地生成。
+ * body: { tagId?: string, difficulty?: "easy"|"medium"|"hard"|"harder", count?: number }
  */
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -32,11 +34,18 @@ export async function POST(req: Request) {
         return unauthorized("Authentication required");
     }
 
-    // 限流：AI 接口按用户每分钟 10 次，防滥用与成本失控
-    const aiLimit = rateLimit(`ai:practice-smart:${session.user?.email || "anon"}`, { limit: 10, windowMs: 60 * 1000 });
-    if (!aiLimit.allowed) {
-        return tooManyRequests(aiLimit.retryAfterSeconds, "AI 请求过于频繁，请稍后再试");
+    // 端点级宽松限流：题库抽题本身零 AI 成本，只防刷库；AI 严格限流在真正调 AI 前单独检查
+    const endpointLimit = rateLimit(`practice-smart:${session.user?.email || "anon"}`, { limit: 30, windowMs: 60 * 1000 });
+    if (!endpointLimit.allowed) {
+        return tooManyRequests(endpointLimit.retryAfterSeconds, "请求过于频繁，请稍后再试");
     }
+
+    /** AI 生成前的配额检查（题库命中不占用 AI 配额） */
+    const ensureAiQuota = () => {
+        const aiLimit = rateLimit(`ai:practice-smart:${session.user?.email || "anon"}`, { limit: 10, windowMs: 60 * 1000 });
+        if (!aiLimit.allowed) return tooManyRequests(aiLimit.retryAfterSeconds, "AI 请求过于频繁，请稍后再试");
+        return null;
+    };
 
     try {
         const body = await req.json().catch(() => ({}));
@@ -83,6 +92,96 @@ export async function POST(req: Request) {
             return notFound("知识点不存在或不可访问");
         }
 
+        // ---- 难度：显式指定 > Elo 回放该考点练习历史 ----
+        const kpRecords = await prisma.practiceRecord.findMany({
+            where: { userId: user.id, tagId },
+            select: { difficulty: true, isCorrect: true, createdAt: true },
+            orderBy: { createdAt: "asc" },
+        });
+        const elo = replayElo(kpRecords);
+        const difficulty: Difficulty = requestedDifficulty || difficultyForRating(elo.rating);
+
+        // ---- 题库优先：考点子树+难度抽题，命中部分即时可用，不足部分再走 AI ----
+        const bankPicks = await pickBankQuestions({
+            tagId: tag.id,
+            userId: user.id,
+            count: requestedCount,
+            difficulty,
+        });
+        const bankShortfall = requestedCount - bankPicks.length;
+
+        const eloSnapshot = { rating: elo.rating, attempts: elo.attempts };
+        const bankMeta = (id: string | null) => ({
+            mode: "weakness",
+            tagId: tag.id,
+            tagName: tag.name,
+            anchorCount: 0,
+            primaryErrorItemId: null,
+            difficulty,
+            difficultySource: requestedDifficulty ? "explicit" : "elo",
+            elo: eloSnapshot,
+            source: "bank",
+            reviewCount: 0,
+            duplicate: false,
+            fromBank: true,
+            bankQuestionId: id,
+        });
+
+        // ---- 题库完全覆盖（含单题模式）：直接落库返回，不碰 AI ----
+        if (bankShortfall <= 0) {
+            const items = [];
+            for (const pick of bankPicks) {
+                const saved = await prisma.practiceQuestion.create({
+                    data: {
+                        userId: user.id,
+                        channel: "smart",
+                        difficulty,
+                        subject: (AI_SUBJECT_OPTIONS as readonly string[]).includes(pick.subject)
+                            ? pick.subject as typeof AI_SUBJECT_OPTIONS[number]
+                            : "其他",
+                        tagId: tag.id,
+                        bankQuestionId: pick.id,
+                        questionText: pick.questionText,
+                        answerText: pick.answerText,
+                        analysis: pick.analysis,
+                        eloRating: Math.round(elo.rating),
+                    },
+                    select: { id: true },
+                });
+                items.push({
+                    questionText: pick.questionText,
+                    answerText: pick.answerText ?? "需人工核对",
+                    analysis: pick.analysis ?? "暂无解析",
+                    subject: pick.subject,
+                    knowledgePoints: [tag.name],
+                    wrongAnswerText: "",
+                    mistakeAnalysis: "",
+                    mistakeStatus: "unknown",
+                    requiresImage: false,
+                    questionId: saved.id,
+                    meta: bankMeta(pick.id),
+                });
+            }
+            logger.info({ tagId, requested: requestedCount, fromBank: bankPicks.length }, 'Targeted practice fully served from question bank');
+            return NextResponse.json({
+                ...(requestedCount === 1 ? items[0] : {}),
+                ...(requestedCount === 1 ? {} : { questions: items }),
+                meta: requestedCount === 1 ? items[0].meta : {
+                    requested: requestedCount,
+                    returned: items.length,
+                    tagId: tag.id,
+                    tagName: tag.name,
+                    difficulty,
+                    difficultySource: requestedDifficulty ? "explicit" : "elo",
+                    fromBank: true,
+                },
+            });
+        }
+
+        // ---- AI 兜底路径：先校验 AI 配额，再检索锚题 ----
+        const aiQuotaError = ensureAiQuota();
+        if (aiQuotaError) return aiQuotaError;
+
         // ---- 锚题检索：复习到期的错题优先，其余取最近、按掌握度降权 ----
         const dueReviews = await prisma.reviewSchedule.findMany({
             where: {
@@ -127,15 +226,6 @@ export async function POST(req: Request) {
         const usable = [...dueItems, ...recentUsable].slice(0, ANCHOR_LIMIT);
         const primaryAnchor = usable[0] || null;
 
-        // ---- 难度：显式指定 > Elo 回放该考点练习历史 ----
-        const kpRecords = await prisma.practiceRecord.findMany({
-            where: { userId: user.id, tagId },
-            select: { difficulty: true, isCorrect: true, createdAt: true },
-            orderBy: { createdAt: "asc" },
-        });
-        const elo = replayElo(kpRecords);
-        const difficulty: Difficulty = requestedDifficulty || difficultyForRating(elo.rating);
-
         // ---- 组装锚文本并复用现有生成管道 ----
         const anchorBrief = buildTargetedAnchor({
             tagName: tag.name,
@@ -165,13 +255,53 @@ export async function POST(req: Request) {
             })).map(q => q.questionText),
         ].filter(q => q && q.trim().length > 0);
 
-        const generateOnce = async (brief: string) =>
-            getAIService().generateSimilarQuestion(brief, [tag.name], "zh", difficulty, primaryAnchor?.gradeSemester ?? null);
+        const subjectName = primaryAnchor?.subject?.name || "其他";
+        const normalizedSubject = (AI_SUBJECT_OPTIONS as readonly string[]).includes(subjectName)
+            ? subjectName as typeof AI_SUBJECT_OPTIONS[number]
+            : "其他" as typeof AI_SUBJECT_OPTIONS[number];
 
-        // ---- 批量出题：一次 AI 调用生成 requestedCount 道，批内互相去重，逐题入库 ----
+        /** 把题库抽中的题落库为待做练习题（channel=smart，关联 BankQuestion） */
+        const createBankItems = async () => {
+            const items = [];
+            for (const pick of bankPicks) {
+                const saved = await prisma.practiceQuestion.create({
+                    data: {
+                        userId: user.id,
+                        channel: "smart",
+                        difficulty,
+                        subject: (AI_SUBJECT_OPTIONS as readonly string[]).includes(pick.subject)
+                            ? pick.subject as typeof AI_SUBJECT_OPTIONS[number]
+                            : "其他",
+                        tagId: tag.id,
+                        bankQuestionId: pick.id,
+                        questionText: pick.questionText,
+                        answerText: pick.answerText,
+                        analysis: pick.analysis,
+                        eloRating: Math.round(elo.rating),
+                    },
+                    select: { id: true },
+                });
+                items.push({
+                    questionText: pick.questionText,
+                    answerText: pick.answerText ?? "需人工核对",
+                    analysis: pick.analysis ?? "暂无解析",
+                    subject: pick.subject,
+                    knowledgePoints: [tag.name],
+                    wrongAnswerText: "",
+                    mistakeAnalysis: "",
+                    mistakeStatus: "unknown",
+                    requiresImage: false,
+                    questionId: saved.id,
+                    meta: bankMeta(pick.id),
+                });
+            }
+            return items;
+        };
+
+        // ---- 批量出题：一次 AI 调用生成缺口数量，批内互相去重，逐题入库 ----
         if (requestedCount > 1) {
             const generateBatch = async (brief: string) =>
-                getAIService().generateSimilarQuestions(brief, [tag.name], "zh", difficulty, requestedCount, primaryAnchor?.gradeSemester ?? null);
+                getAIService().generateSimilarQuestions(brief, [tag.name], "zh", difficulty, bankShortfall, primaryAnchor?.gradeSemester ?? null);
 
             let batch = await generateBatch(anchorBrief);
             let kept = batch.filter(q => {
@@ -180,7 +310,7 @@ export async function POST(req: Request) {
             });
 
             if (kept.length === 0) {
-                logger.info({ tagId, count: requestedCount }, 'Batch all duplicated, regenerating once with anti-dup instruction');
+                logger.info({ tagId, count: bankShortfall }, 'Batch all duplicated, regenerating once with anti-dup instruction');
                 batch = await generateBatch(buildTargetedAnchor({
                     tagName: tag.name,
                     exemplars: usable.map(a => ({
@@ -201,16 +331,17 @@ export async function POST(req: Request) {
                 }
             }
 
-            const subjectName = primaryAnchor?.subject?.name || "其他";
             const eloRating = Math.round(elo.rating);
-            const questions = kept.map(q => ({
+            const aiQuestions = kept.map(q => ({
                 ...q,
-                subject: (AI_SUBJECT_OPTIONS as readonly string[]).includes(subjectName) ? subjectName as typeof AI_SUBJECT_OPTIONS[number] : "其他" as typeof AI_SUBJECT_OPTIONS[number],
+                subject: normalizedSubject,
             }));
 
-            // 生成即入库：批量同样逐题进待做题库（await 拿真实 id 供答题联动）
-            const ids: (string | null)[] = [];
-            for (const q of questions) {
+            const bankItems = await createBankItems();
+
+            // AI 生成题逐题入库（await 拿真实 id 供答题联动）
+            const aiItems = [];
+            for (const q of aiQuestions) {
                 if ((q.questionText || "").trim()) {
                     const saved = await prisma.practiceQuestion.create({
                         data: {
@@ -227,47 +358,53 @@ export async function POST(req: Request) {
                         },
                         select: { id: true },
                     });
-                    ids.push(saved.id);
-                } else {
-                    ids.push(null);
+                    aiItems.push({
+                        ...q,
+                        questionId: saved.id,
+                        meta: {
+                            mode: "weakness",
+                            tagId: tag.id,
+                            tagName: tag.name,
+                            anchorCount: usable.length,
+                            primaryErrorItemId: primaryAnchor?.id ?? null,
+                            difficulty,
+                            difficultySource: requestedDifficulty ? "explicit" : "elo",
+                            elo: eloSnapshot,
+                            source: dueItems.length > 0 ? "review_due" : "weakness",
+                            duplicate: false,
+                        },
+                    });
                 }
             }
 
-            const meta = {
-                mode: "weakness",
-                tagId: tag.id,
-                tagName: tag.name,
-                anchorCount: usable.length,
-                primaryErrorItemId: primaryAnchor?.id ?? null,
-                difficulty,
-                difficultySource: requestedDifficulty ? "explicit" : "elo",
-                elo: { rating: elo.rating, attempts: elo.attempts },
-                source: dueItems.length > 0 ? "review_due" : "weakness",
-                duplicate: false,
-            };
-
-            logger.info({ tagId, requested: requestedCount, returned: questions.length }, 'Batch targeted practice generated');
+            const items = [...bankItems, ...aiItems];
+            logger.info({ tagId, requested: requestedCount, fromBank: bankItems.length, ai: aiItems.length }, 'Targeted practice generated (bank + AI)');
             return NextResponse.json({
-                questions: questions.map((q, i) => ({ ...q, questionId: ids[i], meta })),
+                questions: items,
                 meta: {
                     requested: requestedCount,
-                    returned: questions.length,
+                    returned: items.length,
                     tagId: tag.id,
                     tagName: tag.name,
                     difficulty,
                     difficultySource: requestedDifficulty ? "explicit" : "elo",
+                    fromBank: bankItems.length > 0,
                 },
             });
         }
 
-        let question = await generateOnce(anchorBrief);
+        // ---- 单题模式：题库未命中，AI 生成一道 ----
+        const generateOnceSafe = (brief: string) =>
+            getAIService().generateSimilarQuestion(brief, [tag.name], "zh", difficulty, primaryAnchor?.gradeSemester ?? null);
+
+        let question = await generateOnceSafe(anchorBrief);
         const maxSim = (text: string) =>
             existingQuestions.reduce((m, q) => Math.max(m, bigramSimilarity(text, q)), 0);
 
         let duplicated = maxSim(question.questionText || "") >= DEDUP_THRESHOLD;
         if (duplicated) {
             logger.info({ tagId }, 'Targeted question too similar to existing ones, regenerating once');
-            question = await generateOnce(
+            question = await generateOnceSafe(
                 buildTargetedAnchor({
                     tagName: tag.name,
                     exemplars: usable.map(a => ({
@@ -282,10 +419,7 @@ export async function POST(req: Request) {
             duplicated = maxSim(question.questionText || "") >= DEDUP_THRESHOLD;
         }
 
-        const subjectName = primaryAnchor?.subject?.name || "其他";
-        question.subject = (AI_SUBJECT_OPTIONS as readonly string[]).includes(subjectName)
-            ? subjectName as typeof AI_SUBJECT_OPTIONS[number]
-            : "其他";
+        question.subject = normalizedSubject;
 
         // 生成即入库：题进待做题库（channel=smart），做不做都保留
         let questionId: string | null = null;
@@ -319,7 +453,7 @@ export async function POST(req: Request) {
                 primaryErrorItemId: primaryAnchor?.id ?? null,
                 difficulty,
                 difficultySource: requestedDifficulty ? "explicit" : "elo",
-                elo: { rating: elo.rating, attempts: elo.attempts },
+                elo: eloSnapshot,
                 source: dueItems.length > 0 ? "review_due" : "weakness",
                 reviewCount: dueItems.length,
                 duplicate: duplicated,

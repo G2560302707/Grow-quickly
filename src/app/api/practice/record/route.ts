@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         const ownedQuestion = typeof questionId === "string" && questionId
             ? await prisma.practiceQuestion.findFirst({
                   where: { id: questionId, userId },
-                  select: { id: true, channel: true, tagId: true, errorItemId: true },
+                  select: { id: true, channel: true, tagId: true, errorItemId: true, bankQuestionId: true },
               })
             : null;
 
@@ -77,6 +77,17 @@ export async function POST(req: Request) {
                         status: "answered",
                         isCorrect: typeof isCorrect === "boolean" ? isCorrect : null,
                         answeredAt: new Date(),
+                    },
+                });
+            }
+
+            // 全局题库题作答统计回写：供管理端按真实正确率校准难度
+            if (ownedQuestion?.bankQuestionId) {
+                await tx.bankQuestion.update({
+                    where: { id: ownedQuestion.bankQuestionId },
+                    data: {
+                        attemptCount: { increment: 1 },
+                        ...(isCorrect === true ? { correctCount: { increment: 1 } } : {}),
                     },
                 });
             }

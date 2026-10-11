@@ -5,6 +5,10 @@ import type { ParsedQuestionFromSchema } from './schema';
 export type { DetectedQuestionFromSchema as DetectedQuestion } from './schema';
 import type { DetectedQuestionFromSchema } from './schema';
 
+// 题库导入解析结果（管理端离线批量整理用）
+export type { BankImportItem } from './schema';
+import type { BankImportItem } from './schema';
+
 // Import and re-export MistakeStatus from the single source of truth
 import type { MistakeStatus } from '../mistake-status';
 export type { MistakeStatus };
@@ -35,6 +39,8 @@ export interface AIService {
     generateSimilarQuestions(brief: string, knowledgePoints: string[], language?: 'zh' | 'en', difficulty?: DifficultyLevel, count?: number, gradeSemester?: string | null): Promise<ParsedQuestionFromSchema[]>;
     reanswerQuestion(questionText: string, language?: 'zh' | 'en', subject?: string | null, imageBase64?: string, gradeSemester?: string | null): Promise<ReanswerQuestionResult>;
     analyzeForGeogebra(questionText: string, answerText: string, analysis: string, previousErrors?: string): Promise<GeogebraAnalysisResult>;
+    /** 题库导入：把切分好的原始题目片段批量整理成结构化条目（纯文本调用，管理端离线用） */
+    parseBankQuestions(blocks: string[], tagNames: string[]): Promise<BankImportItem[]>;
 }
 
 export interface AIConfig {

@@ -67,6 +67,7 @@ export async function GET(req: Request) {
                     subject: true,
                     tagId: true,
                     errorItemId: true,
+                    bankQuestionId: true,
                     questionText: true,
                     answerText: true,
                     status: true,

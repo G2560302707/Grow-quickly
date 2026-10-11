@@ -52,6 +52,7 @@
 				<view class="question-top">
 					<text class="channel-badge" :class="channelClass(q.channel)">{{ channelLabel(q.channel) }}</text>
 					<text class="question-diff">{{ difficultyLabel(q.difficulty) }}</text>
+					<text v-if="q.bankQuestionId" class="question-diff bank-badge">题库</text>
 					<text v-if="q.status === 'answered'" class="result-badge" :class="q.isCorrect ? 'badge-good' : 'badge-bad'">
 						{{ q.isCorrect ? "答对" : "答错" }}
 					</text>
@@ -333,6 +334,12 @@ function formatDate(iso?: string): string {
 .question-diff {
 	font-size: 22rpx;
 	color: var(--ink-400);
+}
+.bank-badge {
+	color: #2563eb;
+	border: 1rpx solid #93c5fd;
+	border-radius: 8rpx;
+	padding: 2rpx 10rpx;
 }
 .result-badge {
 	font-size: 22rpx;

@@ -1,0 +1,33 @@
+# 本地集成测试：模拟线上 after7lab.cloud 的单域名路由（Nginx: / → 学习端, /admin → 管理后台）
+# 用法：docker compose -f deploy/local-test/docker-compose.yml up -d
+# 验证完：docker compose -f deploy/local-test/docker-compose.yml down -v
+services:
+  wrong-notebook:
+    image: wrong-notebook:local
+    container_name: lt-web
+    environment:
+      - NEXTAUTH_SECRET=local-test-secret
+      - AUTH_TRUST_HOST=true
+    volumes:
+      - ./data:/app/data
+
+  wrong-notebook-admin:
+    image: wrong-notebook-admin:local
+    container_name: lt-admin
+    environment:
+      - NEXTAUTH_SECRET=local-test-secret
+      - APP_CONFIG_PATH=/app/config/app-config.json
+      - AUTH_TRUST_HOST=true
+    volumes:
+      - ./data:/app/data
+
+  nginx:
+    image: nginx:latest
+    container_name: lt-nginx
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - wrong-notebook
+      - wrong-notebook-admin

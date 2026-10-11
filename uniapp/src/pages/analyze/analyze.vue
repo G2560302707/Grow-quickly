@@ -73,9 +73,40 @@
 			<view class="section-head">
 				<text class="section-title">识别结果</text>
 			</view>
+			<view v-if="uncertainty.uncertain" class="warn-box">
+				<text class="warn-title">⚠️ 识别可能不准确，请对照原图核对</text>
+				<text v-for="s in uncertainty.signals" :key="s.key" class="warn-item">· {{ s.message }}</text>
+				<text class="warn-hint">点题目右侧「编辑」修正文本后再「重新解答」</text>
+			</view>
 			<view class="result-block result-q">
-				<text class="result-label">题目</text>
-				<text class="result-text">{{ result.questionText || "（未识别到题目）" }}</text>
+				<view class="result-label-row">
+					<text class="result-label">题目</text>
+					<text v-if="!editingQuestion" class="edit-link" @tap="startEditQuestion">✏️ 编辑</text>
+				</view>
+				<textarea
+					v-if="editingQuestion"
+					v-model="editedQuestionText"
+					class="question-editor"
+					:maxlength="-1"
+					auto-height
+					:disabled="reanswering"
+				/>
+				<text v-else class="result-text">{{ result.questionText || "（未识别到题目）" }}</text>
+				<view v-if="editingQuestion" class="edit-actions">
+					<button class="btn-outline small-btn" :disabled="reanswering" hover-class="button-hover" @tap="cancelEditQuestion">
+						取消
+					</button>
+					<button
+						class="btn-primary small-btn"
+						:disabled="reanswering || !editedQuestionText.trim()"
+						hover-class="button-hover"
+						@tap="handleReanswer"
+					>
+						<text v-if="reanswering">AI 重新解答中…</text>
+						<text v-else>🔄 重新解答</text>
+					</button>
+				</view>
+				<text v-if="editingQuestion" class="edit-hint">修正题目后点「重新解答」，答案与解析会按修正后的题目重新生成</text>
 			</view>
 			<view v-if="result.wrongAnswerText" class="result-block result-wrong">
 				<text class="result-label">我的答案</text>
@@ -125,12 +156,14 @@ import {
 	analyzeImage,
 	createErrorItem,
 	detectQuestions,
+	reanswerQuestion,
 	type Notebook,
 	type ParsedQuestion,
 	type DetectedQuestionBox,
 } from "@/api";
 import MdView from "@/components/MdView.vue";
 import CropOverlay from "@/components/crop-overlay.vue";
+import { detectUncertainty } from "@/utils/uncertainty";
 
 const notebooks = ref<Notebook[]>([]);
 const selectedNotebookId = ref("");
@@ -139,6 +172,13 @@ const analyzing = ref(false);
 const saving = ref(false);
 const errorMsg = ref("");
 const result = ref<ParsedQuestion | null>(null);
+
+// 题目校正与重新解答：识别结果可能转录错误（数字/选项），用户修正文本后按新题目重出答案
+const editingQuestion = ref(false);
+const editedQuestionText = ref("");
+const reanswering = ref(false);
+// 当前 imagePath 对应的 base64，识别后复用给重新解答（避免重复读文件）
+const imageBase64Cache = ref("");
 
 // 整页原图与题目定位（用于框选/重框选/连续录题）
 const originalPath = ref("");
@@ -149,6 +189,13 @@ const detecting = ref(false);
 const notebookNames = computed(() => notebooks.value.map(nb => nb.name));
 const selectedNotebook = computed(() =>
 	notebooks.value.find(nb => nb.id === selectedNotebookId.value)
+);
+const uncertainty = computed(() =>
+	detectUncertainty({
+		questionText: result.value?.questionText,
+		answerText: result.value?.answerText,
+		analysis: result.value?.analysis,
+	})
 );
 
 onShow(async () => {
@@ -179,6 +226,8 @@ function chooseImage(sourceType: "camera" | "album") {
 			result.value = null;
 			errorMsg.value = "";
 			detected.value = [];
+			editingQuestion.value = false;
+			imageBase64Cache.value = "";
 			// 打开裁剪浮层并同时请求 AI 题目定位
 			showCropOverlay.value = true;
 			startDetect();
@@ -205,6 +254,7 @@ function reopenCrop() {
 	if (!originalPath.value) return;
 	result.value = null;
 	errorMsg.value = "";
+	editingQuestion.value = false;
 	showCropOverlay.value = true;
 }
 
@@ -217,6 +267,8 @@ function onCropConfirm(payload: { path: string; autoStart: boolean }) {
 	showCropOverlay.value = false;
 	result.value = null;
 	errorMsg.value = "";
+	editingQuestion.value = false;
+	imageBase64Cache.value = "";
 	if (payload.autoStart) {
 		handleAnalyze();
 	}
@@ -260,8 +312,10 @@ async function handleAnalyze() {
 	analyzing.value = true;
 	errorMsg.value = "";
 	result.value = null;
+	editingQuestion.value = false;
 	try {
 		const base64 = await readImageAsBase64(imagePath.value);
+		imageBase64Cache.value = base64;
 		result.value = await analyzeImage(base64, selectedNotebook.value.id);
 	} catch (e: any) {
 		errorMsg.value = e?.message || "AI 识别失败，请重试";
@@ -270,8 +324,60 @@ async function handleAnalyze() {
 	}
 }
 
+function startEditQuestion() {
+	if (!result.value) return;
+	editedQuestionText.value = result.value.questionText || "";
+	editingQuestion.value = true;
+}
+
+function cancelEditQuestion() {
+	editingQuestion.value = false;
+}
+
+/** 重新解答：按校正后的题目文本重出答案与解析（复用网页端 /api/reanswer，AI 调用较慢） */
+async function handleReanswer() {
+	const questionText = editedQuestionText.value.trim();
+	if (!result.value || !questionText || reanswering.value) return;
+	reanswering.value = true;
+	try {
+		let base64 = imageBase64Cache.value;
+		if (!base64 && imagePath.value) {
+			base64 = await readImageAsBase64(imagePath.value);
+			imageBase64Cache.value = base64;
+		}
+		const updated = await reanswerQuestion({
+			questionText,
+			subject: result.value.subject || "",
+			imageBase64: base64 || undefined,
+		}, { timeout: 180000 });
+		result.value = {
+			...result.value,
+			questionText,
+			answerText: updated.answerText,
+			analysis: updated.analysis,
+			knowledgePoints: updated.knowledgePoints || [],
+			wrongAnswerText: updated.wrongAnswerText || "",
+			mistakeAnalysis: updated.mistakeAnalysis || "",
+			mistakeStatus: (updated.wrongAnswerText || "").trim()
+				? "wrong_attempt"
+				: (updated.mistakeStatus || "unknown"),
+		};
+		editingQuestion.value = false;
+		uni.showToast({ title: "已重新解答", icon: "success" });
+	} catch (e: any) {
+		uni.showToast({ title: e?.message || "重新解答失败，请重试", icon: "none" });
+	} finally {
+		reanswering.value = false;
+	}
+}
+
 async function handleSave() {
 	if (!result.value || !selectedNotebook.value) return;
+	// 编辑态直接保存：采纳已修正的题目文本（答案/解析仍为当前识别结果）
+	if (editingQuestion.value) {
+		result.value.questionText = editedQuestionText.value;
+		editingQuestion.value = false;
+	}
 	if (!result.value.questionText) {
 		uni.showToast({ title: "未识别到题目内容", icon: "none" });
 		return;
@@ -498,6 +604,67 @@ async function handleSave() {
 }
 
 /* ---------- 结果 ---------- */
+.warn-box {
+	display: flex;
+	flex-direction: column;
+	background: var(--warning-50);
+	border: 1rpx solid var(--warning-600);
+	border-radius: 16rpx;
+	padding: 20rpx 24rpx;
+	margin-bottom: 20rpx;
+}
+.warn-title {
+	font-size: 26rpx;
+	font-weight: 600;
+	color: var(--warning-600);
+	margin-bottom: 10rpx;
+}
+.warn-item {
+	font-size: 24rpx;
+	line-height: 1.7;
+	color: var(--warning-600);
+}
+.warn-hint {
+	font-size: 22rpx;
+	color: var(--ink-400);
+	margin-top: 10rpx;
+}
+.result-label-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12rpx;
+}
+.result-label-row .result-label {
+	margin-bottom: 0;
+}
+.edit-link {
+	font-size: 24rpx;
+	color: var(--brand-600);
+	font-weight: 600;
+}
+.question-editor {
+	width: 100%;
+	min-height: 160rpx;
+	font-size: 27rpx;
+	line-height: 1.7;
+	color: var(--ink-700);
+	background: var(--bg-fill);
+	border-radius: 12rpx;
+	padding: 16rpx 20rpx;
+	box-sizing: border-box;
+}
+.edit-actions {
+	display: flex;
+	gap: 20rpx;
+	margin-top: 20rpx;
+}
+.edit-hint {
+	display: block;
+	font-size: 22rpx;
+	color: var(--ink-400);
+	margin-top: 14rpx;
+}
 .result-block {
 	border-radius: 16rpx;
 	padding: 24rpx 26rpx;

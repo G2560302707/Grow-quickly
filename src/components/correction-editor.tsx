@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ParsedQuestion } from "@grow/shared/ai";
 import { calculateGrade } from "@/lib/grade-calculator";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Save, RefreshCw, Loader2, Box } from "lucide-react";
+import { Save, RefreshCw, Loader2, Box, AlertTriangle } from "lucide-react";
+import { detectUncertainty } from "@grow/shared/ai/uncertainty";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
@@ -66,6 +67,16 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
 
     const [educationStage, setEducationStage] = useState<string | undefined>(undefined);
     const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+
+    // 识别不确定度：AI 输出中的 [?]、「可能不完整」、「需人工核对」等标记，保存前提示用户对照原图核对
+    const uncertainty = useMemo(
+        () => detectUncertainty({
+            questionText: data.questionText,
+            answerText: data.answerText,
+            analysis: data.analysis,
+        }),
+        [data.questionText, data.answerText, data.analysis]
+    );
 
 
 
@@ -281,6 +292,23 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             </Select>
                         </div>
                     </div>
+
+                    {uncertainty.uncertain && (
+                        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                            <p className="font-medium flex items-center gap-1.5">
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                识别结果可能不准确，请对照原图核对
+                            </p>
+                            <ul className="mt-1.5 list-disc pl-5 space-y-0.5">
+                                {uncertainty.signals.map((s) => (
+                                    <li key={s.key}>{s.message}</li>
+                                ))}
+                            </ul>
+                            <p className="mt-1.5 text-xs text-amber-700">
+                                修正题目文本后点击下方「重新解答」，答案与解析会按修正后的题目重新生成。
+                            </p>
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <Label>{t.editor.question}</Label>

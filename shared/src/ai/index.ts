@@ -4,6 +4,7 @@ import { OpenAIProvider } from "./openai-provider";
 import { AzureOpenAIProvider } from "./azure-provider";
 
 export * from "./types";
+export * from "./uncertainty";
 
 import { getAppConfig, getActiveOpenAIConfig } from "../config";
 import { createLogger } from "../logger";

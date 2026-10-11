@@ -10,6 +10,7 @@ VERSION_FILE="/app/data/.app_version"
 PRISMA_BIN="node /app/node_modules/prisma/build/index.js"
 SEED_ADMIN_SCRIPT="/app/dist-scripts/scripts/seed-admin.js"
 REBUILD_TAGS_SCRIPT="/app/dist-scripts/scripts/rebuild-system-tags.js"
+SEED_GONGKAO_TAGS_SCRIPT="/app/dist-scripts/scripts/seed-gongkao-tags.js"
 
 # Get current app version from package.json
 CURRENT_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "unknown")
@@ -63,6 +64,10 @@ if [ "$PREVIOUS_VERSION" != "$CURRENT_VERSION" ]; then
     cd /app && node "$REBUILD_TAGS_SCRIPT" && {
         echo "[Entrypoint] System tags rebuilt successfully."
     } || echo "[Entrypoint] Tag rebuild failed (non-fatal, continuing...)."
+    # 行测考点标签：幂等只增，版本升级时补齐新增考点
+    cd /app && node "$SEED_GONGKAO_TAGS_SCRIPT" && {
+        echo "[Entrypoint] Gongkao tags seeded successfully."
+    } || echo "[Entrypoint] Gongkao tag seed failed (non-fatal, continuing...)."
     # Update version marker
     echo "$CURRENT_VERSION" > "$VERSION_FILE"
 fi

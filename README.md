@@ -30,6 +30,7 @@
 | [目录结构](doc/目录结构.md) | 仓库目录逐项说明 |
 | [管理后台拆分方案](doc/管理后台拆分方案.md) | 学习端/管理端拆分设计与接口归属 |
 | [薄弱点诊断算法说明](doc/薄弱点诊断算法说明.md) | 薄弱点诊断与定向出题算法 |
+| [题库方案](doc/题库方案.md) | 题库收录/分类/检索出题设计与分期实施 |
 
 ## 📱 PWA 支持 (添加到主屏幕)
 
@@ -84,7 +85,7 @@
 #### 1. 克隆仓库
 
 ```bash
-git clone http://gitlab.funyond.com:10269/Sun/Grow-quickly.git
+git clone https://github.com/G2560302707/Grow-quickly.git
 cd Grow-quickly
 ```
 
@@ -122,7 +123,15 @@ cp .env.example .env
 
 | 环境变量 | 描述 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `AI_PROVIDER` | AI 提供商 | `gemini` | 可选 `gemini`、`openai` 或 `azure` |
+| `AI_PROVIDER` | AI 提供商 | `openai` | 可选 `gemini`、`openai` 或 `azure`；默认 `openai`（对接 DeepSeek 兼容接口） |
+
+**DeepSeek 配置（默认）**
+
+| 环境变量 | 描述 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key | 无 | 使用 DeepSeek 时必填，从 [DeepSeek Platform](https://platform.deepseek.com) 获取 |
+| `DEEPSEEK_BASE_URL` | DeepSeek API 地址 | `https://api.deepseek.com` | 可选 |
+| `DEEPSEEK_MODEL` | DeepSeek 模型 | `deepseek-chat` | 可选，如 `deepseek-reasoner` 等 |
 
 **Gemini 配置**
 
@@ -132,7 +141,7 @@ cp .env.example .env
 | `GEMINI_BASE_URL` | Gemini API 地址 | 无 | 可选，默认 `https://generativelanguage.googleapis.com`，通常无需修改 |
 | `GEMINI_MODEL` | Gemini 模型 | `gemini-2.5-flash` | 可选，如 `gemini-2.5-pro`、`gemini-3.0-flash` 等 |
 
-**OpenAI 配置**
+**OpenAI 兼容配置（DeepSeek 未配置时兜底）**
 
 | 环境变量 | 描述 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |

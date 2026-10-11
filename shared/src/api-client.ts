@@ -10,10 +10,18 @@ export class ApiError extends Error {
     }
 }
 
+/** 管理端挂在 /admin 时由 next.config env 注入；学习端为空。绝对 URL 不拼接。 */
+function withBasePath(url: string): string {
+    if (/^https?:\/\//i.test(url)) return url;
+    const base = (process.env.NEXT_PUBLIC_BASE_PATH || "").replace(/\/$/, "");
+    if (!base || !url.startsWith("/")) return url;
+    return `${base}${url}`;
+}
+
 async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
     const { params, headers, timeout = 60000, ...rest } = options;
 
-    let finalUrl = url;
+    let finalUrl = withBasePath(url);
     if (params) {
         const searchParams = new URLSearchParams(params);
         finalUrl += `?${searchParams.toString()}`;

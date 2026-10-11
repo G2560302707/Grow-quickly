@@ -41,6 +41,16 @@
 			<button class="btn-primary submit-btn" :disabled="loading" hover-class="button-hover" @tap="handleLogin">
 				{{ loading ? "登录中..." : "登 录" }}
 			</button>
+			<!-- #ifdef MP-WEIXIN -->
+			<view class="wx-divider">
+				<view class="wx-divider-line" />
+				<text class="wx-divider-text">或</text>
+				<view class="wx-divider-line" />
+			</view>
+			<button class="wx-btn" :disabled="wxLoading" hover-class="button-hover" @tap="handleWeChatLogin">
+				{{ wxLoading ? "微信登录中..." : "微信一键登录" }}
+			</button>
+			<!-- #endif -->
 			<view class="to-register">
 				<text class="to-register-tip">没有账号？</text>
 				<text class="to-register-link" @tap="goRegister">立即注册</text>
@@ -56,11 +66,12 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { login } from "@/utils/auth";
+import { login, loginWithWeChat } from "@/utils/auth";
 
 const email = ref("");
 const password = ref("");
 const loading = ref(false);
+const wxLoading = ref(false);
 const errorMsg = ref("");
 
 async function handleLogin() {
@@ -81,6 +92,20 @@ async function handleLogin() {
 }
 function goRegister() {
 	uni.redirectTo({ url: "/pages/register/register" });
+}
+
+async function handleWeChatLogin() {
+	if (wxLoading.value) return;
+	wxLoading.value = true;
+	errorMsg.value = "";
+	try {
+		await loginWithWeChat();
+		uni.reLaunch({ url: "/pages/index/index" });
+	} catch (e: any) {
+		errorMsg.value = e?.message || "微信登录失败，请稍后重试";
+	} finally {
+		wxLoading.value = false;
+	}
 }
 </script>
 
@@ -267,6 +292,42 @@ function goRegister() {
 }
 .submit-btn {
 	margin-top: 8rpx;
+}
+
+/* ---------- 微信一键登录 ---------- */
+.wx-divider {
+	display: flex;
+	align-items: center;
+	margin: 32rpx 0 28rpx;
+}
+.wx-divider-line {
+	flex: 1;
+	height: 1rpx;
+	background: var(--ink-100, #e5e7eb);
+}
+.wx-divider-text {
+	font-size: 22rpx;
+	color: var(--ink-300);
+	padding: 0 20rpx;
+}
+.wx-btn {
+	width: 100%;
+	height: 88rpx;
+	line-height: 88rpx;
+	border-radius: 20rpx;
+	background: #07c160;
+	color: #ffffff;
+	font-size: 30rpx;
+	font-weight: 600;
+	border: none;
+}
+.wx-btn::after {
+	border: none;
+}
+.wx-btn[disabled] {
+	opacity: 0.6;
+	color: #ffffff;
+	background: #07c160;
 }
 .to-register {
 	display: flex;

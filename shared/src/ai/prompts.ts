@@ -4,6 +4,7 @@
  */
 
 import { AI_SUBJECT_PROMPT_LIST } from "../subjects";
+import { GONGKAO_MODULES } from "../tag-data";
 
 /**
  * 将 gradeSemester 字符串转换为年级数字（用于标签过滤）
@@ -117,6 +118,8 @@ export interface PromptOptions {
   prefetchedChemistryTags?: string[];
   prefetchedBiologyTags?: string[];
   prefetchedEnglishTags?: string[];
+  // 行测考点标签（subject='gongkao' 系统标签叶子；行测错题打标用）
+  prefetchedGongkaoTags?: string[];
   // 批量出题时注入的防重复旧题（仅批量模板使用）
   recentQuestions?: string[];
 }
@@ -382,10 +385,23 @@ export function generateAnalyzePrompt(
   const englishTags = options?.prefetchedEnglishTags || [];
   const englishTagsString = englishTags.length > 0 ? englishTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
 
+  // 行测考点标签：未指定学科（行测错题本/自动识别）或学科本身就是行测模块时注入
+  const gongkaoTags = options?.prefetchedGongkaoTags || [];
+  const gongkaoTagsString = gongkaoTags.length > 0 ? gongkaoTags.map(tag => `"${tag}"`).join(", ") : '（无可用标签）';
+  const isGongkaoSubject = !subject || GONGKAO_MODULES.includes(subject);
+
   // 根据科目决定显示哪些标签（节省 token，提高准确性）
   let tagsSection = "";
 
-  if (subject === '数学') {
+  if (isGongkaoSubject) {
+    tagsSection = `**行测考点标签 (Gongkao Tags):**
+使用行测大纲中的**精确标签名称**，可选标签如下：
+${gongkaoTagsString}
+
+**重要提示**：
+- 必须从上述列表中选择精确匹配的标签
+- 每题最多 5 个标签`;
+  } else if (subject === '数学') {
     tagsSection = `**数学标签 (Math Tags):**
 使用人教版课程大纲中的**精确标签名称**，可选标签如下：
 ${mathTagsString}
@@ -757,5 +773,52 @@ export function generateReanswerPrompt(
     subject_hint: subjectHint,
     grade_instruction: generateGradeInstruction(gradeSemester),
     provider_hints: options?.providerHints || ''
+  }).trim();
+}
+
+/**
+ * 题库导入批量解析提示词：把切分好的原始题目片段整理成结构化题库条目（JSON 数组输出）。
+ * 供管理端离线收录用，不赶时间、追求准确：每批 3-5 段，逐段对应输出。
+ */
+export const DEFAULT_BANK_IMPORT_TEMPLATE = `【角色与核心任务 (ROLE AND CORE TASK)】
+你是一位资深的**公务员考试（行测）题库整理专家**。下面给出 {{block_count}} 段从题册/试卷切分出的原始题目文本（可能含题号、选项、答案、解析，也可能残缺或含排版噪音），请逐段整理成结构化题库条目。
+
+【整理要求 (REQUIREMENTS)】
+1. **题干原文**：保留题干与全部选项的文字内容，仅清理多余空格、断行与排版噪音；禁止改写题意、增删选项。表格材料用文字描述清楚。
+2. **答案**：取原文给出的答案（客观题写选项字母及内容）；原文没有答案时填"需人工核对"。
+3. **解析**：原文有解析则整理为「考点 → 选项排除 → 步骤 → 易错点」结构；没有解析则留空字符串，不要编造。
+4. **分类**：subject 必须是行测模块之一：言语理解 / 判断推理 / 数量关系 / 资料分析 / 常识判断；确实无法归类的用"其他"。primary_tag 必须从【考点标签清单】中**精确选择**一个；确实无合适标签时留空字符串。extra_tags 可再给最多 2 个辅助标签（同样取自清单）。
+5. **难度**：四档 easy（直白送分）/ medium（标准真题难度）/ hard（干扰强或多步推理）/ harder（极难，多考点综合）。
+6. **题型**：question_type 填 single（单选）/ multiple（多选）/ subjective（主观）。
+7. **requires_image**：图形推理题或必须看图/表才能作答的题填 true。
+8. **confidence**：原文完整清晰填 high；缺选项或答案模糊填 medium；残缺、无法整理填 low。
+
+【输出格式 (OUTPUT FORMAT)】
+你的响应必须**只有 JSON 数组**，不要 markdown 代码块标记，不要任何其他文字。恰好 {{block_count}} 个元素，与输入顺序一一对应，每个元素形如：
+{"index":1,"question_text":"题干，含全部选项","answer_text":"B","analysis":"解析，可空字符串","subject":"判断推理","primary_tag":"削弱加强","extra_tags":["论证结构"],"difficulty":"medium","question_type":"single","requires_image":false,"confidence":"high"}
+
+【考点标签清单 (TAG LIST)】
+{{tag_list}}
+
+【待整理题目片段】
+{{blocks}}
+
+{{provider_hints}}`;
+
+/**
+ * 生成题库导入解析提示词
+ * @param blocks - 切分好的原始题目片段
+ * @param tagNames - 可选考点标签名清单（叶子考点，带模块前缀帮助消歧）
+ */
+export function generateBankImportPrompt(
+  blocks: string[],
+  tagNames: string[],
+  options?: PromptOptions
+): string {
+  return replaceVariables(DEFAULT_BANK_IMPORT_TEMPLATE, {
+    block_count: String(blocks.length),
+    tag_list: tagNames.length > 0 ? tagNames.join("、") : "（无可用标签，primary_tag 留空）",
+    blocks: blocks.map((b, i) => `【待整理题目 ${i + 1}】\n${b}`).join("\n\n"),
+    provider_hints: options?.providerHints || '',
   }).trim();
 }

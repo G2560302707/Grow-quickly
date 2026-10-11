@@ -313,6 +313,30 @@ export function detectQuestions(imageBase64: string): Promise<{ questions: Detec
     });
 }
 
+/** 重新解答结果：与后端 ReanswerQuestionResult 对齐 */
+export interface ReanswerQuestionResult {
+    answerText: string;
+    analysis: string;
+    knowledgePoints: string[];
+    wrongAnswerText: string;
+    mistakeAnalysis: string;
+    mistakeStatus: string;
+}
+
+/** 重新解答：基于校正后的题目文本重新生成答案与解析（复用网页端 /api/reanswer） */
+export function reanswerQuestion(payload: {
+    questionText: string;
+    language?: "zh" | "en";
+    subject?: string;
+    imageBase64?: string;
+}, options?: { timeout?: number }): Promise<ReanswerQuestionResult> {
+    return request("/api/reanswer", {
+        method: "POST",
+        data: { language: "zh", ...payload },
+        ...(options?.timeout ? { timeout: options.timeout } : {}),
+    });
+}
+
 // ---------- 举一反三 ----------
 
 export function generatePractice(
@@ -378,6 +402,7 @@ export interface PracticeQuestionItem {
     subject?: string | null;
     tagId?: string | null;
     errorItemId?: string | null;
+    bankQuestionId?: string | null;
     questionText: string;
     answerText?: string | null;
     eloRating?: number | null;

@@ -12,6 +12,7 @@ import {
     Wrench,
     LogOut,
     BookOpenCheck,
+    LibraryBig,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ const NAV_GROUPS: { label: string; items: { href: string; label: string; icon: t
         label: "内容管理",
         items: [
             { href: "/users", label: "用户管理", icon: Users },
+            { href: "/bank", label: "题库管理", icon: LibraryBig },
             { href: "/announcements", label: "公告管理", icon: Megaphone },
             { href: "/feedback", label: "反馈管理", icon: MessageSquareHeart },
         ],

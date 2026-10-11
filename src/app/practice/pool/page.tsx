@@ -19,6 +19,7 @@ interface PoolQuestionItem {
     subject?: string | null;
     tagId?: string | null;
     errorItemId?: string | null;
+    bankQuestionId?: string | null;
     questionText: string;
     status: string;
     isCorrect?: boolean | null;
@@ -219,6 +220,11 @@ export default function PoolPage() {
                                         <Badge variant="outline" className="text-xs">
                                             {DIFFICULTY_LABELS[q.difficulty] || q.difficulty}
                                         </Badge>
+                                        {q.bankQuestionId && (
+                                            <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+                                                题库
+                                            </Badge>
+                                        )}
                                         {q.status === "answered" && (
                                             <Badge className={`text-xs ${q.isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                                                 {q.isCorrect ? "答对" : "答错"}

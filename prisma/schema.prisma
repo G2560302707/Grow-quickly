@@ -100,6 +100,9 @@ model KnowledgeTag {
   // 与错题的多对多关系
   errorItems ErrorItem[]
 
+  // 全局题库题的主考点关联
+  bankQuestions BankQuestion[] @relation("BankPrimaryTag")
+
   // 已归因的定向练习
   practiceRecords PracticeRecord[]
   practiceQuestions PracticeQuestion[]
@@ -221,15 +224,17 @@ model PracticeQuestion {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  channel     String   // free(自由练习) | similar(举一反三) | smart(薄弱点专项)
+  channel     String   // free(自由练习) | similar(举一反三) | smart(薄弱点专项) | bank(题库抽题)
   difficulty  String   // easy | medium | hard | harder
   subject     String?
 
-  // 归因：薄弱点专项挂考点，举一反三锚定原错题
+  // 归因：薄弱点专项挂考点，举一反三锚定原错题，题库抽题挂全局题库题
   tagId       String?
   tag         KnowledgeTag? @relation(fields: [tagId], references: [id], onDelete: SetNull)
   errorItemId String?
   errorItem   ErrorItem?    @relation(fields: [errorItemId], references: [id], onDelete: SetNull)
+  bankQuestionId String?
+  bankQuestion   BankQuestion? @relation(fields: [bankQuestionId], references: [id], onDelete: SetNull)
 
   // 题目快照：生成时全量落库
   questionText String
@@ -268,4 +273,57 @@ model FocusSession {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// 全局题库：管理员离线导入的题目资产，所有用户共享（与用户维度的 PracticeQuestion 分离）。
+// 生命周期：raw(已切分待解析) -> pending(解析完成待审) -> published(可被抽题) / disabled(下架)
+model BankQuestion {
+  id            String  @id @default(cuid())
+  subject       String  @default("")        // 行测模块：言语理解/判断推理/数量关系/资料分析/常识判断（raw 切片解析前为空）
+  primaryTagId  String?
+  primaryTag    KnowledgeTag? @relation("BankPrimaryTag", fields: [primaryTagId], references: [id], onDelete: SetNull)
+  extraTagIds   String?             // JSON 数组：辅助考点标签 id
+  difficulty    String  @default("medium") // easy | medium | hard | harder
+  questionType  String  @default("single") // single 单选 | multiple 多选 | subjective 主观
+  questionText  String  @default("")
+  rawText       String?             // 解析前的原始切片文本（raw 状态题以此为解析输入）
+  answerText    String?
+  analysis      String?
+  requiresImage Boolean @default(false) // 图形/图表题，纯文本题库默认不参与抽题
+  source        String?             // 来源（文件名/出处），留痕
+  status        String  @default("raw")
+  contentHash   String?             // 题干归一化 sha1，唯一约束挡精确重复
+  duplicateOf   String?             // bigram 命中的疑似重复题 id（审核时人工裁决）
+  confidence    String?             // 解析置信度：high | medium | low
+  importBatchId String?
+  importBatch   BankImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  attemptCount  Int @default(0)     // 动态难度校准统计
+  correctCount  Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  practiceQuestions PracticeQuestion[]
+
+  @@unique([contentHash])
+  @@index([status, subject, difficulty])
+  @@index([primaryTagId, status])
+  @@index([importBatchId])
+}
+
+// 题库导入批次：记录一次导入的原文与解析进度（分批推进可续跑）
+model BankImportBatch {
+  id String @id @default(cuid())
+  name String              // 文件名或"粘贴导入"
+  source String?           // 来源出处备注
+  rawText String             // 导入原文（供重新切分/排查）
+  totalCount Int @default(0)
+  autoPublish Boolean @default(true) // 直接发布（low 置信度与疑似重复仍强制待审）
+  status String @default("parsing") // parsing | parsed | done
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions BankQuestion[]
+
+  @@index([createdAt])
 }

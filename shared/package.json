@@ -29,6 +29,7 @@
         "./api-client": "./src/api-client.ts",
         "./mailer": "./src/mailer.ts",
         "./subjects": "./src/subjects.ts",
+        "./bank-utils": "./src/bank-utils.ts",
         "./mistake-status": "./src/mistake-status.ts",
         "./tag-data": "./src/tag-data/index.ts",
         "./tag-recognition": "./src/tag-recognition.ts",

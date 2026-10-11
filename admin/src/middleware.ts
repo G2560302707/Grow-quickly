@@ -19,16 +19,22 @@ export async function middleware(req: NextRequest) {
 
     if (isLoginPage) {
         if (isAuth && isAdmin) {
-            return NextResponse.redirect(new URL("/", req.url));
+            // 用 req.nextUrl 构造跳转，自动带上 basePath（/admin）；
+            // new URL("/", req.url) 会丢掉前缀导致跳到学习端
+            const home = req.nextUrl.clone();
+            home.pathname = "/";
+            home.search = "";
+            return NextResponse.redirect(home);
         }
         return null;
     }
 
     if (!isAuth || !isAdmin) {
         const from = req.nextUrl.pathname + (req.nextUrl.search || "");
-        return NextResponse.redirect(
-            new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
-        );
+        const login = req.nextUrl.clone();
+        login.pathname = "/login";
+        login.search = `?callbackUrl=${encodeURIComponent(from)}`;
+        return NextResponse.redirect(login);
     }
 
     return null;

@@ -90,3 +90,9 @@ uniapp/project.config.json
 uniapp/project.private.config.json
 uniapp/src/project.config.json
 uniapp/src/project.private.config.json
+
+# 部署产物与敏感配置（不入库）
+deploy.zip
+deploy/bundle/*.tar
+deploy/bundle/*.tar.gz
+deploy/config/app-config.json

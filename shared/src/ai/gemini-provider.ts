@@ -1,9 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
-import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt } from './prompts';
-import { safeParseParsedQuestion, parseDetectedQuestions, parseSimilarBatch } from './schema';
+import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, BankImportItem } from "./types";
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt, generateBankImportPrompt } from './prompts';
+import { safeParseParsedQuestion, parseDetectedQuestions, parseSimilarBatch, parseBankImportBatch } from './schema';
 import { getAppConfig } from '../config';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
+import { GONGKAO_MODULES } from '../tag-data';
 import { createLogger } from '../logger';
 import { normalizeMistakeStatusForSave } from '../mistake-status';
 import { AI_SUBJECT_OPTIONS } from '../subjects';
@@ -134,6 +135,8 @@ export class GeminiProvider implements AIService {
         const prefetchedChemistryTags = (subject === '化学' || !subject) ? await getTagsFromDB('chemistry') : [];
         const prefetchedBiologyTags = (subject === '生物' || !subject) ? await getTagsFromDB('biology') : [];
         const prefetchedEnglishTags = (subject === '英语' || !subject) ? await getTagsFromDB('english') : [];
+        // 行测考点标签：未指定学科（行测错题本/自动识别）时注入，供行测题精确打标
+        const prefetchedGongkaoTags = (!subject || GONGKAO_MODULES.includes(subject)) ? await getTagsFromDB('gongkao') : [];
 
         const prompt = generateAnalyzePrompt(language, grade, subject, {
             customTemplate: config.prompts?.analyze,
@@ -142,6 +145,7 @@ export class GeminiProvider implements AIService {
             prefetchedChemistryTags,
             prefetchedBiologyTags,
             prefetchedEnglishTags,
+            prefetchedGongkaoTags,
         }, gradeSemester);
 
         logger.box('🔍 AI Image Analysis Request', {
@@ -534,4 +538,36 @@ export class GeminiProvider implements AIService {
         }
         throw new Error("AI_UNKNOWN_ERROR");
     }
+
+    async parseBankQuestions(blocks: string[], tagNames: string[]): Promise<BankImportItem[]> {
+        const systemPrompt = generateBankImportPrompt(blocks, tagNames);
+
+        logger.box('📚 Bank Import Parse Request', {
+            provider: 'Gemini',
+            model: this.modelName,
+            blocks: blocks.length,
+        });
+
+        try {
+            const startTime = Date.now();
+            const response = await retryOperation(() => this.ai.models.generateContent({
+                model: this.modelName,
+                contents: systemPrompt,
+            }), { label: 'gemini:parseBankQuestions' });
+
+            const text = response.text || '';
+            logger.info({ blocks: blocks.length, durationMs: Date.now() - startTime }, 'Gemini parseBankQuestions completed');
+            logger.box('🤖 Bank Import Raw Response', text);
+
+            if (!text) throw new Error("Empty response from AI");
+            return parseBankImportBatch(text);
+        } catch (error) {
+            logger.box('❌ Error during bank import parse', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            this.handleError(error);
+            throw error;
+        }
+    }
+
 }

@@ -335,7 +335,8 @@ const sessionAllCorrect = computed(() => sessionCorrectCount.value === sessionTo
 const firstRating = computed(() => sessionRatings.value[0] ?? 1200);
 const lastRating = computed(() => sessionRatings.value[sessionRatings.value.length - 1] ?? 1200);
 const summaryTitle = computed(() =>
-	sessionAllCorrect ? "全对！这个考点已经拿下" : sessionCorrectCount.value >= 3 ? "进步明显，继续保持" : "这个考点还需要多练"
+	// 注意：script 内读取 computed 必须带 .value，否则 ref 对象恒为真值（曾导致小结永远显示"全对"）
+	sessionAllCorrect.value ? "全对！这个考点已经拿下" : sessionCorrectCount.value >= 3 ? "进步明显，继续保持" : "这个考点还需要多练"
 );
 const summarySub = computed(() =>
 	`「${subjectName.value}」专项 ${sessionTotal.value} 题完成，难度已按你的作答自动调整`

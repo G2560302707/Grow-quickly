@@ -54,6 +54,15 @@ data
 certs
 *.pem
 
+# 部署产物（导出的镜像包/压缩包，绝不能再打回镜像，否则体积暴涨）
+deploy
+deploy.zip
+*.tar
+*.tar.gz
+
+# 本地截图/杂项
+gui-test-screenshots
+
 # 应用配置文件（含 AI 密钥/SMTP，运行时通过卷挂载或管理端首次配置）
 config
 

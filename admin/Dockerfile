@@ -3,13 +3,13 @@ FROM node:22-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY shared/package.json shared/
 COPY admin/package.json admin/
-RUN npm ci
+RUN apk add --no-cache libc6-compat python3 make g++ \
+    && npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder

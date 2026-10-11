@@ -8,6 +8,7 @@ import { prisma } from "@grow/shared/prisma";
 import { badRequest, internalError, createErrorResponse, ErrorCode } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { GONGKAO_NOTEBOOKS } from "@grow/shared/subjects";
 
 const logger = createLogger('api:analyze');
 
@@ -98,8 +99,12 @@ export async function POST(req: Request) {
                     });
 
                     if (subject) {
-                        subjectName = inferSubjectFromName(subject.name);
-                        logger.debug({ subjectName, subjectDisplayName: subject.name }, 'Inferred subject');
+                        // 行测错题本（言语理解/判断推理/数量关系/资料分析/常识判断/申论）：
+                        // 不映射到 K12 学科，走行测考点标签注入（subject='gongkao' 系统标签）
+                        const isGongkaoNotebook = (GONGKAO_NOTEBOOKS as readonly string[]).includes(subject.name)
+                            || /行测|申论|言语|判断|数量|资料|常识/.test(subject.name);
+                        subjectName = isGongkaoNotebook ? null : inferSubjectFromName(subject.name);
+                        logger.debug({ subjectName, subjectDisplayName: subject.name, isGongkaoNotebook }, 'Inferred subject');
                     }
                 }
             } catch (error) {

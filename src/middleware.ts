@@ -4,16 +4,41 @@ import type { NextRequest } from "next/server";
 import { createLogger } from "@grow/shared/logger";
 
 const logger = createLogger('middleware');
+const SESSION_COOKIE = "next-auth.session-token";
+
+/** 小程序端 Cookie 头常被微信丢弃，改用 X-Session-Token；注入为会话 Cookie 供 getServerSession 使用 */
+function injectSessionCookie(req: NextRequest): Headers {
+    const headers = new Headers(req.headers);
+    const headerToken = req.headers.get("x-session-token")?.trim();
+    if (headerToken && !req.cookies.get(SESSION_COOKIE)?.value) {
+        const existing = headers.get("cookie") || "";
+        headers.set(
+            "cookie",
+            existing ? `${existing}; ${SESSION_COOKIE}=${headerToken}` : `${SESSION_COOKIE}=${headerToken}`,
+        );
+    }
+    return headers;
+}
 
 export async function middleware(req: NextRequest) {
-    // Debug logging for middleware
     logger.debug({ method: req.method, path: req.nextUrl.pathname }, 'Processing request');
 
+    const headers = injectSessionCookie(req);
+    const forward = () => NextResponse.next({ request: { headers } });
+
+    // API：只做会话注入，鉴权仍由各 route 负责
+    if (req.nextUrl.pathname.startsWith("/api")) {
+        return forward();
+    }
+
     try {
+        const headerToken = req.headers.get("x-session-token")?.trim();
         const token = await getToken({
-            req,
+            req: headerToken && !req.cookies.get(SESSION_COOKIE)?.value
+                ? ({ headers: { cookie: `${SESSION_COOKIE}=${headerToken}` } } as any)
+                : req,
             secret: process.env.NEXTAUTH_SECRET,
-            cookieName: "next-auth.session-token", // Explicitly look for the standardized cookie
+            cookieName: SESSION_COOKIE,
         });
 
         const isAuth = !!token;
@@ -32,7 +57,7 @@ export async function middleware(req: NextRequest) {
                 logger.debug('Redirecting authenticated user to /');
                 return NextResponse.redirect(new URL("/", req.url));
             }
-            return null;
+            return forward();
         }
 
         if (!isAuth) {
@@ -46,22 +71,15 @@ export async function middleware(req: NextRequest) {
                 new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
             );
         }
-        // 管理功能已拆分至独立管理端（admin/ 应用），学习端不再有 admin 页面
+        return forward();
     } catch (e) {
         logger.error({ error: e }, 'Error processing token');
-        return NextResponse.next();
+        return forward();
     }
 }
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - api (API routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         */
-        "/((?!api|_next/static|_next/image|favicon.ico).*)",
+        "/((?!_next/static|_next/image|favicon.ico).*)",
     ],
 };
