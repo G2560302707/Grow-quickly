@@ -5,8 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, internalError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
-import { findParentTagIdForGrade } from "@grow/shared/tag-recognition";
 import { normalizeMistakeStatusForSave } from "@grow/shared/mistake-status";
+import { resolveTagIdForErrorItem, USER_TAG_SUBJECT } from "@/lib/user-tag-tree";
 
 const logger = createLogger('api:error-items:id');
 
@@ -75,7 +75,7 @@ export async function PUT(
         }
 
         const body = await req.json();
-        const { knowledgePoints, gradeSemester, paperLevel, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands } = body;
+        const { knowledgePoints, questionText, answerText, analysis, subjectId,  wrongAnswerText, mistakeAnalysis, mistakeStatus, geogebraCommands } = body;
 
         const errorItem = await prisma.errorItem.findUnique({
             where: { id },
@@ -92,8 +92,6 @@ export async function PUT(
 
         // 构建更新数据
         const updateData: Prisma.ErrorItemUpdateInput = {};
-        if (gradeSemester !== undefined) updateData.gradeSemester = gradeSemester;
-        if (paperLevel !== undefined) updateData.paperLevel = paperLevel;
         if (questionText !== undefined) updateData.questionText = questionText;
         if (answerText !== undefined) updateData.answerText = answerText;
         if (analysis !== undefined) updateData.analysis = analysis;
@@ -125,45 +123,10 @@ export async function PUT(
                     ? JSON.parse(knowledgePoints)
                     : [];
 
-            // 推断学科
-            const subjectKey = errorItem.subject?.name?.toLowerCase().includes('math') ||
-                errorItem.subject?.name?.includes('数学')
-                ? 'math'
-                : errorItem.subject?.name?.toLowerCase().includes('english') ||
-                    errorItem.subject?.name?.includes('英语')
-                    ? 'english'
-                    : 'other';
-
             const tagConnections: { id: string }[] = [];
             for (const tagName of tagNames) {
-                let tag = await prisma.knowledgeTag.findFirst({
-                    where: {
-                        name: tagName,
-                        OR: [
-                            { isSystem: true },
-                            { userId: user.id },
-                        ],
-                    },
-                });
-
-                if (!tag) {
-                    // Determine grade context for the new tag
-                    // Use the incoming gradeSemester (priority) or the existing one on the item
-                    const contextGrade = gradeSemester !== undefined ? gradeSemester : errorItem.gradeSemester;
-
-                    const parentId = await findParentTagIdForGrade(contextGrade, subjectKey);
-
-                    tag = await prisma.knowledgeTag.create({
-                        data: {
-                            name: tagName,
-                            subject: subjectKey,
-                            isSystem: false,
-                            userId: user.id,
-                            parentId: parentId, // Link to Grade node
-                        },
-                    });
-                }
-                tagConnections.push({ id: tag.id });
+                const resolvedId = await resolveTagIdForErrorItem(user.id, tagName, USER_TAG_SUBJECT);
+                tagConnections.push({ id: resolvedId });
             }
 
             // 更新标签关联: 先断开所有，再连接新的

@@ -29,7 +29,7 @@
 				<view class="section-head">
 					<text class="section-title">题目</text>
 				</view>
-				<text class="content-text">{{ record.questionText || "（无题目快照）" }}</text>
+				<MdRich :content="record.questionText" />
 			</view>
 
 			<!-- 参考答案 -->
@@ -37,7 +37,7 @@
 				<view class="section-head">
 					<text class="section-title">参考答案</text>
 				</view>
-				<MdView :content="record.answerText" />
+				<MdRich :content="record.answerText" />
 			</view>
 
 			<!-- 解析 -->
@@ -45,7 +45,7 @@
 				<view class="section-head">
 					<text class="section-title">解析</text>
 				</view>
-				<MdView :content="record.analysis" />
+				<MdRich :content="record.analysis" />
 			</view>
 
 			<view v-else class="card fade-up old-record-tip">
@@ -68,7 +68,7 @@
 import { ref, computed } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { getPracticeRecord, type PracticeRecordItem } from "@/api";
-import MdView from "@/components/MdView.vue";
+import MdRich from "@/components/MdRich.vue";
 
 const recordId = ref("");
 const record = ref<PracticeRecordItem | null>(null);

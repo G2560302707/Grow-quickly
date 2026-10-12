@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { ParsedQuestion } from "@grow/shared/ai";
-import { calculateGrade } from "@/lib/grade-calculator";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -28,8 +26,6 @@ import { alertDialog } from "@/components/ui/app-dialog";
 
 interface ParsedQuestionWithSubject extends ParsedQuestion {
     subjectId?: string;
-    gradeSemester?: string;
-    paperLevel?: string;
     geogebraCommands?: string;
 }
 
@@ -56,8 +52,6 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
         mistakeAnalysis: initialData.mistakeAnalysis || "",
         mistakeStatus: initialData.mistakeStatus || "unknown",
         subjectId: initialSubjectId,
-        gradeSemester: "",
-        paperLevel: "a"
     });
     const { t, language } = useLanguage();
     const [isReanswering, setIsReanswering] = useState(false);
@@ -89,14 +83,12 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
 
         apiClient.get<UserProfile>("/api/user")
             .then(user => {
-                if (user && user.educationStage && user.enrollmentYear) {
-                    const grade = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), language);
-                    setData(prev => ({ ...prev, gradeSemester: grade }));
+                if (user?.educationStage) {
                     setEducationStage(user.educationStage);
                 }
             })
-            .catch(err => console.error("Failed to fetch user info for grade calculation:", err));
-    }, [language]);
+            .catch(err => console.error("Failed to fetch user info:", err));
+    }, []);
 
     // 重新解题函数
     const handleReanswer = async () => {
@@ -112,7 +104,6 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                 language,
                 subject: data.subject,
                 imagePreview,
-                gradeSemester: data.gradeSemester,
             });
 
             if (requestBody.imageBase64) {
@@ -264,33 +255,6 @@ export function CorrectionEditor({ initialData, onSave, onCancel, imagePreview, 
                             value={data.subjectId}
                             onChange={(id) => setData({ ...data, subjectId: id })}
                         />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label>{t.editor.gradeSemester || "Grade/Semester"}</Label>
-                            <Input
-                                value={data.gradeSemester || ""}
-                                onChange={(e) => setData({ ...data, gradeSemester: e.target.value })}
-                                placeholder="e.g. Junior High Grade 1, 1st Semester"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>{t.editor.paperLevel || "Paper Level"}</Label>
-                            <Select
-                                value={data.paperLevel || "a"}
-                                onValueChange={(val) => setData({ ...data, paperLevel: val })}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="a">{t.editor.paperLevels?.a || "Paper A"}</SelectItem>
-                                    <SelectItem value="b">{t.editor.paperLevels?.b || "Paper B"}</SelectItem>
-                                    <SelectItem value="other">{t.editor.paperLevels?.other || "Other"}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </div>
 
                     {uncertainty.uncertain && (

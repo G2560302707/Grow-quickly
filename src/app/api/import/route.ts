@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, internalError, badRequest, forbidden } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
+import { isValidNotebookName } from "@/lib/name-validation";
 
 const logger = createLogger('api:import');
 
@@ -94,6 +95,9 @@ function safeParseDate(dateStr: string | undefined | null): Date | undefined {
     return isNaN(d.getTime()) ? undefined : d;
 }
 
+/** 编码校验失败，用于区分 400（脏数据）与 500（服务错误） */
+class ImportValidationError extends Error {}
+
 /** Validate masteryLevel is an integer in range [0, 2] */
 function safeMasteryLevel(val: unknown): number {
     const n = typeof val === 'number' ? val : parseInt(String(val), 10);
@@ -156,6 +160,10 @@ export async function POST(req: Request) {
             // 1. 导入 subjects
             const subjectIdMap = new Map<string, string>();
             for (const subject of (body.subjects || [])) {
+                // 编码校验：拒绝含 U+FFFD 等解码损坏标记的错题本名，避免脏数据入库
+                if (!isValidNotebookName(subject.name)) {
+                    throw new ImportValidationError(`Invalid notebook name encoding: ${subject.name}`);
+                }
                 const targetUserId = importAll ? subject.userId : user.id;
                 const existing = await tx.subject.findFirst({
                     where: { name: subject.name, userId: targetUserId },
@@ -372,6 +380,10 @@ export async function POST(req: Request) {
             stats,
         });
     } catch (error) {
+        if (error instanceof ImportValidationError) {
+            logger.warn({ message: error.message, userId: user.id }, 'Import rejected: invalid encoding');
+            return badRequest(error.message);
+        }
         logger.error({ error, userId: user.id }, 'Import failed');
         return internalError("Failed to import data");
     }

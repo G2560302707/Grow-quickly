@@ -28,7 +28,6 @@ export interface ErrorItem {
     sourceType?: string | null; // 数据大类: manual(拍照/手动) / practice(练习收录)
     userNotes: string | null;
     masteryLevel: number;
-    gradeSemester?: string | null;
     originalImageUrl: string;
     knowledgePoints: string | null;
     createdAt?: string;
@@ -246,6 +245,8 @@ export function listErrorItems(params: {
     query?: string;
     mastery?: "0" | "1";
     sourceType?: "manual" | "practice";
+    /** 个人考点树节点 id（含子树） */
+    tagId?: string;
     page?: number;
     pageSize?: number;
 }): Promise<Paginated<ErrorItem>> {
@@ -287,6 +288,95 @@ export function createErrorItem(payload: {
     subjectId: string;
 }): Promise<ErrorItem> {
     return request("/api/error-items", { method: "POST", data: payload });
+}
+
+export function updateErrorItem(
+    id: string,
+    data: { knowledgePoints?: string[]; subjectId?: string | null },
+): Promise<ErrorItem> {
+    return request(`/api/error-items/${id}`, { method: "PUT", data });
+}
+
+// ---------- 个人考点树 ----------
+
+export interface TagTreeNode {
+    id: string;
+    name: string;
+    code?: string | null;
+    parentId?: string | null;
+    order?: number;
+    children: TagTreeNode[];
+}
+
+export interface TagLeaf {
+    id: string;
+    name: string;
+}
+
+/** 扁平收集树中所有节点 */
+export function flattenTagTree(nodes: TagTreeNode[]): TagTreeNode[] {
+    const out: TagTreeNode[] = [];
+    const walk = (list: TagTreeNode[]) => {
+        for (const n of list) {
+            out.push(n);
+            if (n.children?.length) walk(n.children);
+        }
+    };
+    walk(nodes);
+    return out;
+}
+
+/** 可选打标叶子：无子节点的节点 */
+export function collectTagLeaves(nodes: TagTreeNode[]): TagLeaf[] {
+    const out: TagLeaf[] = [];
+    const walk = (list: TagTreeNode[]) => {
+        for (const n of list) {
+            if (!n.children?.length) out.push({ id: n.id, name: n.name });
+            else walk(n.children);
+        }
+    };
+    walk(nodes);
+    return out;
+}
+
+export function getUserTagTree(): Promise<{
+    tags: TagTreeNode[];
+    needsImport: boolean;
+    total?: number;
+}> {
+    return request("/api/tags?subject=gongkao");
+}
+
+export function importTagTemplate(mode: "merge" | "replace" = "merge"): Promise<{
+    success: boolean;
+    created: number;
+    removed?: number;
+    total: number;
+    tags: TagTreeNode[];
+    message?: string;
+}> {
+    return request("/api/tags/import-template", {
+        method: "POST",
+        data: { mode },
+    });
+}
+
+export function createTag(payload: {
+    name: string;
+    parentId?: string | null;
+}): Promise<{ tag: { id: string; name: string } }> {
+    return request("/api/tags", { method: "POST", data: payload });
+}
+
+export function updateTag(
+    id: string,
+    payload: { name?: string; parentId?: string | null },
+): Promise<{ tag: { id: string; name: string } }> {
+    return request(`/api/tags/${id}`, { method: "PATCH", data: payload });
+}
+
+export function deleteTag(id: string): Promise<{ success: boolean; deleted: number }> {
+    return request(`/api/tags?id=${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 // ---------- AI ----------

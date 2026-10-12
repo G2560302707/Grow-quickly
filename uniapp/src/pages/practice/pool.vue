@@ -58,7 +58,7 @@
 					</text>
 					<text class="question-date num">{{ formatDate(q.createdAt) }}</text>
 				</view>
-				<text class="question-text">{{ q.questionText || "（无题目内容）" }}</text>
+				<MdRich :content="q.questionText" />
 				<view v-if="q.tag || q.errorItem" class="question-meta">
 					<text v-if="q.tag" class="meta-tag">{{ q.tag.name }}</text>
 					<text v-if="q.errorItem" class="meta-anchor">锚定原错题</text>
@@ -105,6 +105,7 @@ import {
 	type PracticeChannel,
 	type PracticeQuestionStatus,
 } from "@/api";
+import MdRich from "@/components/MdRich.vue";
 
 const PAGE_SIZE = 20;
 

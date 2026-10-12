@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { unauthorized, internalError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from "@/lib/constants/pagination";
+import { collectUserTagSubtreeIds, collectUserTagSubtreeNames } from "@/lib/user-tag-tree";
 
 const logger = createLogger('api:error-items:list');
 
@@ -18,6 +19,7 @@ export async function GET(req: Request) {
     const mastery = searchParams.get("mastery");
     const timeRange = searchParams.get("timeRange");
     const tag = searchParams.get("tag");
+    const tagId = searchParams.get("tagId");
 
     // 分页参数
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
@@ -48,15 +50,18 @@ export async function GET(req: Request) {
         const andConditions: Prisma.ErrorItemWhereInput[] = [];
 
         if (query) {
-            // 搜索条件：在题目、解析、知识点中任一匹配即可
+            const q = query.trim();
+            // 题干 / 答案 / 解析 / 知识点 JSON / 关联考点名 任一命中
             andConditions.push({
                 OR: [
-                    { questionText: { contains: query } },
-                    { analysis: { contains: query } },
-                    { wrongAnswerText: { contains: query } },
-                    { mistakeAnalysis: { contains: query } },
-                    { knowledgePoints: { contains: query } },
-                ]
+                    { questionText: { contains: q } },
+                    { answerText: { contains: q } },
+                    { analysis: { contains: q } },
+                    { wrongAnswerText: { contains: q } },
+                    { mistakeAnalysis: { contains: q } },
+                    { knowledgePoints: { contains: q } },
+                    { tags: { some: { name: { contains: q }, userId: user.id } } },
+                ],
             });
         }
 
@@ -81,11 +86,39 @@ export async function GET(req: Request) {
             };
         }
 
-        // Chapter filter (第二级筛选：章节)
-        // 如果指定了 chapter，需要找到该章节下所有子标签的 ID，然后过滤错题
+        // 按个人考点树节点筛选（含子树）：id 命中 或 同名标签/JSON 命中
+        // （历史数据常挂到同名系统标签，仅按个人树 id 会漏掉分支下的题）
+        if (tagId) {
+            const [subtreeIds, subtreeNames] = await Promise.all([
+                collectUserTagSubtreeIds(tagId, user.id),
+                collectUserTagSubtreeNames(tagId, user.id),
+            ]);
+            if (subtreeIds.length === 0) {
+                whereClause.id = "__IMPOSSIBLE_ID__";
+            } else {
+                const tagOr: Prisma.ErrorItemWhereInput[] = [
+                    { tags: { some: { id: { in: subtreeIds } } } },
+                ];
+                if (subtreeNames.length > 0) {
+                    tagOr.push({
+                        tags: {
+                            some: {
+                                name: { in: subtreeNames },
+                                OR: [{ userId: user.id }, { isSystem: true }],
+                            },
+                        },
+                    });
+                    for (const name of subtreeNames) {
+                        tagOr.push({ knowledgePoints: { contains: `"${name}"` } });
+                    }
+                }
+                andConditions.push({ OR: tagOr });
+            }
+        }
+
+        // Chapter filter (第二级筛选：章节) —— 兼容旧前端
         const chapter = searchParams.get("chapter");
-        if (chapter) {
-            // 查找该章节标签及其所有后代的ID
+        if (chapter && !tagId) {
             const chapterTagIds = await findChapterDescendantTagIds(chapter, user.id);
             if (chapterTagIds.length > 0) {
                 whereClause.tags = {
@@ -94,43 +127,21 @@ export async function GET(req: Request) {
                     }
                 };
             } else {
-                // 章节不存在或没有子标签，应返回空结果
-                // 但为了不破坏其他条件，我们添加一个必然为假的条件
                 whereClause.id = "__IMPOSSIBLE_ID__";
             }
         }
 
-        // Tag filter (第三级筛选：具体知识点)
-        if (tag && !chapter) {
-            // 只有在没有 chapter 筛选时才按 tag 过滤
-            // 因为 chapter 筛选已经更精确了
-            whereClause.knowledgePoints = {
-                contains: tag,
+        // Tag filter by name（兼容）；有 tagId 时忽略
+        if (tag && !tagId && !chapter) {
+            whereClause.tags = {
+                some: { name: tag, userId: user.id },
             };
-        } else if (tag && chapter) {
-            // 如果同时有 chapter 和 tag，优先用 tag 进一步过滤
-            // 覆盖 chapter 的条件
+        } else if (tag && chapter && !tagId) {
             whereClause.tags = {
                 some: {
                     name: tag
                 }
             };
-        }
-
-        // Grade/Semester filter
-        const gradeSemester = searchParams.get("gradeSemester");
-        if (gradeSemester) {
-            const gradeFilter = buildGradeFilter(gradeSemester);
-            if (gradeFilter) {
-                // Merge into main whereClause
-                Object.assign(whereClause, gradeFilter);
-            }
-        }
-
-        // Paper Level filter
-        const paperLevel = searchParams.get("paperLevel");
-        if (paperLevel && paperLevel !== "all") {
-            whereClause.paperLevel = paperLevel;
         }
 
         // 来源大类 filter：manual(拍照/手动录入) / practice(练习答错自动收录)
@@ -172,8 +183,6 @@ export async function GET(req: Request) {
                           origin: true,
                           sourceType: true,
                           knowledgePoints: true,
-                          gradeSemester: true,
-                          paperLevel: true,
                           createdAt: true,
                           updatedAt: true,
                           subject: { select: { id: true, name: true } },
@@ -198,85 +207,6 @@ export async function GET(req: Request) {
         logger.error({ error }, 'Error fetching items');
         return internalError("Failed to fetch error items");
     }
-}
-
-function buildGradeFilter(gradeSemester: string): Prisma.ErrorItemWhereInput {
-    // 1. 恢复别名映射表 (Support aliases like 初一 for 七年级)
-    const gradeMap: Record<string, string[]> = {
-        "七年级": ["七年级", "初一", "7年级", "七"],
-        "八年级": ["八年级", "初二", "8年级", "八"],
-        "九年级": ["九年级", "初三", "9年级", "九"],
-        "高一": ["高一", "10年级"],
-        "高二": ["高二", "11年级"],
-        "高三": ["高三", "12年级"],
-    };
-
-    // 2. 解析输入
-    let targetGrades: string[] = [gradeSemester]; // Default fallback
-    let targetSemester = "";
-
-    // 提取年级关键字
-    let foundKey = "";
-    if (gradeSemester.includes("七年级") || gradeSemester.includes("初一")) foundKey = "七年级";
-    else if (gradeSemester.includes("八年级") || gradeSemester.includes("初二")) foundKey = "八年级";
-    else if (gradeSemester.includes("九年级") || gradeSemester.includes("初三")) foundKey = "九年级";
-    else if (gradeSemester.includes("高一")) foundKey = "高一";
-    else if (gradeSemester.includes("高二")) foundKey = "高二";
-    else if (gradeSemester.includes("高三")) foundKey = "高三";
-    else {
-        // 如果无法识别标准年级，尝试直接解析前缀 (e.g. "一年级")
-        const match = gradeSemester.match(/^(.+?)[上下]/);
-        if (match) {
-            targetGrades = [match[1]]; // e.g. "一年级"
-        } else {
-            // 完全完全无法解析，直接模糊匹配原字符串
-            return { gradeSemester: { contains: gradeSemester } };
-        }
-    }
-
-    if (foundKey) {
-        targetGrades = gradeMap[foundKey];
-    }
-
-    // 提取学期
-    if (gradeSemester.includes("上")) targetSemester = "上";
-    else if (gradeSemester.includes("下")) targetSemester = "下";
-
-    // 3. 构建多重组合查询条件
-    // 对每一个可能的别名，生成多种格式变体
-    const orConditions: Prisma.ErrorItemWhereInput[] = [];
-
-    targetGrades.forEach(grade => {
-        // 变体 1: 仅年级 (如果没有学期限制)
-        if (!targetSemester) {
-            orConditions.push({ gradeSemester: { contains: grade } });
-        } else {
-            // 变体 2: 年级 + 学期 (包含多种连接符)
-            // 紧凑型: "初一上"
-            orConditions.push({ gradeSemester: { contains: `${grade}${targetSemester}` } });
-            // 逗号型: "初一，上" 或 "初一，上期"
-            // 由于 contains 的特性，我们不需要穷举 "上期"/"上学期"，只要包含 "grade" 和 "学期关键字" 即可
-            // 但 Prisma 的 AND 逻辑更适合处理这种情况
-            // Let's use specific composed strings for precision if possible, or broad AND
-
-            // 下面的逻辑能匹配 "初一，上期" (因为包含 "初一" 和 "，"?? 不，contains 是子串)
-            // 这种组合 "grade + 任意字符 + semester" 很难用一个 contains 表达。
-            // 简单粗暴点：
-            orConditions.push({ gradeSemester: { contains: `${grade}，${targetSemester}` } }); // 中文逗号
-            orConditions.push({ gradeSemester: { contains: `${grade},${targetSemester}` } }); // 英文逗号
-            orConditions.push({ gradeSemester: { contains: `${grade} ${targetSemester}` } }); // 空格
-
-            // 针对 "上期" 的特殊处理 (旧数据的 "高一，上期")
-            const semesterTerm = targetSemester === '上' ? '上期' : '下期';
-            orConditions.push({ gradeSemester: { contains: `${grade}，${semesterTerm}` } });
-        }
-    });
-
-    if (orConditions.length === 0) {
-        return { gradeSemester: { contains: gradeSemester } };
-    }
-
-    return { OR: orConditions };
 }
 
 // 查找章节标签及其所有后代标签的 ID

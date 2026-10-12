@@ -1,488 +1,463 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
-import { TrendingUp, Plus, Trash2, ChevronDown, ChevronRight, House, Loader2 } from "lucide-react";
+import {
+    TrendingUp,
+    Plus,
+    Trash2,
+    ChevronDown,
+    ChevronRight,
+    House,
+    Loader2,
+    Pencil,
+    Download,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BackButton } from "@/components/ui/back-button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiClient } from "@grow/shared/api-client";
-import { TagStats, TagStatsResponse } from "@grow/shared/types/api";
-
 import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
 
-// 标签树节点类型
 interface TagTreeNode {
     id: string;
     name: string;
     code: string | null;
-    isSystem: boolean;
+    parentId: string | null;
+    order: number;
+    source?: string | null;
     children: TagTreeNode[];
 }
 
-// 学科配置
-const SUBJECTS = [
-    { key: 'math', name: '数学' },
-    { key: 'english', name: '英语' },
-    { key: 'physics', name: '物理' },
-    { key: 'chemistry', name: '化学' },
-    { key: 'biology', name: '生物' },
-    { key: 'chinese', name: '语文' },
-    { key: 'history', name: '历史' },
-    { key: 'geography', name: '地理' },
-    { key: 'politics', name: '政治' },
-] as const;
-
-type SubjectKey = typeof SUBJECTS[number]['key'];
+interface TagStat {
+    tag: string;
+    tagId?: string;
+    count: number;
+}
 
 export default function TagsPage() {
-    const { t } = useLanguage();
-    const [stats, setStats] = useState<TagStats[]>([]);
+    const [tree, setTree] = useState<TagTreeNode[]>([]);
+    const [needsImport, setNeedsImport] = useState(false);
+    const [stats, setStats] = useState<TagStat[]>([]);
+    const [untagged, setUntagged] = useState(0);
     const [loading, setLoading] = useState(true);
-
-    // 标签数据 (按学科) - null 表示未加载，[] 表示已加载但无数据
-    const [tagsBySubject, setTagsBySubject] = useState<Record<SubjectKey, TagTreeNode[] | null>>({
-        math: null,
-        english: null,
-        physics: null,
-        chemistry: null,
-        biology: null,
-        chinese: null,
-        history: null,
-        geography: null,
-        politics: null,
-    });
-
-    // 自定义标签 (扁平列表，仅用于显示)
-    const [customTags, setCustomTags] = useState<Array<{ id: string; name: string; subject: string; parentName?: string }>>([]);
-
-    // 新建标签表单
-    const [newTagSubject, setNewTagSubject] = useState<SubjectKey>("math");
-    const [newTagGrade, setNewTagGrade] = useState<string>(""); // 年级ID
-    const [gradeOptions, setGradeOptions] = useState<Array<{ id: string; name: string }>>([]);
-    const [newTagName, setNewTagName] = useState("");
+    const [importing, setImporting] = useState(false);
+    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editName, setEditName] = useState("");
+    const [addingUnder, setAddingUnder] = useState<string | "root" | null>(null);
+    const [newName, setNewName] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
-    // 展开状态
-    const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
-
-    // 获取标签树
-    const fetchTags = useCallback(async (subject: SubjectKey) => {
+    const fetchTree = useCallback(async () => {
         try {
-            const data = await apiClient.get<{ tags: TagTreeNode[] }>(`/api/tags?subject=${subject}`);
-            setTagsBySubject(prev => ({ ...prev, [subject]: data.tags }));
-        } catch (error) {
-            console.error(`Failed to fetch ${subject} tags:`, error);
-        }
-    }, []);
-
-    // 获取自定义标签
-    const fetchCustomTags = useCallback(async () => {
-        try {
-            // 并行获取所有学科的扁平标签，过滤非系统标签
-            const results = await Promise.all(
-                SUBJECTS.map(async ({ key }) => {
-                    const data = await apiClient.get<{ tags: Array<{ id: string; name: string; isSystem: boolean; parentName?: string }> }>(
-                        `/api/tags?subject=${key}&flat=true`
-                    );
-                    return data.tags.filter(t => !t.isSystem).map(t => ({ ...t, subject: key }));
-                })
+            const data = await apiClient.get<{ tags: TagTreeNode[]; needsImport: boolean }>(
+                "/api/tags?subject=gongkao",
             );
-            setCustomTags(results.flat());
-        } catch (error) {
-            console.error("Failed to fetch custom tags:", error);
+            setTree(data.tags || []);
+            setNeedsImport(!!data.needsImport);
+            // 默认展开根
+            const next: Record<string, boolean> = {};
+            for (const root of data.tags || []) next[root.id] = true;
+            setExpanded((prev) => ({ ...next, ...prev }));
+        } catch (e) {
+            console.error(e);
         }
     }, []);
 
-    // 获取统计
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
-            const data = await apiClient.get<TagStatsResponse>("/api/tags/stats");
-            setStats(data.stats);
-        } catch (error) {
-            console.error("Failed to fetch tag stats:", error);
+            const data = await apiClient.get<{
+                stats: TagStat[];
+                untagged?: number;
+            }>("/api/tags/stats");
+            setStats(data.stats || []);
+            setUntagged(data.untagged || 0);
+        } catch (e) {
+            console.error(e);
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    useEffect(() => {
+        fetchTree();
+        fetchStats();
+    }, [fetchTree, fetchStats]);
+
+    const handleImport = async (mode: "merge" | "replace") => {
+        if (mode === "replace") {
+            if (
+                !(await confirmDialog({
+                    description: "将清空你当前的个人考点树并重新导入官方行测树，确定？",
+                    danger: true,
+                }))
+            ) {
+                return;
+            }
+        }
+        setImporting(true);
+        try {
+            const res = await apiClient.post<{ message?: string; tags?: TagTreeNode[] }>(
+                "/api/tags/import-template",
+                { mode },
+            );
+            if (res.tags) setTree(res.tags);
+            else await fetchTree();
+            setNeedsImport(false);
+            await alertDialog({ description: res.message || "导入完成" });
+            await fetchStats();
+        } catch {
+            await alertDialog({ description: "导入失败" });
+        } finally {
+            setImporting(false);
+        }
     };
 
-    useEffect(() => {
-        // 初始加载
-        fetchStats();
-        fetchCustomTags();
-        // 默认加载数学标签
-        fetchTags('math');
-    }, [fetchTags, fetchCustomTags]);
-
-    // 当学科变化时，获取对应的年级列表
-    useEffect(() => {
-        const fetchGrades = async () => {
-            try {
-                const data = await apiClient.get<{ tags: TagTreeNode[] }>(`/api/tags?subject=${newTagSubject}`);
-                // 顶级节点就是年级，只取系统标签
-                const grades = data.tags
-                    .filter(t => t.isSystem)
-                    .map(t => ({ id: t.id, name: t.name }));
-                setGradeOptions(grades);
-                setNewTagGrade(""); // 重置选择
-            } catch (error) {
-                console.error("Failed to fetch grades:", error);
-                setGradeOptions([]);
-            }
-        };
-        fetchGrades();
-    }, [newTagSubject]);
-
-    // 添加自定义标签
-    const handleAddCustomTag = async () => {
-        if (!newTagName.trim()) {
-            await alertDialog({ description: t.tags?.custom?.enterName || "Please enter tag name" });
+    const handleAdd = async (parentId: string | null) => {
+        if (!newName.trim()) {
+            await alertDialog({ description: "请输入名称" });
             return;
         }
-
         setSubmitting(true);
         try {
-            await apiClient.post('/api/tags', {
-                name: newTagName.trim(),
-                subject: newTagSubject,
-                parentId: (newTagGrade && newTagGrade !== 'none') ? newTagGrade : undefined,
+            await apiClient.post("/api/tags", {
+                name: newName.trim(),
+                parentId: parentId || undefined,
             });
-            setNewTagName("");
-            // 刷新
-            await fetchCustomTags();
-            await fetchTags(newTagSubject);
-            await alertDialog({ description: t.tags?.custom?.success || "Tag added successfully!" });
-        } catch (error: any) {
-            if (error?.message?.includes('409')) {
-                await alertDialog({ description: t.tags?.custom?.exists || "Tag already exists" });
-            } else {
-                await alertDialog({ description: "Failed to add tag" });
-            }
+            setNewName("");
+            setAddingUnder(null);
+            await fetchTree();
+        } catch (e: any) {
+            await alertDialog({
+                description: e?.data?.error || e?.message || "添加失败",
+            });
         } finally {
             setSubmitting(false);
         }
     };
 
-    // 删除自定义标签
-    const handleRemoveCustomTag = async (tagId: string, tagName: string, subject: SubjectKey) => {
-        if (!(await confirmDialog({ description: (t.tags?.custom?.deleteConfirm || "Are you sure you want to delete tag \"{tag}\"?").replace("{tag}", tagName) }))) {
+    const handleRename = async (id: string) => {
+        if (!editName.trim()) return;
+        setSubmitting(true);
+        try {
+            await apiClient.patch(`/api/tags/${id}`, { name: editName.trim() });
+            setEditingId(null);
+            await fetchTree();
+            await fetchStats();
+        } catch (e: any) {
+            await alertDialog({ description: e?.data?.error || "重命名失败" });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (node: TagTreeNode) => {
+        if (
+            !(await confirmDialog({
+                description: `删除「${node.name}」及其子节点？相关错题将解除该考点关联。`,
+                danger: true,
+            }))
+        ) {
             return;
         }
-
         try {
-            await apiClient.delete(`/api/tags?id=${tagId}`);
-            await fetchCustomTags();
-            await fetchTags(subject);
-        } catch (error) {
-            console.error("Failed to delete tag:", error);
-            await alertDialog({ description: "Failed to delete tag" });
+            await apiClient.delete(`/api/tags?id=${node.id}`);
+            await fetchTree();
+            await fetchStats();
+        } catch {
+            await alertDialog({ description: "删除失败" });
         }
     };
 
-    // 切换节点展开
-    const toggleNode = (nodeId: string) => {
-        setExpandedNodes(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
-    };
-
-    // 渲染标签树节点
-    const renderTreeNode = (node: TagTreeNode, depth: number = 0, isLeafContext: boolean = false): React.ReactNode => {
+    const renderNode = (node: TagTreeNode, depth = 0): React.ReactNode => {
         const hasChildren = node.children.length > 0;
-        const isExpanded = expandedNodes[node.id];
-        const paddingLeft = depth * 16;
+        const isOpen = !!expanded[node.id];
+        const isEditing = editingId === node.id;
+        const isAdding = addingUnder === node.id;
+        const stat = stats.find((s) => s.tagId === node.id || s.tag === node.name);
 
-        if (!hasChildren) {
-            // 叶子节点 - 显示为 Badge
-            return (
-                <Badge key={node.id} variant="outline" className="cursor-default hover:bg-accent" style={{ marginLeft: isLeafContext ? 0 : paddingLeft }}>
-                    {node.name}
-                    {(() => {
-                        const stat = stats.find(s => s.tag === node.name);
-                        return stat ? <span className="ml-1 text-xs text-muted-foreground">({stat.count})</span> : null;
-                    })()}
-                </Badge>
-            );
-        }
-
-
-
-        // 过滤出系统标签子节点
-        const visibleChildren = node.children.filter(child => child.isSystem);
-
-        if (visibleChildren.length === 0) {
-            // 如果没有可见子节点，且当前节点非叶子（但所有子节点都被过滤了），也显示为 Badge？
-            // 原逻辑: !hasChildren -> Badge. 
-            // 这里我们保持原样，如果不显示子节点，它仍然是一个展开的Folder但内容为空。
-            // 或者我们可以返回 null? 不，父节点是系统节点，应该显示。
-            return (
-                <div key={node.id} className="space-y-2" style={{ paddingLeft }}>
-                    <div
-                        className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2"
-                        onClick={() => toggleNode(node.id)}
-                    >
-                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        <span className="font-medium text-sm">{node.name}</span>
-                        <span className="text-xs text-muted-foreground">({visibleChildren.length})</span>
-                    </div>
-                </div>
-            );
-        }
-
-        // 判断可见子节点是否都是叶子节点
-        const allChildrenAreLeaves = visibleChildren.every(child => child.children.filter(c => c.isSystem).length === 0);
-
-        // 有子节点 - 可展开
         return (
-            <div key={node.id} className="space-y-2" style={{ paddingLeft }}>
+            <div key={node.id} className="select-none">
                 <div
-                    className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2"
-                    onClick={() => toggleNode(node.id)}
+                    className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/60 group"
+                    style={{ paddingLeft: 8 + depth * 16 }}
                 >
-                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    <span className="font-medium text-sm">{node.name}</span>
-                    <span className="text-xs text-muted-foreground">({visibleChildren.length})</span>
-                </div>
-                {isExpanded && (
-                    allChildrenAreLeaves ? (
-                        // 如果所有子节点都是叶子，使用 flex-wrap 布局
-                        <div className="flex flex-wrap gap-2 pl-6">
-                            {visibleChildren.map(child => renderTreeNode(child, 0, true))}
-                        </div>
-                    ) : (
-                        // 如果有非叶子子节点，使用垂直堆叠布局
-                        <div className="space-y-2 pl-6">
-                            {visibleChildren.map(child => renderTreeNode(child, 0, false))}
-                        </div>
-                    )
-                )}
-            </div>
-        );
-    };
+                    <button
+                        type="button"
+                        className="w-5 h-5 flex items-center justify-center text-muted-foreground"
+                        onClick={() =>
+                            hasChildren &&
+                            setExpanded((p) => ({ ...p, [node.id]: !p[node.id] }))
+                        }
+                    >
+                        {hasChildren ? (
+                            isOpen ? (
+                                <ChevronDown className="h-4 w-4" />
+                            ) : (
+                                <ChevronRight className="h-4 w-4" />
+                            )
+                        ) : (
+                            <span className="w-4" />
+                        )}
+                    </button>
 
-    // 渲染标准标签库
-    const renderStandardTags = () => {
-        return (
-            <>
-                {SUBJECTS.map(({ key, name }) => {
-                    const subjectName = (t.tags?.subjects as any)?.[key] || name;
-                    const isExpanded = expandedNodes[`subject-${key}`];
-                    const tags = tagsBySubject[key];
-
-                    return (
-                        <Card key={key} className="mb-4">
-                            <CardHeader
-                                className="cursor-pointer hover:bg-muted/50 transition-colors flex flex-row items-center justify-between py-4"
-                                onClick={() => {
-                                    toggleNode(`subject-${key}`);
-                                    if (tags === null) fetchTags(key);
-                                }}
-                            >
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                                    {subjectName}
-                                </CardTitle>
-                                <span className="text-sm text-muted-foreground">
-                                    {isExpanded ? (t.common?.collapse || "Collapse") : (t.common?.expand || "Expand")}
-                                </span>
-                            </CardHeader>
-                            {isExpanded && (
-                                <CardContent className="space-y-4 pt-0">
-                                    {tags === null ? (
-                                        <div className="text-center py-4 text-muted-foreground">
-                                            <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                                            Loading...
-                                        </div>
-                                    ) : tags.filter(t => t.isSystem).length === 0 ? (
-                                        <div className="text-center py-4 text-muted-foreground">
-                                            {t.tags?.stats?.empty || "暂无系统标签"}
-                                        </div>
-                                    ) : (
-                                        tags.filter(t => t.isSystem).map(node => renderTreeNode(node))
-                                    )}
-                                </CardContent>
-                            )}
-                        </Card>
-                    );
-                })}
-            </>
-        );
-    };
-
-    // 渲染自定义标签
-    const renderCustomTags = () => {
-        const groupedBySubject = customTags.reduce((acc, tag) => {
-            if (!acc[tag.subject]) acc[tag.subject] = [];
-            acc[tag.subject].push(tag);
-            return acc;
-        }, {} as Record<string, typeof customTags>);
-
-        return (
-            <div className="space-y-6">
-                <Card>
-                    <CardHeader><CardTitle>{t.tags?.custom?.addTitle || "Add Custom Tag"}</CardTitle></CardHeader>
-                    <CardContent>
-                        <div className="flex gap-3 flex-wrap">
-                            <Select value={newTagSubject} onValueChange={(v) => setNewTagSubject(v as SubjectKey)}>
-                                <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {SUBJECTS.map(({ key, name }) => (
-                                        <SelectItem key={key} value={key}>{(t.tags?.subjects as any)?.[key] || name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            <Select value={newTagGrade} onValueChange={setNewTagGrade}>
-                                <SelectTrigger className="w-[140px]">
-                                    <SelectValue placeholder={t.tags?.custom?.selectGrade || "选择年级"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">{t.tags?.custom?.noGrade || "不选择年级"}</SelectItem>
-                                    {gradeOptions.map((grade) => (
-                                        <SelectItem key={grade.id} value={grade.id}>{grade.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
+                    {isEditing ? (
+                        <form
+                            className="flex flex-1 items-center gap-2"
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                handleRename(node.id);
+                            }}
+                        >
                             <Input
-                                placeholder={t.tags?.custom?.placeholder || "Enter tag name..."}
-                                value={newTagName}
-                                onChange={(e) => setNewTagName(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddCustomTag()}
-                                className="flex-1 min-w-[200px]"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="h-8"
+                                autoFocus
                             />
-                            <Button onClick={handleAddCustomTag} disabled={submitting}>
-                                {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
-                                {t.tags?.custom?.add || "Add"}
+                            <Button type="submit" size="sm" disabled={submitting}>
+                                保存
                             </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                            {t.tags?.custom?.hint || "💡 Custom tags will automatically appear in tag suggestions"}
-                        </p>
-                    </CardContent>
-                </Card>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setEditingId(null)}
+                            >
+                                取消
+                            </Button>
+                        </form>
+                    ) : (
+                        <>
+                            <span className="font-medium text-sm flex-1 truncate">{node.name}</span>
+                            {stat ? (
+                                <span className="text-xs text-muted-foreground">
+                                    {stat.count} 题
+                                </span>
+                            ) : null}
+                            <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 flex gap-1">
+                                <button
+                                    type="button"
+                                    title="添加子节点"
+                                    onClick={() => {
+                                        setAddingUnder(node.id);
+                                        setNewName("");
+                                        setExpanded((p) => ({ ...p, [node.id]: true }));
+                                    }}
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    title="重命名"
+                                    onClick={() => {
+                                        setEditingId(node.id);
+                                        setEditName(node.name);
+                                    }}
+                                >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    title="删除"
+                                    className="text-destructive"
+                                    onClick={() => handleDelete(node)}
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                            </span>
+                        </>
+                    )}
+                </div>
 
-                {customTags.length === 0 ? (
-                    <Card><CardContent className="py-12 text-center text-muted-foreground">
-                        {t.tags?.custom?.empty || "No custom tags yet, click above to add!"}
-                    </CardContent></Card>
-                ) : (
-                    SUBJECTS.map(({ key, name }) => {
-                        const tags = groupedBySubject[key];
-                        if (!tags?.length) return null;
+                {isAdding && (
+                    <div
+                        className="flex items-center gap-2 py-1"
+                        style={{ paddingLeft: 28 + depth * 16 }}
+                    >
+                        <Input
+                            placeholder="子考点名称"
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            className="h-8"
+                            autoFocus
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") handleAdd(node.id);
+                                if (e.key === "Escape") setAddingUnder(null);
+                            }}
+                        />
+                        <Button
+                            size="sm"
+                            disabled={submitting}
+                            onClick={() => handleAdd(node.id)}
+                        >
+                            添加
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setAddingUnder(null)}>
+                            取消
+                        </Button>
+                    </div>
+                )}
 
-                        // Group by parentName (or "General")
-                        const groupedByParent = tags.reduce((acc, tag) => {
-                            const groupName = tag.parentName || "通用";
-                            if (!acc[groupName]) acc[groupName] = [];
-                            acc[groupName].push(tag);
-                            return acc;
-                        }, {} as Record<string, typeof customTags>);
-
-                        // Sort groups keys to put "General" last or first? Let's put regular names first.
-                        const groupKeys = Object.keys(groupedByParent).sort((a, b) => {
-                            if (a === "通用") return 1;
-                            if (b === "通用") return -1;
-                            return a.localeCompare(b, "zh");
-                        });
-
-                        return (
-                            <Card key={key}>
-                                <CardHeader><CardTitle className="text-lg">{(t.tags?.subjects as any)?.[key] || name} ({tags.length})</CardTitle></CardHeader>
-                                <CardContent className="space-y-4">
-                                    {groupKeys.map(groupName => (
-                                        <div key={groupName} className="space-y-2">
-                                            {groupName !== "通用" && (
-                                                <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1 mb-2">{groupName}</h4>
-                                            )}
-                                            {groupName === "通用" && groupKeys.length > 1 && (
-                                                <h4 className="text-sm font-semibold text-muted-foreground border-b pb-1 mb-2">其他</h4>
-                                            )}
-                                            <div className="flex flex-wrap gap-2">
-                                                {groupedByParent[groupName].map((tag) => (
-                                                    <Badge key={tag.id} variant="secondary" className="px-3 py-1.5 text-sm">
-                                                        {tag.name}
-                                                        <button
-                                                            onClick={() => handleRemoveCustomTag(tag.id, tag.name, key)}
-                                                            className="ml-2 hover:text-destructive transition-colors"
-                                                            title={t.common?.delete || "Delete"}
-                                                        >
-                                                            <Trash2 className="h-3 w-3" />
-                                                        </button>
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </CardContent>
-                            </Card>
-                        );
-                    })
+                {hasChildren && isOpen && (
+                    <div>{node.children.map((c) => renderNode(c, depth + 1))}</div>
                 )}
             </div>
-        );
-    };
-
-    // 渲染统计
-    const renderStats = () => {
-        if (loading) return <div className="text-center py-8">{t.tags?.stats?.loading || "Loading..."}</div>;
-        if (stats.length === 0) return <div className="text-center py-8 text-muted-foreground">{t.tags?.stats?.empty || "No tag usage records yet"}</div>;
-        const maxCount = stats[0]?.count || 1;
-        return (
-            <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" />{t.tags?.stats?.frequency || "Tag Usage Frequency (Top 20)"}</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                    {stats.slice(0, 20).map((stat) => {
-                        const percentage = (stat.count / maxCount) * 100;
-                        return (
-                            <div key={stat.tag} className="space-y-1">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="font-medium">{stat.tag}</span>
-                                    <span className="text-muted-foreground">{stat.count} {t.tags?.stats?.count || "times"}</span>
-                                </div>
-                                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                    <div className="h-full bg-primary transition-all" style={{ width: `${percentage}%` }} />
-                                </div>
-                            </div>
-                        );
-                    })}
-                </CardContent>
-            </Card>
         );
     };
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
             <div className="flex items-center gap-4 mb-6">
                 <BackButton fallbackUrl="/" />
-                <div>
-                    <h1 className="text-3xl font-bold">{t.tags?.title || "Tag Management"}</h1>
+                <div className="flex-1">
+                    <h1 className="text-3xl font-bold">考点树</h1>
                     <p className="text-muted-foreground mt-1">
-                        {t.tags?.subtitle || "View and manage knowledge point tags"}
+                        管理你的行测考点；官方树可一键导入，之后可自由增删改
                     </p>
                 </div>
-                <div className="ml-auto flex items-center">
-                    <Link href="/">
-                        <Button variant="ghost" size="icon">
-                            <House className="h-5 w-5" />
-                        </Button>
-                    </Link>
-                </div>
+                <Link href="/">
+                    <Button variant="ghost" size="icon">
+                        <House className="h-5 w-5" />
+                    </Button>
+                </Link>
             </div>
 
-            <Tabs defaultValue="standard" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-6">
-                    <TabsTrigger value="standard">{t.tags?.tabs?.standard || "Standard Tags"}</TabsTrigger>
-                    <TabsTrigger value="custom">{t.tags?.tabs?.custom || "Custom Tags"}</TabsTrigger>
-                    <TabsTrigger value="stats">{t.tags?.tabs?.stats || "Usage Statistics"}</TabsTrigger>
+            <div className="flex flex-wrap gap-2 mb-6">
+                <Button onClick={() => handleImport("merge")} disabled={importing}>
+                    {importing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                    )}
+                    导入官方行测树
+                </Button>
+                <Button
+                    variant="outline"
+                    onClick={() => handleImport("replace")}
+                    disabled={importing}
+                >
+                    重置为官方树
+                </Button>
+                <Button
+                    variant="secondary"
+                    onClick={() => {
+                        setAddingUnder("root");
+                        setNewName("");
+                    }}
+                >
+                    <Plus className="h-4 w-4 mr-2" />
+                    添加根模块
+                </Button>
+            </div>
+
+            <Tabs defaultValue="tree" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="tree">我的考点树</TabsTrigger>
+                    <TabsTrigger value="stats">使用统计</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="standard" className="space-y-4">{renderStandardTags()}</TabsContent>
-                <TabsContent value="custom">{renderCustomTags()}</TabsContent>
-                <TabsContent value="stats">{renderStats()}</TabsContent>
+                <TabsContent value="tree">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-lg">公考 · 行测</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {needsImport && tree.length === 0 ? (
+                                <div className="py-12 text-center text-muted-foreground space-y-4">
+                                    <p>还没有个人考点树。先导入官方行测模板，再按需修改。</p>
+                                    <Button onClick={() => handleImport("merge")} disabled={importing}>
+                                        一键导入官方树
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    {addingUnder === "root" && (
+                                        <div className="flex items-center gap-2 pb-3">
+                                            <Input
+                                                placeholder="模块名称，如「言语理解」"
+                                                value={newName}
+                                                onChange={(e) => setNewName(e.target.value)}
+                                                className="h-8"
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") handleAdd(null);
+                                                    if (e.key === "Escape") setAddingUnder(null);
+                                                }}
+                                            />
+                                            <Button
+                                                size="sm"
+                                                disabled={submitting}
+                                                onClick={() => handleAdd(null)}
+                                            >
+                                                添加
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => setAddingUnder(null)}
+                                            >
+                                                取消
+                                            </Button>
+                                        </div>
+                                    )}
+                                    {tree.map((n) => renderNode(n))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="stats">
+                    {loading ? (
+                        <div className="text-center py-8 text-muted-foreground">加载中…</div>
+                    ) : (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <TrendingUp className="h-5 w-5" />
+                                    考点使用次数（按错题关联）
+                                </CardTitle>
+                                {untagged > 0 && (
+                                    <p className="text-sm text-muted-foreground">
+                                        另有 {untagged} 道错题尚未挂考点
+                                    </p>
+                                )}
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {stats.length === 0 ? (
+                                    <p className="text-muted-foreground text-sm py-6 text-center">
+                                        暂无挂标错题。导入考点树并给错题打标后这里会有数据。
+                                    </p>
+                                ) : (
+                                    stats.slice(0, 30).map((stat) => {
+                                        const max = stats[0]?.count || 1;
+                                        const pct = (stat.count / max) * 100;
+                                        return (
+                                            <div key={stat.tagId || stat.tag} className="space-y-1">
+                                                <div className="flex justify-between text-sm">
+                                                    <span className="font-medium">{stat.tag}</span>
+                                                    <span className="text-muted-foreground">
+                                                        {stat.count} 次
+                                                    </span>
+                                                </div>
+                                                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-primary transition-all"
+                                                        style={{ width: `${pct}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+                </TabsContent>
             </Tabs>
         </div>
     );

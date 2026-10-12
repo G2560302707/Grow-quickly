@@ -6,8 +6,8 @@
 				<view class="skel sk-line sk-md" />
 			</view>
 			<template v-else>
-				<!-- 邮箱（只读）：邮箱关联登录会话，双端保持一致，暂不支持在小程序端修改 -->
-				<view class="field">
+				<!-- 邮箱（只读）；微信占位邮箱不展示 -->
+				<view v-if="showEmailField" class="field">
 					<view class="field-head">
 						<text class="field-label">登录邮箱</text>
 						<text class="field-hint">修改邮箱请到网页端</text>
@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { getUserProfile, updateUserProfile, type UserProfile } from "@/api";
 
@@ -71,6 +71,11 @@ const confirmPassword = ref("");
 const profileLoading = ref(true);
 const saving = ref(false);
 const errorMsg = ref("");
+
+const showEmailField = computed(() => {
+	const email = profile.value.email || "";
+	return !!email && !/@wechat\.local$/i.test(email);
+});
 
 onShow(async () => {
 	profileLoading.value = true;

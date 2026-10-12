@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@grow/shared/api-client";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 interface PracticeRecordItem {
     id: string;
@@ -125,15 +126,19 @@ export function PracticeRecords() {
                                             })}
                                         </span>
                                     </div>
-                                    <p className={expanded ? "text-sm whitespace-pre-wrap" : "text-sm line-clamp-2 whitespace-pre-wrap"}>
-                                        {r.questionText || "（无题目快照）"}
-                                    </p>
+                                    {r.questionText?.includes("$") ? (
+                                        <MarkdownRenderer content={r.questionText} className="text-sm" />
+                                    ) : (
+                                        <p className={expanded ? "text-sm whitespace-pre-wrap" : "text-sm line-clamp-2 whitespace-pre-wrap"}>
+                                            {r.questionText || "（无题目快照）"}
+                                        </p>
+                                    )}
                                     {expanded && (
                                         <div className="mt-3 space-y-2 border-t pt-2" onClick={e => e.stopPropagation()}>
                                             {r.answerText ? (
                                                 <div className="rounded-lg bg-muted/30 p-2">
                                                     <p className="text-xs text-muted-foreground mb-1">参考答案</p>
-                                                    <p className="text-sm font-medium whitespace-pre-wrap">{r.answerText}</p>
+                                                    <MarkdownRenderer content={r.answerText} className="text-sm" />
                                                 </div>
                                             ) : (
                                                 <p className="text-xs text-muted-foreground">该记录保存时未存答案与解析快照</p>
@@ -141,7 +146,7 @@ export function PracticeRecords() {
                                             {r.analysis && (
                                                 <div className="rounded-lg border p-2">
                                                     <p className="text-xs text-muted-foreground mb-1">解析</p>
-                                                    <p className="text-sm whitespace-pre-wrap">{r.analysis}</p>
+                                                    <MarkdownRenderer content={r.analysis} className="text-sm" />
                                                 </div>
                                             )}
                                             {r.errorItemId && (

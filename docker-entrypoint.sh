@@ -113,9 +113,9 @@ if [ "$HTTPS_ENABLED" = "true" ]; then
     # 启动 HTTPS 代理
     if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
         echo "[Entrypoint] 启动 HTTPS 代理 (端口 443)..."
-        su-exec nextjs:nodejs node /app/https-server.js &
+        gosu nextjs:nodejs node /app/https-server.js &
     fi
 fi
 
 # Execute the main container command as nextjs user
-exec su-exec nextjs:nodejs "$@"
+exec gosu nextjs:nodejs "$@"

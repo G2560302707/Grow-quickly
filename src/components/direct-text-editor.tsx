@@ -26,8 +26,6 @@ interface DirectTextEditorProps {
         mistakeStatus: string;
         knowledgePoints: string[];
         subjectId: string;
-        gradeSemester?: string;
-        paperLevel?: string;
     }) => Promise<void>;
     defaultNotebookId?: string;
     defaultNotebookName?: string;
@@ -46,8 +44,6 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
     const [mistakeStatus, setMistakeStatus] = useState<MistakeStatus>("unknown");
     const [knowledgePoints, setKnowledgePoints] = useState<string[]>([]);
     const [subjectId, setSubjectId] = useState(defaultNotebookId || "");
-    const [gradeSemester, setGradeSemester] = useState("");
-    const [paperLevel, setPaperLevel] = useState("a");
 
     const handleSubmit = async () => {
         if (!questionText.trim()) return;
@@ -65,8 +61,6 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
             mistakeStatus,
             knowledgePoints,
             subjectId,
-            gradeSemester: gradeSemester || undefined,
-            paperLevel,
         });
     };
 
@@ -78,8 +72,6 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
         setMistakeAnalysis("");
         setMistakeStatus("unknown");
         setKnowledgePoints([]);
-        setGradeSemester("");
-        setPaperLevel("a");
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -158,41 +150,12 @@ export function DirectTextEditor({ onSubmit, defaultNotebookId, defaultNotebookN
                     </Button>
                 </div>
 
-                {/* Notebook & Grade Selection */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                        <Label>{t.editor?.selectNotebook || "选择错题本"} *</Label>
-                        <NotebookSelector
-                            value={subjectId}
-                            onChange={setSubjectId}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>{t.editor?.gradeSemester || "年级/学期"}</Label>
-                        <input
-                            type="text"
-                            value={gradeSemester}
-                            onChange={(e) => setGradeSemester(e.target.value)}
-                            placeholder="如：初二上学期"
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>{t.editor?.paperLevel || "试卷难度"}</Label>
-                        <Select
-                            value={paperLevel}
-                            onValueChange={setPaperLevel}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="a">{t.editor?.paperLevels?.a || "A卷/基础"}</SelectItem>
-                                <SelectItem value="b">{t.editor?.paperLevels?.b || "B卷/提高"}</SelectItem>
-                                <SelectItem value="other">{t.editor?.paperLevels?.other || "其他"}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                <div className="space-y-2 max-w-md">
+                    <Label>{t.editor?.selectNotebook || "选择错题本"} *</Label>
+                    <NotebookSelector
+                        value={subjectId}
+                        onChange={setSubjectId}
+                    />
                 </div>
 
                 {/* Fields with edit/preview toggle */}

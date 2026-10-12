@@ -31,17 +31,17 @@
 						<text v-if="item.subject?.name" class="section-extra">{{ item.subject.name }}</text>
 					</view>
 				</view>
-				<text class="content-text">{{ item.questionText || "—" }}</text>
+				<MdRich :content="item.questionText" />
 
 				<!-- 答案对比 -->
 				<view class="answer-grid">
 					<view v-if="item.wrongAnswerText" class="answer-box answer-wrong">
 						<text class="answer-label">我的答案</text>
-						<text class="answer-text">{{ item.wrongAnswerText }}</text>
+						<MdRich :content="item.wrongAnswerText" />
 					</view>
 					<view class="answer-box answer-right">
 						<text class="answer-label">正确答案</text>
-						<text class="answer-text">{{ item.answerText || "—" }}</text>
+						<MdRich :content="item.answerText" />
 					</view>
 				</view>
 			</view>
@@ -68,18 +68,39 @@
 
 			<view v-if="item.analysis" class="card fade-up">
 				<view class="section-title">解析</view>
-				<MdView :content="item.analysis" />
+				<MdRich :content="item.analysis" />
 			</view>
 
 			<view v-if="item.mistakeAnalysis" class="card fade-up">
 				<view class="section-title">错因分析</view>
-				<text class="content-text">{{ item.mistakeAnalysis }}</text>
+				<MdRich :content="item.mistakeAnalysis" />
 			</view>
 
-			<view v-if="allTags.length" class="card fade-up">
-				<view class="section-title">知识点</view>
-				<view class="tag-row">
+			<view class="card fade-up">
+				<view class="section-head">
+					<text class="section-title">考点标签</text>
+					<text class="section-extra" @tap="toggleEditTags">{{ editingTags ? "取消" : "编辑" }}</text>
+				</view>
+				<view v-if="needsTagImport" class="tag-hint">
+					尚未导入考点树，<text class="link" @tap="goTagsManage">去导入 →</text>
+				</view>
+				<template v-else-if="editingTags">
+					<view class="tag-row">
+						<text
+							v-for="leaf in leafTags"
+							:key="leaf.id"
+							class="tag tag-pick"
+							:class="{ 'tag-picked': selectedTagNames.includes(leaf.name) }"
+							@tap="toggleTag(leaf.name)"
+						>{{ leaf.name }}</text>
+					</view>
+					<button class="btn-primary tag-save-btn" :disabled="savingTags" hover-class="button-hover" @tap="saveTags">
+						{{ savingTags ? "保存中..." : "保存考点" }}
+					</button>
+				</template>
+				<view v-else class="tag-row">
 					<text v-for="tag in allTags" :key="tag" class="tag">{{ tag }}</text>
+					<text v-if="!allTags.length" class="tag-hint">未标注考点</text>
 				</view>
 			</view>
 
@@ -119,9 +140,13 @@ import {
 	getErrorItem,
 	updateErrorItemNotes,
 	updateErrorItemMastery,
+	updateErrorItem,
+	getUserTagTree,
+	collectTagLeaves,
 	type ErrorItem,
+	type TagLeaf,
 } from "@/api";
-import MdView from "@/components/MdView.vue";
+import MdRich from "@/components/MdRich.vue";
 import { originLabel } from "@/utils/origin";
 
 const masteryOptions = [
@@ -136,7 +161,12 @@ const notes = ref("");
 const loading = ref(true);
 const savingNotes = ref(false);
 const savingMastery = ref(false);
+const savingTags = ref(false);
+const editingTags = ref(false);
 const errorMsg = ref("");
+const leafTags = ref<TagLeaf[]>([]);
+const needsTagImport = ref(false);
+const selectedTagNames = ref<string[]>([]);
 
 const allTags = computed<string[]>(() => {
 	if (!item.value) return [];
@@ -150,10 +180,62 @@ const allTags = computed<string[]>(() => {
 	}
 });
 
+async function loadTagTree() {
+	try {
+		const data = await getUserTagTree();
+		const tags = data.tags || [];
+		needsTagImport.value = !!data.needsImport || tags.length === 0;
+		leafTags.value = collectTagLeaves(tags);
+	} catch {
+		needsTagImport.value = true;
+		leafTags.value = [];
+	}
+}
+
+function toggleEditTags() {
+	if (editingTags.value) {
+		editingTags.value = false;
+		return;
+	}
+	selectedTagNames.value = [...allTags.value];
+	editingTags.value = true;
+}
+
+function toggleTag(name: string) {
+	const i = selectedTagNames.value.indexOf(name);
+	if (i >= 0) selectedTagNames.value = selectedTagNames.value.filter((n) => n !== name);
+	else selectedTagNames.value = [...selectedTagNames.value, name];
+}
+
+function goTagsManage() {
+	uni.navigateTo({ url: "/pages/tags/tags" });
+}
+
+async function saveTags() {
+	if (!item.value) return;
+	if (!selectedTagNames.value.length) {
+		uni.showToast({ title: "请至少选择一个考点", icon: "none" });
+		return;
+	}
+	savingTags.value = true;
+	try {
+		const updated = await updateErrorItem(item.value.id, {
+			knowledgePoints: selectedTagNames.value,
+		});
+		item.value = updated;
+		editingTags.value = false;
+		uni.showToast({ title: "考点已更新", icon: "success" });
+	} catch (e: any) {
+		uni.showToast({ title: e?.message || "保存失败", icon: "none" });
+	} finally {
+		savingTags.value = false;
+	}
+}
+
 onLoad(async (query) => {
 	itemId.value = (query?.id as string) || "";
 	try {
-		const data = await getErrorItem(itemId.value);
+		const [data] = await Promise.all([getErrorItem(itemId.value), loadTagTree()]);
 		item.value = data;
 		notes.value = data.userNotes || "";
 	} catch (e: any) {
@@ -336,6 +418,26 @@ function goPractice() {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 12rpx;
+}
+.tag-hint {
+	font-size: 24rpx;
+	color: var(--ink-400);
+	line-height: 1.5;
+}
+.link {
+	color: var(--brand-600);
+}
+.tag-pick {
+	border: 1rpx solid var(--brand-100);
+}
+.tag-picked {
+	background: var(--brand-600) !important;
+	color: #ffffff !important;
+	border-color: var(--brand-600);
+	font-weight: 600;
+}
+.tag-save-btn {
+	margin-top: 20rpx;
 }
 
 /* ---------- 来源标注 ---------- */

@@ -91,7 +91,7 @@
 					auto-height
 					:disabled="reanswering"
 				/>
-				<text v-else class="result-text">{{ result.questionText || "（未识别到题目）" }}</text>
+				<MdRich v-else :content="result.questionText" />
 				<view v-if="editingQuestion" class="edit-actions">
 					<button class="btn-outline small-btn" :disabled="reanswering" hover-class="button-hover" @tap="cancelEditQuestion">
 						取消
@@ -110,28 +110,45 @@
 			</view>
 			<view v-if="result.wrongAnswerText" class="result-block result-wrong">
 				<text class="result-label">我的答案</text>
-				<text class="result-text">{{ result.wrongAnswerText }}</text>
+				<MdRich :content="result.wrongAnswerText" />
 			</view>
 			<view class="result-block result-right">
 				<text class="result-label">正确答案</text>
-				<text class="result-text">{{ result.answerText || "—" }}</text>
+				<MdRich :content="result.answerText" />
 			</view>
 			<view v-if="result.analysis" class="result-block">
 				<text class="result-label">解析</text>
-				<MdView :content="result.analysis" />
+				<MdRich :content="result.analysis" />
 			</view>
 			<view v-if="result.mistakeAnalysis" class="result-block">
 				<text class="result-label">错因分析</text>
-				<text class="result-text">{{ result.mistakeAnalysis }}</text>
+				<MdRich :content="result.mistakeAnalysis" />
 			</view>
-			<view v-if="result.knowledgePoints?.length" class="result-block">
-				<text class="result-label">知识点</text>
-				<view class="tag-row">
-					<text v-for="tag in result.knowledgePoints" :key="tag" class="tag">{{ tag }}</text>
+			<view class="result-block">
+				<view class="result-label-row">
+					<text class="result-label">考点标签</text>
+					<text class="edit-link" @tap="goTagsManage">管理考点树</text>
 				</view>
+				<view v-if="needsTagImport" class="tag-import-tip">
+					<text>尚未导入个人考点树，</text>
+					<text class="alt-link" @tap="goTagsManage">去导入 →</text>
+				</view>
+				<template v-else>
+					<text class="tag-hint">点选叶子考点（可多选）；已自动勾选与 AI 匹配的项</text>
+					<view class="tag-row">
+						<text
+							v-for="leaf in leafTags"
+							:key="leaf.id"
+							class="tag tag-pick"
+							:class="{ 'tag-picked': selectedTagNames.includes(leaf.name) }"
+							@tap="toggleTag(leaf.name)"
+						>{{ leaf.name }}</text>
+					</view>
+					<text v-if="!leafTags.length" class="tag-hint">考点树没有可选叶子，请先到考点管理添加</text>
+				</template>
 			</view>
 
-			<button class="btn-primary save-btn" :disabled="saving" hover-class="button-hover" @tap="handleSave">
+			<button class="btn-primary save-btn" :disabled="saving || needsTagImport" hover-class="button-hover" @tap="handleSave">
 				{{ saving ? "保存中..." : "保存到错题本" }}
 			</button>
 		</view>
@@ -157,11 +174,14 @@ import {
 	createErrorItem,
 	detectQuestions,
 	reanswerQuestion,
+	getUserTagTree,
+	collectTagLeaves,
 	type Notebook,
 	type ParsedQuestion,
 	type DetectedQuestionBox,
+	type TagLeaf,
 } from "@/api";
-import MdView from "@/components/MdView.vue";
+import MdRich from "@/components/MdRich.vue";
 import CropOverlay from "@/components/crop-overlay.vue";
 import { detectUncertainty } from "@/utils/uncertainty";
 
@@ -172,6 +192,9 @@ const analyzing = ref(false);
 const saving = ref(false);
 const errorMsg = ref("");
 const result = ref<ParsedQuestion | null>(null);
+const leafTags = ref<TagLeaf[]>([]);
+const needsTagImport = ref(false);
+const selectedTagNames = ref<string[]>([]);
 
 // 题目校正与重新解答：识别结果可能转录错误（数字/选项），用户修正文本后按新题目重出答案
 const editingQuestion = ref(false);
@@ -198,6 +221,43 @@ const uncertainty = computed(() =>
 	})
 );
 
+async function loadTagTree() {
+	try {
+		const data = await getUserTagTree();
+		const tags = data.tags || [];
+		needsTagImport.value = !!data.needsImport || tags.length === 0;
+		leafTags.value = collectTagLeaves(tags);
+	} catch {
+		needsTagImport.value = true;
+		leafTags.value = [];
+	}
+}
+
+function syncSelectedFromAi(aiPoints?: string[]) {
+	const leaves = leafTags.value;
+	if (!leaves.length) {
+		selectedTagNames.value = [];
+		return;
+	}
+	const leafSet = new Map(leaves.map((l) => [l.name.toLowerCase(), l.name]));
+	const picked: string[] = [];
+	for (const p of aiPoints || []) {
+		const hit = leafSet.get(String(p).trim().toLowerCase());
+		if (hit && !picked.includes(hit)) picked.push(hit);
+	}
+	selectedTagNames.value = picked;
+}
+
+function toggleTag(name: string) {
+	const i = selectedTagNames.value.indexOf(name);
+	if (i >= 0) selectedTagNames.value = selectedTagNames.value.filter((n) => n !== name);
+	else selectedTagNames.value = [...selectedTagNames.value, name];
+}
+
+function goTagsManage() {
+	uni.navigateTo({ url: "/pages/tags/tags" });
+}
+
 onShow(async () => {
 	try {
 		const list = await listNotebooks();
@@ -208,6 +268,8 @@ onShow(async () => {
 	} catch (e: any) {
 		errorMsg.value = e?.message || "加载错题本失败";
 	}
+	await loadTagTree();
+	if (result.value) syncSelectedFromAi(result.value.knowledgePoints);
 });
 
 function onNotebookChange(e: any) {
@@ -317,6 +379,7 @@ async function handleAnalyze() {
 		const base64 = await readImageAsBase64(imagePath.value);
 		imageBase64Cache.value = base64;
 		result.value = await analyzeImage(base64, selectedNotebook.value.id);
+		syncSelectedFromAi(result.value?.knowledgePoints);
 	} catch (e: any) {
 		errorMsg.value = e?.message || "AI 识别失败，请重试";
 	} finally {
@@ -362,6 +425,7 @@ async function handleReanswer() {
 				? "wrong_attempt"
 				: (updated.mistakeStatus || "unknown"),
 		};
+		syncSelectedFromAi(updated.knowledgePoints);
 		editingQuestion.value = false;
 		uni.showToast({ title: "已重新解答", icon: "success" });
 	} catch (e: any) {
@@ -373,6 +437,10 @@ async function handleReanswer() {
 
 async function handleSave() {
 	if (!result.value || !selectedNotebook.value) return;
+	if (needsTagImport.value) {
+		uni.showToast({ title: "请先导入考点树", icon: "none" });
+		return;
+	}
 	// 编辑态直接保存：采纳已修正的题目文本（答案/解析仍为当前识别结果）
 	if (editingQuestion.value) {
 		result.value.questionText = editedQuestionText.value;
@@ -380,6 +448,10 @@ async function handleSave() {
 	}
 	if (!result.value.questionText) {
 		uni.showToast({ title: "未识别到题目内容", icon: "none" });
+		return;
+	}
+	if (!selectedTagNames.value.length) {
+		uni.showToast({ title: "请至少选择一个考点", icon: "none" });
 		return;
 	}
 	saving.value = true;
@@ -392,12 +464,13 @@ async function handleSave() {
 			wrongAnswerText: result.value.wrongAnswerText || "",
 			mistakeAnalysis: result.value.mistakeAnalysis || "",
 			mistakeStatus: result.value.mistakeStatus,
-			knowledgePoints: result.value.knowledgePoints || [],
+			knowledgePoints: selectedTagNames.value,
 			originalImageUrl: base64,
 			subjectId: selectedNotebook.value.id,
 		});
 		uni.showToast({ title: "已保存", icon: "success" });
 		result.value = null;
+		selectedTagNames.value = [];
 		// 同一张图可能还有其他题：询问是否继续框选
 		uni.showModal({
 			title: "已保存",
@@ -708,6 +781,27 @@ async function handleSave() {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 12rpx;
+}
+.tag-hint {
+	display: block;
+	font-size: 22rpx;
+	color: var(--ink-400);
+	margin-bottom: 16rpx;
+	line-height: 1.5;
+}
+.tag-import-tip {
+	font-size: 26rpx;
+	color: var(--ink-400);
+	line-height: 1.6;
+}
+.tag-pick {
+	border: 1rpx solid var(--brand-100);
+}
+.tag-picked {
+	background: var(--brand-600) !important;
+	color: #ffffff !important;
+	border-color: var(--brand-600);
+	font-weight: 600;
 }
 .save-btn {
 	margin-top: 12rpx;

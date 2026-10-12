@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { unauthorized, internalError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { isValidNotebookName } from "@/lib/name-validation";
 
 const logger = createLogger('api:practice:record');
 
@@ -148,7 +149,8 @@ async function saveWrongQuestionToNotebook(input: {
     }
 
     // 错题本（科目）find-or-create
-    const name = subjectName?.trim() || "其他";
+    // 编码校验：LLM 返回的科目名若含 U+FFFD 等解码损坏标记，回退到「其他」而非建脏错题本
+    const name = isValidNotebookName(subjectName) ? subjectName.trim() : "其他";
     const existingSubject = await prisma.subject.findFirst({
         where: { userId, name },
         select: { id: true },

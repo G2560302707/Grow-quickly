@@ -59,6 +59,15 @@
 			}
 		},
 		{
+			"path": "pages/tags/tags",
+			"style": {
+				"navigationBarTitleText": "考点管理",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
 			"path": "pages/items/items",
 			"style": {
 				"navigationBarTitleText": "错题列表",

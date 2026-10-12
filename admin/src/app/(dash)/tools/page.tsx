@@ -44,14 +44,17 @@ export default function AdminToolsPage() {
     };
 
     const handleMigrateTags = async () => {
-        if (!(await confirmDialog({ description: "将按内置数据重建系统标签（保留用户关联），确定执行？", danger: true }))) {
+        if (!(await confirmDialog({ description: "将删除非考公系统标签，并补齐行测考点树。确定执行？", danger: true }))) {
             return;
         }
 
         setMigratingTags(true);
         try {
-            const res = await apiClient.post("/api/admin/migrate-tags", {});
-            await alertDialog({ description: `迁移完成：${(res as any).count || 0} 个标签` });
+            const res = await apiClient.post<{ message?: string; removed?: number; created?: number; gongkaoCount?: number }>("/api/admin/migrate-tags", {});
+            await alertDialog({
+                description: (res as any).message
+                    || `清理 ${(res as any).removed ?? 0}，新建 ${(res as any).created ?? 0}，考公标签共 ${(res as any).gongkaoCount ?? 0}`,
+            });
         } catch (error) {
             await alertDialog({ description: "标签迁移失败" });
         } finally {
@@ -106,7 +109,7 @@ export default function AdminToolsPage() {
                         </Button>
                     </div>
                     <p className="text-xs text-blue-800 mt-3 font-medium">
-                        按内置标签数据重建系统标签，用于版本升级后同步标签体系。
+                        清理非考公系统标签，并补齐行测五大模块考点树（幂等可重复执行）。
                     </p>
                 </div>
 

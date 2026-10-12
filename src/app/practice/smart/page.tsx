@@ -517,7 +517,7 @@ function SmartPracticeContent() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="whitespace-pre-wrap leading-relaxed">{choice ? choice.stem : question.questionText || "—"}</p>
+                            <MarkdownRenderer content={choice ? choice.stem : question.questionText || "—"} className="text-sm leading-relaxed" />
                         </CardContent>
                     </Card>
 
@@ -589,7 +589,7 @@ function SmartPracticeContent() {
                                     )}
                                     <div className="rounded-lg border bg-muted/30 p-3">
                                         <p className="text-xs text-muted-foreground mb-1">参考答案</p>
-                                        <p className="text-sm font-medium">{question.answerText || "—"}</p>
+                                        <MarkdownRenderer content={question.answerText || "—"} className="text-sm" />
                                     </div>
                                     {question.analysis && (
                                         <div className="rounded-lg border p-3">

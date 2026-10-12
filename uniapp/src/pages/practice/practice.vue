@@ -103,7 +103,7 @@
 						{{ sessionMode ? `第 ${sessionIndex} / ${sessionTotal} 题 · ${question.meta?.difficulty || "medium"}` : smartMode ? "薄弱点专项 · " + subjectName : subjectName }}
 					</text>
 				</view>
-				<text class="content-text">{{ choice ? choice.stem : (question.questionText || "—") }}</text>
+				<MdRich :content="choice ? choice.stem : question.questionText" />
 			</view>
 
 			<!-- 选择题：选项按钮作答 -->
@@ -151,10 +151,10 @@
 					<view class="section-head">
 						<text class="section-title">参考答案</text>
 					</view>
-					<text class="content-text answer-reveal">{{ question.answerText || "—" }}</text>
+					<MdRich :content="question.answerText" />
 					<view v-if="question.analysis" class="block">
 						<view class="section-title">解析</view>
-						<MdView :content="question.analysis" />
+						<MdRich :content="question.analysis" />
 					</view>
 				</view>
 
@@ -238,7 +238,7 @@ import {
 	type SmartQuestion,
 } from "@/api";
 import { parseChoiceOptions, parseCorrectOption } from "@/utils/practice-choice";
-import MdView from "@/components/MdView.vue";
+import MdRich from "@/components/MdRich.vue";
 
 /** 全部难度档位（与网页端对齐，多了"挑战"）；自适应仅在会话模式作为附加选项 */
 const difficulties = [

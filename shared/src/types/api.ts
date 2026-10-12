@@ -67,8 +67,6 @@ export interface ErrorItem {
     tags?: Tag[];
 
     masteryLevel: number;
-    gradeSemester?: string | null;
-    paperLevel?: string | null;
 
     createdAt: string;
     updatedAt: string;
@@ -78,8 +76,6 @@ export interface ErrorItem {
 export interface CreateErrorItemRequest extends ParsedQuestion {
     originalImageUrl: string;
     subjectId?: string;
-    gradeSemester?: string;
-    paperLevel?: string;
 }
 
 export type AnalyzeResponse = ParsedQuestion;

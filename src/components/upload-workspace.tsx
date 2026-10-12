@@ -456,8 +456,6 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
         mistakeStatus: string;
         knowledgePoints: string[];
         subjectId: string;
-        gradeSemester?: string;
-        paperLevel?: string;
     }): Promise<void> => {
         frontendLogger.info('[HomeDirectSave]', 'Starting direct save', {
             hasQuestionText: !!data.questionText,
@@ -476,8 +474,6 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
                 mistakeStatus: data.mistakeStatus || "unknown",
                 knowledgePoints: data.knowledgePoints,
                 subjectId: data.subjectId,
-                gradeSemester: data.gradeSemester,
-                paperLevel: data.paperLevel,
                 originalImageUrl: "",
             });
 

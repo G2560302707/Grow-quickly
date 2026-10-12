@@ -8,7 +8,7 @@
 				<view class="avatar"><text class="avatar-char">{{ avatarChar }}</text></view>
 				<view class="user-info">
 					<text class="user-name">{{ session?.user?.name || "未登录" }}</text>
-					<text class="user-email">{{ session?.user?.email || "" }}</text>
+					<text v-if="displayEmail" class="user-email">{{ displayEmail }}</text>
 				</view>
 			</view>
 		</view>
@@ -59,6 +59,16 @@
 					</view>
 				</view>
 				<text class="menu-text">学习统计</text>
+				<text class="menu-arrow">›</text>
+			</view>
+			<view class="menu-item" hover-class="hv" @tap="goTags">
+				<view class="menu-icon menu-icon-gold">
+					<view class="glyph-tag">
+						<view class="glyph-tag-body" />
+						<view class="glyph-tag-hole" />
+					</view>
+				</view>
+				<text class="menu-text">考点管理</text>
 				<text class="menu-arrow">›</text>
 			</view>
 			<view class="menu-item" hover-class="hv" @tap="goFeedback">
@@ -121,6 +131,13 @@ const practice = ref<PracticeSummary>({ total: 0, correct: 0, rate: 0 });
 
 const avatarChar = computed(() => (session.value?.user?.name || "未")[0]);
 
+/** 微信占位邮箱不展示 */
+const displayEmail = computed(() => {
+	const email = session.value?.user?.email || "";
+	if (!email || /@wechat\.local$/i.test(email)) return "";
+	return email;
+});
+
 onShow(async () => {
 	statsLoading.value = true;
 	const [sess, ov, pr] = await Promise.all([
@@ -140,6 +157,10 @@ function goNotebooks() {
 
 function goStats() {
 	uni.navigateTo({ url: "/pages/stats/stats" });
+}
+
+function goTags() {
+	uni.navigateTo({ url: "/pages/tags/tags" });
 }
 
 function goFeedback() {
@@ -382,6 +403,28 @@ function handleLogout() {
 	width: 3rpx;
 	background: var(--brand-600);
 	transform: translateX(-50%);
+}
+.glyph-tag {
+	position: relative;
+	width: 34rpx;
+	height: 28rpx;
+}
+.glyph-tag-body {
+	position: absolute;
+	inset: 0;
+	border: 3rpx solid var(--gold-600, #c9a227);
+	border-radius: 6rpx 6rpx 6rpx 14rpx;
+	transform: rotate(-20deg);
+}
+.glyph-tag-hole {
+	position: absolute;
+	left: 8rpx;
+	top: 8rpx;
+	width: 8rpx;
+	height: 8rpx;
+	border: 2rpx solid var(--gold-600, #c9a227);
+	border-radius: 50%;
+	z-index: 1;
 }
 .glyph-chart {
 	display: flex;

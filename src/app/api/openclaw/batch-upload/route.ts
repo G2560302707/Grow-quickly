@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@grow/shared/prisma";
 import { createLogger } from "@grow/shared/logger";
 import { createErrorResponse, ErrorCode } from "@grow/shared/api-errors";
-import { calculateGrade } from "@/lib/grade-calculator";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
-import { findParentTagIdForGrade } from "@grow/shared/tag-recognition";
 import { compare } from "bcryptjs";
 import { timingSafeEqual } from "crypto";
 import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
@@ -122,16 +120,6 @@ async function createErrorItem(
     const subject = subjectId ? await prisma.subject.findUnique({ where: { id: subjectId } }) : null;
     const subjectKey = subject ? inferSubjectFromName(subject.name) : null;
 
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { educationStage: true, enrollmentYear: true }
-    });
-
-    let finalGradeSemester: string | null = null;
-    if (user?.educationStage && user?.enrollmentYear) {
-        finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear);
-    }
-
     for (const tagName of tagNames) {
         try {
             let tag = await prisma.knowledgeTag.findFirst({
@@ -145,17 +133,13 @@ async function createErrorItem(
             });
 
             if (!tag) {
-                const parentId = finalGradeSemester && subjectKey 
-                    ? await findParentTagIdForGrade(finalGradeSemester, subjectKey)
-                    : null;
-
                 tag = await prisma.knowledgeTag.create({
                     data: {
                         name: tagName,
-                        subject: subjectKey || 'other',
+                        subject: subjectKey || 'gongkao',
                         isSystem: false,
                         userId: userId,
-                        parentId: parentId || undefined,
+                        parentId: null,
                     },
                 });
             }
@@ -176,9 +160,7 @@ async function createErrorItem(
             answerText: answerText || null,
             analysis: analysis || null,
             knowledgePoints: JSON.stringify(tagNames),
-            sourceType: "manual", // agent 拍照录入视为手动来源
-            gradeSemester: finalGradeSemester,
-            paperLevel: null,
+            sourceType: "manual",
             errorType: errorType || null,
             source: source || 'Openclaw',
             masteryLevel: 0,

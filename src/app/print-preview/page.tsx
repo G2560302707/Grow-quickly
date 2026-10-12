@@ -227,16 +227,6 @@ function PrintPreviewContent() {
                                         {item.subject.name}
                                     </span>
                                 )}
-                                {item.gradeSemester && (
-                                    <span className="text-sm text-muted-foreground">
-                                        {item.gradeSemester}
-                                    </span>
-                                )}
-                                {item.paperLevel && (
-                                    <span className="text-sm text-muted-foreground">
-                                        {t.printPreview?.paperLevel || 'Paper Level'}: {item.paperLevel.toUpperCase()}
-                                    </span>
-                                )}
                                 {showTags && tags.length > 0 && (
                                     <>
                                         <span className="font-semibold">

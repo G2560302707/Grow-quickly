@@ -62,7 +62,7 @@
 					<text class="record-source">{{ sourceLabel(r) }}</text>
 					<text class="record-date num">{{ formatDate(r.createdAt) }}</text>
 				</view>
-				<text class="record-question">{{ r.questionText || "（无题目快照）" }}</text>
+				<MdRich :content="r.questionText" />
 				<view class="record-foot">
 					<text class="record-meta">{{ r.subject || "—" }} · {{ difficultyLabel(r.difficulty) }}</text>
 					<text class="record-link">看详情 ›</text>
@@ -84,6 +84,7 @@ import {
 	type PracticeRecordItem,
 	type PracticeChannel,
 } from "@/api";
+import MdRich from "@/components/MdRich.vue";
 
 const PAGE_SIZE = 20;
 

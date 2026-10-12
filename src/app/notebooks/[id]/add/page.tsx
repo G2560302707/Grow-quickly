@@ -295,7 +295,7 @@ export default function AddErrorPage() {
         }
     };
 
-    const handleSave = async (finalData: ParsedQuestion & { subjectId?: string; gradeSemester?: string; paperLevel?: string }): Promise<void> => {
+    const handleSave = async (finalData: ParsedQuestion & { subjectId?: string }): Promise<void> => {
         try {
             const result = await apiClient.post<{ id: string; duplicate?: boolean }>("/api/error-items", {
                 ...finalData,

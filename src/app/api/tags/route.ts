@@ -1,223 +1,185 @@
 /**
- * 知识点标签 API
- * GET /api/tags - 获取标签树
- * POST /api/tags - 创建自定义标签
+ * 个人考点树 API
+ * GET    /api/tags          - 本人树；?flat=true 返回可选叶子
+ * POST   /api/tags          - 新建节点
+ * DELETE /api/tags?id=      - 删除节点（含子树，解绑题目）
  */
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { prisma } from "@grow/shared/prisma";
+import { authOptions } from "@/lib/auth";
+import { createLogger } from "@grow/shared/logger";
+import {
+    USER_TAG_SUBJECT,
+    MAX_DEPTH,
+    buildTagTree,
+    countUserTags,
+    listUserTags,
+    selectableTagNames,
+    assertOwnedTag,
+    getNodeDepth,
+    collectUserTagSubtreeIds,
+} from "@/lib/user-tag-tree";
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@grow/shared/prisma';
-import { authOptions } from '@/lib/auth';
-import { createLogger } from '@grow/shared/logger';
+const logger = createLogger("api:tags");
 
-const logger = createLogger('api:tags');
-
-interface TagTreeNode {
-    id: string;
-    name: string;
-    code: string | null;
-    isSystem: boolean;
-    children: TagTreeNode[];
-}
-
-/**
- * 构建标签树
- */
-function buildTagTree(tags: any[]): TagTreeNode[] {
-    const tagMap = new Map<string, TagTreeNode>();
-    const roots: TagTreeNode[] = [];
-
-    // 第一遍：创建所有节点
-    for (const tag of tags) {
-        tagMap.set(tag.id, {
-            id: tag.id,
-            name: tag.name,
-            code: tag.code,
-            isSystem: tag.isSystem,
-            children: [],
-        });
-    }
-
-    // 第二遍：建立父子关系
-    for (const tag of tags) {
-        const node = tagMap.get(tag.id)!;
-        if (tag.parentId && tagMap.has(tag.parentId)) {
-            tagMap.get(tag.parentId)!.children.push(node);
-        } else {
-            roots.push(node);
-        }
-    }
-
-    return roots;
-}
-
-/**
- * GET /api/tags
- * Query params:
- *   - subject: 学科 (必填, e.g., 'math')
- *   - flat: 是否返回扁平列表 (可选, 默认 false 返回树)
- */
 export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
-        const subject = searchParams.get('subject');
-        const flat = searchParams.get('flat') === 'true';
-
-        if (!subject) {
-            return NextResponse.json({ error: 'Subject is required' }, { status: 400 });
+        const flat = searchParams.get("flat") === "true";
+        const subject = searchParams.get("subject") || USER_TAG_SUBJECT;
+        if (subject !== USER_TAG_SUBJECT) {
+            return NextResponse.json({ tags: [], needsImport: false, message: "仅支持考公考点树" });
         }
 
-        // 获取系统标签 + 当前用户的自定义标签
-        const tags = await prisma.knowledgeTag.findMany({
-            where: {
-                subject,
-                OR: [
-                    { isSystem: true },
-                    { userId: session.user.id },
-                ],
-            },
-            orderBy: [
-                { order: 'asc' },
-                { name: 'asc' },
-            ],
-        });
+        const tags = await listUserTags(session.user.id);
+        const needsImport = tags.length === 0;
 
         if (flat) {
-            // 返回扁平列表 (仅叶子节点，即实际的知识点)
-            const leafTags = tags.filter(t =>
-                !tags.some(other => other.parentId === t.id)
-            );
             return NextResponse.json({
-                tags: leafTags.map(t => {
-                    const parent = t.parentId ? tags.find(p => p.id === t.parentId) : null;
-                    return {
-                        id: t.id,
-                        name: t.name,
-                        isSystem: t.isSystem,
-                        parentId: t.parentId,
-                        parentName: parent ? parent.name : null,
-                    };
-                }),
+                tags: selectableTagNames(tags),
+                needsImport,
+                total: tags.length,
             });
         }
 
-        // 返回树状结构
-        const tree = buildTagTree(tags);
-        if (tags.length > 0) {
-            logger.debug({
-                subject,
-                totalTags: tags.length,
-                systemTags: tags.filter(t => t.isSystem).length,
-                userTags: tags.filter(t => !t.isSystem).length,
-                treeRoots: tree.length,
-                sampleRoot: tree.length > 0 ? tree[0].name : 'none'
-            }, 'Returning tag tree');
-        }
-        return NextResponse.json({ tags: tree });
-
+        return NextResponse.json({
+            tags: buildTagTree(tags),
+            needsImport,
+            total: tags.length,
+        });
     } catch (error) {
-        logger.error({ error }, 'Error fetching tags');
-        return NextResponse.json({ error: 'Failed to fetch tags' }, { status: 500 });
+        logger.error({ error }, "Error fetching tags");
+        return NextResponse.json({ error: "Failed to fetch tags" }, { status: 500 });
     }
 }
 
-/**
- * POST /api/tags
- * Body: { name: string, subject: string, parentId?: string }
- */
 export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const body = await request.json();
-        const { name, subject, parentId } = body;
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        const parentId = body.parentId || null;
+        const order = typeof body.order === "number" ? body.order : 0;
 
-        if (!name || !subject) {
-            return NextResponse.json({ error: 'Name and subject are required' }, { status: 400 });
+        if (!name) {
+            return NextResponse.json({ error: "Name is required" }, { status: 400 });
+        }
+        if (name.length > 40) {
+            return NextResponse.json({ error: "名称过长（最多 40 字）" }, { status: 400 });
         }
 
-        // 检查是否已存在 (在同一父节点下)
-        // 注意：Prisma对于可选字段的查询需要特殊处理。如果是null，必须显式指定。
+        if (parentId) {
+            const parent = await assertOwnedTag(session.user.id, parentId);
+            if (!parent) {
+                return NextResponse.json({ error: "父节点不存在" }, { status: 400 });
+            }
+            const depth = await getNodeDepth(parentId);
+            if (depth >= MAX_DEPTH) {
+                return NextResponse.json({ error: `最多 ${MAX_DEPTH} 层` }, { status: 400 });
+            }
+        }
+
         const existing = await prisma.knowledgeTag.findFirst({
             where: {
-                name: name.trim(),
-                subject,
+                name,
+                subject: USER_TAG_SUBJECT,
                 userId: session.user.id,
-                parentId: parentId || null,
+                isSystem: false,
+                parentId,
+            },
+        });
+        if (existing) {
+            return NextResponse.json({ error: "同级下已有同名标签" }, { status: 409 });
+        }
+
+        const siblings = await prisma.knowledgeTag.count({
+            where: {
+                userId: session.user.id,
+                subject: USER_TAG_SUBJECT,
+                isSystem: false,
+                parentId,
             },
         });
 
-        if (existing) {
-            return NextResponse.json({ error: 'Tag already exists in this group' }, { status: 409 });
-        }
-
-        // 创建自定义标签
         const tag = await prisma.knowledgeTag.create({
             data: {
-                name: name.trim(),
-                subject,
-                parentId: parentId || null,
+                name,
+                subject: USER_TAG_SUBJECT,
+                parentId,
                 isSystem: false,
                 userId: session.user.id,
+                order: order || siblings + 1,
+                code: "user",
             },
         });
 
         return NextResponse.json({ tag }, { status: 201 });
-
     } catch (error) {
-        logger.error({ error }, 'Error creating tag');
-        return NextResponse.json({ error: 'Failed to create tag' }, { status: 500 });
+        logger.error({ error }, "Error creating tag");
+        return NextResponse.json({ error: "Failed to create tag" }, { status: 500 });
     }
 }
 
-/**
- * DELETE /api/tags
- * Query params: id (tag ID to delete)
- * Only allows deleting user's own custom tags
- */
 export async function DELETE(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { searchParams } = new URL(request.url);
-        const tagId = searchParams.get('id');
-
+        const tagId = new URL(request.url).searchParams.get("id");
         if (!tagId) {
-            return NextResponse.json({ error: 'Tag ID is required' }, { status: 400 });
+            return NextResponse.json({ error: "Tag ID is required" }, { status: 400 });
         }
 
-        // 只能删除自己的自定义标签
-        const tag = await prisma.knowledgeTag.findFirst({
-            where: {
-                id: tagId,
-                userId: session.user.id,
-                isSystem: false,
-            },
-        });
-
+        const tag = await assertOwnedTag(session.user.id, tagId);
         if (!tag) {
-            return NextResponse.json({ error: 'Tag not found or not deletable' }, { status: 404 });
+            return NextResponse.json({ error: "Tag not found" }, { status: 404 });
         }
 
-        await prisma.knowledgeTag.delete({
-            where: { id: tagId },
+        const subtreeIds = await collectUserTagSubtreeIds(tagId, session.user.id);
+
+        for (const id of subtreeIds) {
+            await prisma.knowledgeTag.update({
+                where: { id },
+                data: { errorItems: { set: [] } },
+            });
+        }
+
+        let deleted = 0;
+        for (let i = 0; i < 8; i++) {
+            const res = await prisma.knowledgeTag.deleteMany({
+                where: {
+                    id: { in: subtreeIds },
+                    userId: session.user.id,
+                    children: { none: {} },
+                },
+            });
+            deleted += res.count;
+            if (res.count === 0) break;
+        }
+        const rest = await prisma.knowledgeTag.deleteMany({
+            where: { id: { in: subtreeIds }, userId: session.user.id },
         });
+        deleted += rest.count;
 
-        return NextResponse.json({ success: true });
-
+        return NextResponse.json({
+            success: true,
+            deleted,
+            remaining: await countUserTags(session.user.id),
+        });
     } catch (error) {
-        logger.error({ error }, 'Error deleting tag');
-        return NextResponse.json({ error: 'Failed to delete tag' }, { status: 500 });
+        logger.error({ error }, "Error deleting tag");
+        return NextResponse.json({ error: "Failed to delete tag" }, { status: 500 });
     }
 }

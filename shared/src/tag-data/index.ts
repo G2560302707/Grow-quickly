@@ -1,10 +1,2 @@
-export * from './math';
-export * from './physics';
-export * from './english';
-export * from './chemistry';
-export * from './biology';
-export * from './chinese';
-export * from './history';
-export * from './geography';
-export * from './politics';
+/** 系统标签数据：产品当前仅保留考公（行测）考点树 */
 export * from './gongkao';

@@ -17,15 +17,15 @@
 		</view>
 
 		<!-- 学习概览卡 -->
-		<view class="overview card fade-up">
-			<!-- 公告条 -->
+		<view class="overview card" :class="{ 'fade-up': playEnterAnim }">
+			<!-- 公告条：有数据再显示，避免从识别切回时高度闪一下 -->
 			<view v-if="notice" class="notice-bar" hover-class="hv" @tap="openAnnouncement">
 				<text class="notice-badge">公告</text>
 				<text class="notice-title">{{ notice.title }}</text>
 				<view v-if="hasUnread" class="notice-dot" />
 				<text class="notice-arrow">›</text>
 			</view>
-			<template v-if="statsLoading">
+			<template v-if="statsLoading && firstLoad">
 				<view class="ov-skel-row">
 					<view v-for="i in 3" :key="i" class="ov-skel-item">
 						<view class="skel ov-skel-num" />
@@ -86,9 +86,10 @@
 			<view
 				v-for="(nb, idx) in notebooks"
 				:key="nb.id"
-				class="card nb-card fade-up"
+				class="card nb-card"
+				:class="{ 'fade-up': playEnterAnim }"
 				hover-class="card-hover"
-				:style="{ animationDelay: idx * 0.05 + 's' }"
+				:style="playEnterAnim ? { animationDelay: idx * 0.05 + 's' } : undefined"
 				@tap="openNotebook(nb)"
 			>
 				<view
@@ -130,9 +131,12 @@ import { getSession } from "@/utils/auth";
 const notebooks = ref<Notebook[]>([]);
 const loading = ref(true);
 const firstLoad = ref(true);
+/** 仅首次进入播放入场动画，Tab 切回不再 fade-up 造成抖动 */
+const playEnterAnim = ref(true);
 const errorMsg = ref("");
 const statsLoading = ref(true);
 const userName = ref("同学");
+let refreshing = false;
 
 const EMPTY_STATS: OverviewStats = {
 	totalItems: 0,
@@ -192,7 +196,7 @@ const totalItems = computed(() =>
 );
 
 onShow(async () => {
-	loading.value = true;
+	if (refreshing) return;
 	errorMsg.value = "";
 	// 先确认会话；未登录直接去登录页，避免一串 401
 	const session = await getSession().catch(() => null);
@@ -202,8 +206,19 @@ onShow(async () => {
 		return;
 	}
 	if (session.user.name) userName.value = session.user.name;
-	await Promise.all([loadStats(), loadAnnouncements()]);
+
+	const isFirst = firstLoad.value;
+	if (isFirst) {
+		loading.value = true;
+		playEnterAnim.value = true;
+	} else {
+		// 从识别等 Tab 切回：保留旧内容静默刷新，避免骨架/动画抖动
+		playEnterAnim.value = false;
+	}
+
+	refreshing = true;
 	try {
+		await Promise.all([loadStats(!isFirst), loadAnnouncements()]);
 		const list = await listNotebooks();
 		notebooks.value = Array.isArray(list) ? list : [];
 	} catch (e: any) {
@@ -211,12 +226,13 @@ onShow(async () => {
 	} finally {
 		loading.value = false;
 		firstLoad.value = false;
+		refreshing = false;
 		uni.stopPullDownRefresh();
 	}
 });
 
-async function loadStats() {
-	statsLoading.value = true;
+async function loadStats(silent = false) {
+	if (!silent) statsLoading.value = true;
 	try {
 		stats.value = await getOverviewStats();
 	} catch {

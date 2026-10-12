@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, House, PlayCircle, RotateCcw, XCircle } from "lucide-react";
 import { apiClient } from "@grow/shared/api-client";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 interface PoolQuestionItem {
     id: string;
@@ -232,9 +233,13 @@ export default function PoolPage() {
                                         )}
                                         <span className="ml-auto text-xs text-muted-foreground">{formatDate(q.createdAt)}</span>
                                     </div>
-                                    <p className="text-sm leading-relaxed line-clamp-3 whitespace-pre-wrap">
-                                        {q.questionText || "（无题目内容）"}
-                                    </p>
+                                    {q.questionText?.includes("$") ? (
+                                        <MarkdownRenderer content={q.questionText} className="text-sm" />
+                                    ) : (
+                                        <p className="text-sm leading-relaxed line-clamp-3 whitespace-pre-wrap">
+                                            {q.questionText || "（无题目内容）"}
+                                        </p>
+                                    )}
                                     <div className="flex items-center gap-2 flex-wrap">
                                         {q.tag?.name && <span className="text-xs text-muted-foreground">考点：{q.tag.name}</span>}
                                         {q.errorItem && <span className="text-xs text-muted-foreground">锚定原错题</span>}

@@ -258,7 +258,11 @@ const mode = ref<Mode>("pomodoro");
 const targetMinutes = ref(25);
 const moduleName = ref("");
 const phase = ref<"idle" | "running" | "paused" | "done">("idle");
-const elapsed = ref(0); // 已专注秒数
+const elapsed = ref(0); // 已专注秒数（展示用，由墙钟推算）
+/** 暂停时冻结的累计秒数；运行中 = baseElapsed + (now - runningSince) */
+const baseElapsed = ref(0);
+/** 本次进入 running 的墙钟起点（ms）；暂停时为 null */
+const runningSince = ref<number | null>(null);
 const timer = ref<ReturnType<typeof setInterval> | null>(null);
 const quoteIndex = ref(0);
 const quoteTimer = ref<ReturnType<typeof setInterval> | null>(null);
@@ -331,9 +335,18 @@ const doneTitle = computed(() =>
 	lastCompleted.value ? (mode.value === "mock" ? "收卷！这套卷子你扛下来了" : "这组专注拿下了") : "已记录本次专注"
 );
 
-// ---------- 计时 ----------
+// ---------- 计时（墙钟：息屏/后台 JS 定时器会停，用 Date.now 补算） ----------
+function syncElapsedFromWallClock() {
+	if (phase.value === "running" && runningSince.value != null) {
+		const added = Math.max(0, Math.floor((Date.now() - runningSince.value) / 1000));
+		elapsed.value = baseElapsed.value + added;
+	} else {
+		elapsed.value = baseElapsed.value;
+	}
+}
+
 function tick() {
-	elapsed.value += 1;
+	syncElapsedFromWallClock();
 	if (elapsed.value % 5 === 0) persistRunning();
 	if (elapsed.value >= targetSeconds.value) {
 		complete(true);
@@ -342,6 +355,8 @@ function tick() {
 
 function start() {
 	phase.value = "running";
+	baseElapsed.value = 0;
+	runningSince.value = Date.now();
 	elapsed.value = 0;
 	quoteIndex.value = Math.floor(Math.random() * QUOTES.length);
 	startTimers();
@@ -350,6 +365,7 @@ function start() {
 
 function startTimers() {
 	stopTimers();
+	// 定时器只负责 UI 刷新；真实进度靠墙钟，避免息屏后丢秒
 	timer.value = setInterval(tick, 1000);
 	quoteTimer.value = setInterval(() => {
 		quoteIndex.value = (quoteIndex.value + 1) % QUOTES.length;
@@ -362,14 +378,20 @@ function stopTimers() {
 }
 
 function pause() {
+	syncElapsedFromWallClock();
+	baseElapsed.value = elapsed.value;
+	runningSince.value = null;
 	phase.value = "paused";
 	stopTimers();
 	persistRunning();
 }
 
 function resume() {
+	baseElapsed.value = elapsed.value;
+	runningSince.value = Date.now();
 	phase.value = "running";
 	startTimers();
+	persistRunning();
 }
 
 function finishEarly() {
@@ -385,6 +407,10 @@ function giveUp() {
 		cancelText: "继续专注",
 		success: (res) => {
 			if (!res.confirm) return;
+			syncElapsedFromWallClock();
+			stopTimers();
+			runningSince.value = null;
+			baseElapsed.value = elapsed.value;
 			submit(false).finally(() => {
 				uni.removeStorageSync(STORAGE_KEY);
 				lastCompleted.value = false;
@@ -399,7 +425,10 @@ function giveUp() {
 }
 
 function complete(natural: boolean) {
+	syncElapsedFromWallClock();
 	stopTimers();
+	runningSince.value = null;
+	baseElapsed.value = elapsed.value;
 	uni.vibrateShort?.();
 	const wasMock = mode.value === "mock";
 	lastCompleted.value = natural;
@@ -445,11 +474,17 @@ function goHistory() {
 // ---------- 断点续计 ----------
 function persistRunning() {
 	if (phase.value !== "running" && phase.value !== "paused") return;
+	// 运行中先同步一次，再落盘（含 runningSince，息屏期间也能按墙钟补算）
+	if (phase.value === "running") syncElapsedFromWallClock();
 	uni.setStorageSync(STORAGE_KEY, {
 		mode: mode.value,
 		moduleName: moduleName.value,
 		targetMinutes: targetMinutes.value,
 		segMinutes: mode.value === "mock" ? segMinutes.value : undefined,
+		baseElapsed: baseElapsed.value,
+		runningSince: runningSince.value,
+		phase: phase.value,
+		// 兼容旧字段
 		elapsed: elapsed.value,
 	});
 }
@@ -463,7 +498,26 @@ function restoreRunning() {
 	if (mode.value === "mock" && Array.isArray(saved.segMinutes) && saved.segMinutes.length === MOCK_SEGMENTS_BASE.length) {
 		segMinutes.value = saved.segMinutes;
 	}
-	elapsed.value = saved.elapsed || 0;
+
+	const wasRunning = saved.phase === "running" || (saved.runningSince != null && saved.phase !== "paused");
+	if (wasRunning && saved.runningSince) {
+		baseElapsed.value = Number(saved.baseElapsed) || 0;
+		runningSince.value = Number(saved.runningSince);
+		phase.value = "running";
+		syncElapsedFromWallClock();
+		if (elapsed.value >= targetSeconds.value) {
+			complete(true);
+			return;
+		}
+		startTimers();
+		uni.showToast({ title: "已按实际时间恢复专注", icon: "none" });
+		return;
+	}
+
+	// 暂停态或旧数据：按已记录秒数恢复为暂停
+	baseElapsed.value = Number(saved.baseElapsed ?? saved.elapsed) || 0;
+	runningSince.value = null;
+	elapsed.value = baseElapsed.value;
 	if (elapsed.value >= targetSeconds.value) {
 		complete(true);
 		return;
@@ -503,9 +557,19 @@ onLoad(() => {
 	loadStats();
 });
 onShow(() => {
-	if (phase.value === "running") return; // 计时中回到页面继续走
+	// 从息屏/后台回来：用墙钟补算，并重启 UI 定时器（后台时 interval 会被挂起）
+	if (phase.value === "running") {
+		syncElapsedFromWallClock();
+		if (elapsed.value >= targetSeconds.value) {
+			complete(true);
+			return;
+		}
+		startTimers();
+		persistRunning();
+	}
 });
 onHide(() => {
+	if (phase.value === "running") syncElapsedFromWallClock();
 	persistRunning();
 });
 onUnmounted(stopTimers);

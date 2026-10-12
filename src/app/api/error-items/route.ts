@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@grow/shared/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { calculateGrade } from "@/lib/grade-calculator";
 import { unauthorized, internalError, validationError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
-import { findParentTagIdForGrade } from "@grow/shared/tag-recognition";
 import { inferSubjectFromName } from "@/lib/knowledge-tags";
+import { resolveTagIdForErrorItem } from "@/lib/user-tag-tree";
 import { normalizeMistakeStatusForSave } from "@grow/shared/mistake-status";
 
 const logger = createLogger('api:error-items');
@@ -31,8 +30,6 @@ export async function POST(req: Request) {
             knowledgePoints,
             originalImageUrl,
             subjectId,
-            gradeSemester,
-            paperLevel,
             geogebraCommands,
         } = body;
 
@@ -55,8 +52,6 @@ export async function POST(req: Request) {
             hasImage: !!originalImageUrl,
             imageSize: originalImageUrl?.length || 0,
             subjectId,
-            gradeSemester,
-            paperLevel,
             hasGeogebraCommands: !!geogebraCommands,
         }, 'Request parameters received');
 
@@ -110,54 +105,18 @@ export async function POST(req: Request) {
             }
         }
 
-        // 计算年级
-        let finalGradeSemester = gradeSemester;
-        if (!finalGradeSemester && user.educationStage && user.enrollmentYear) {
-            finalGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear);
-            logger.debug({ finalGradeSemester, educationStage: user.educationStage, enrollmentYear: user.enrollmentYear }, 'Grade calculated');
-        }
-
-        // 处理知识点标签
+        // 处理知识点标签（挂到用户已有标签；无则建无父节点自定义标签）
         const tagNames: string[] = Array.isArray(knowledgePoints) ? knowledgePoints : [];
         const tagConnections: { id: string }[] = [];
 
-        // 推断学科
         const subject = await prisma.subject.findUnique({ where: { id: subjectId || '' } });
-        const subjectKey = inferSubjectFromName(subject?.name ?? null) || 'other';
+        const subjectKey = inferSubjectFromName(subject?.name ?? null) || 'gongkao';
         logger.debug({ subjectId, subjectName: subject?.name, subjectKey }, 'Subject inferred');
 
-        // 处理每个标签
         for (const tagName of tagNames) {
             try {
-                let tag = await prisma.knowledgeTag.findFirst({
-                    where: {
-                        name: tagName,
-                        OR: [
-                            { isSystem: true },
-                            { userId: user.id },
-                        ],
-                    },
-                });
-
-                if (!tag) {
-                    const parentId = await findParentTagIdForGrade(finalGradeSemester, subjectKey);
-                    logger.debug({ tagName, parentId, subjectKey }, 'Creating new custom tag');
-
-                    tag = await prisma.knowledgeTag.create({
-                        data: {
-                            name: tagName,
-                            subject: subjectKey,
-                            isSystem: false,
-                            userId: user.id,
-                            parentId: parentId,
-                        },
-                    });
-                    logger.debug({ tagId: tag.id, tagName }, 'Custom tag created');
-                } else {
-                    logger.debug({ tagId: tag.id, tagName, isSystem: tag.isSystem }, 'Existing tag found');
-                }
-
-                tagConnections.push({ id: tag.id });
+                const tagId = await resolveTagIdForErrorItem(user.id, tagName, subjectKey);
+                tagConnections.push({ id: tagId });
             } catch (tagError) {
                 logger.error({ tagName, error: tagError }, 'Error processing tag');
                 throw tagError;
@@ -166,7 +125,6 @@ export async function POST(req: Request) {
 
         logger.info({ tagNames, tagConnectionsCount: tagConnections.length }, 'Creating ErrorItem with tags');
 
-        // 创建错题记录
         try {
             const errorItem = await prisma.errorItem.create({
                 data: {
@@ -180,11 +138,9 @@ export async function POST(req: Request) {
                     mistakeAnalysis: mistakeAnalysis || null,
                     mistakeStatus: normalizeMistakeStatusForSave(mistakeStatus, wrongAnswerText),
                     knowledgePoints: JSON.stringify(tagNames),
-                    gradeSemester: finalGradeSemester,
-                    paperLevel: paperLevel,
                     geogebraCommands: geogebraCommands || null,
                     masteryLevel: 0,
-                    sourceType: "manual", // 拍照/手动录入的真错题
+                    sourceType: "manual",
                     tags: {
                         connect: tagConnections,
                     },

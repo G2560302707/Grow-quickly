@@ -1,60 +1,63 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@grow/shared/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { unauthorized, internalError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
 
-const logger = createLogger('api:tags:stats');
+const logger = createLogger("api:tags:stats");
 
 export const dynamic = "force-dynamic";
 
-
 /**
  * GET /api/tags/stats
- * 获取标签使用频率统计
+ * 按 ErrorItem.tags（个人考点）统计使用次数；不再读旧 knowledgePoints JSON。
  */
-export async function GET(req: Request) {
+export async function GET() {
     try {
-        // 获取所有错题的知识点
-        const errorItems = await prisma.errorItem.findMany({
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.email) {
+            return unauthorized();
+        }
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true },
+        });
+        if (!user) return unauthorized();
+
+        const items = await prisma.errorItem.findMany({
+            where: { userId: user.id },
             select: {
-                knowledgePoints: true,
+                id: true,
+                tags: { select: { id: true, name: true } },
             },
         });
 
-        // 统计标签使用频率
-        const tagStats: Record<string, number> = {};
+        const tagStats: Record<string, { tag: string; tagId: string; count: number }> = {};
+        let untagged = 0;
 
-        errorItems.forEach((item) => {
-            if (item.knowledgePoints) {
-                try {
-                    const tags = JSON.parse(item.knowledgePoints);
-                    if (Array.isArray(tags)) {
-                        tags.forEach((tag: string) => {
-                            if (tag && typeof tag === 'string') {
-                                tagStats[tag] = (tagStats[tag] || 0) + 1;
-                            }
-                        });
-                    }
-                } catch (e) {
-                    logger.warn({ knowledgePoints: item.knowledgePoints }, 'Failed to parse knowledgePoints for item');
-                }
+        for (const item of items) {
+            if (!item.tags.length) {
+                untagged++;
+                continue;
             }
-        });
+            for (const t of item.tags) {
+                const cur = tagStats[t.id];
+                if (cur) cur.count += 1;
+                else tagStats[t.id] = { tag: t.name, tagId: t.id, count: 1 };
+            }
+        }
 
-        // 转换为数组并按使用次数排序
-        const sortedStats = Object.entries(tagStats)
-            .map(([tag, count]) => ({ tag, count }))
-            .sort((a, b) => b.count - a.count);
+        const sortedStats = Object.values(tagStats).sort((a, b) => b.count - a.count);
 
         return NextResponse.json({
             stats: sortedStats,
-            total: errorItems.length,
+            total: items.length,
             uniqueTags: sortedStats.length,
+            untagged,
         });
     } catch (error) {
-        logger.error({ error }, 'Error getting tag stats');
-        return NextResponse.json(
-            { message: "Failed to get tag statistics" },
-            { status: 500 }
-        );
+        logger.error({ error }, "Error getting tag stats");
+        return internalError("Failed to get tag statistics");
     }
 }

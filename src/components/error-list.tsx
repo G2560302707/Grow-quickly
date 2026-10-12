@@ -24,6 +24,7 @@ import { KnowledgeFilter } from "@/components/knowledge-filter";
 import { ErrorItem, PaginatedResponse } from "@grow/shared/types/api";
 import { apiClient, ApiError } from "@grow/shared/api-client";
 import { cleanMarkdown } from "@/lib/markdown-utils";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { Pagination } from "@/components/ui/pagination";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/pagination";
 import { getMistakeStatusLabel } from "@grow/shared/mistake-status";
@@ -36,9 +37,8 @@ interface ErrorListProps {
 }
 
 type KnowledgeFilterChange = {
-    gradeSemester?: string;
-    chapter?: string;
     tag?: string | null;
+    tagId?: string;
 };
 
 export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
@@ -53,10 +53,8 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
     // 来源大类筛选：manual(拍照/手动录入的真错题) / practice(练习答错自动收录)
     const [sourceTypeFilter, setSourceTypeFilter] = useState<"all" | "manual" | "practice">("all");
     const [timeFilter, setTimeFilter] = useState<"all" | "week" | "month">("all");
-    const [gradeFilter, setGradeFilter] = useState("");
-    const [chapterFilter, setChapterFilter] = useState("");
-    const [paperLevelFilter, setPaperLevelFilter] = useState<"all" | "a" | "b" | "other">("all");
     const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
     const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set());
     // 分页状态
     const [page, setPage] = useState(1);
@@ -83,39 +81,24 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
         if (timeFilter !== "all") {
             params.append("timeRange", timeFilter);
         }
-        if (selectedTag) {
+        if (selectedTagId) {
+            params.append("tagId", selectedTagId);
+        } else if (selectedTag) {
             params.append("tag", selectedTag);
         }
-        if (gradeFilter) params.append("gradeSemester", gradeFilter);
-        if (chapterFilter) params.append("chapter", chapterFilter); // 章节筛选
-        if (paperLevelFilter !== "all") params.append("paperLevel", paperLevelFilter);
 
         router.push(`/print-preview?${params.toString()}`);
     };
 
     const handleTagClick = (tag: string) => {
         setSelectedTag(selectedTag === tag ? null : tag);
+        setSelectedTagId(null);
     };
 
-    const handleFilterChange = ({ gradeSemester, chapter, tag }: KnowledgeFilterChange) => {
-        if (gradeSemester !== undefined) setGradeFilter(gradeSemester);
-        if (chapter !== undefined) setChapterFilter(chapter);
-        // 注意：tag 可能是 undefined（表示清除），需要用 'tag' in obj 来判断是否传入了该参数
-        // 但由于我们的结构是直接解构，这里改用 null 作为清除标识
-        // 实际上 KnowledgeFilter 传入的是 { tag: undefined }，所以 tag 参数确实会被设置
-        // 问题在于 !== undefined 不能区分"未传入"和"传入undefined"
-        // 正确的做法是检查参数对象中是否有该 key
-        setSelectedTag(tag === undefined ? null : tag);
-
-        // Clear dependent filters and reset page
-        if (!gradeSemester) {
-            setGradeFilter("");
-            setChapterFilter("");
-            setSelectedTag(null);
-        } else if (!chapter) {
-            setChapterFilter("");
-        }
-        setPage(1); // 筛选变化时重置页码
+    const handleFilterChange = ({ tag, tagId }: KnowledgeFilterChange) => {
+        setSelectedTagId(tagId || null);
+        setSelectedTag(tag || null);
+        setPage(1);
     };
 
     // 使用服务端 items 直接渲染，章节过滤已在 KnowledgeFilter 中通过 tag 实现
@@ -186,7 +169,7 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
     }, [search]);
 
     // 追踪筛选条件是否变化（用于判断是否需要重置页码）
-    const prevFiltersRef = useRef({ search: debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter });
+    const prevFiltersRef = useRef({ search: debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, selectedTagId, subjectId });
 
     useEffect(() => {
         const prevFilters = prevFiltersRef.current;
@@ -196,24 +179,19 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             prevFilters.sourceTypeFilter !== sourceTypeFilter ||
             prevFilters.timeFilter !== timeFilter ||
             prevFilters.selectedTag !== selectedTag ||
-            prevFilters.subjectId !== subjectId ||
-            prevFilters.gradeFilter !== gradeFilter ||
-            prevFilters.chapterFilter !== chapterFilter ||
-            prevFilters.paperLevelFilter !== paperLevelFilter;
+            prevFilters.selectedTagId !== selectedTagId ||
+            prevFilters.subjectId !== subjectId;
 
-        // 更新 ref
-        prevFiltersRef.current = { search: debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter };
+        prevFiltersRef.current = { search: debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, selectedTagId, subjectId };
 
         if (filtersChanged && page !== 1) {
-            // 筛选条件变化且不在第一页，重置到第一页（会再次触发此 effect）
             setPage(1);
             return;
         }
 
-        // 正常请求数据
         fetchItems();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, subjectId, gradeFilter, chapterFilter, paperLevelFilter]);
+    }, [page, debouncedSearch, masteryFilter, sourceTypeFilter, timeFilter, selectedTag, selectedTagId, subjectId]);
 
     const fetchItems = async () => {
         // 中断上一次未完成的请求，避免过期响应覆盖新数据
@@ -235,12 +213,11 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
             if (timeFilter !== "all") {
                 params.append("timeRange", timeFilter);
             }
-            if (selectedTag) {
+            if (selectedTagId) {
+                params.append("tagId", selectedTagId);
+            } else if (selectedTag) {
                 params.append("tag", selectedTag);
             }
-            if (gradeFilter) params.append("gradeSemester", gradeFilter);
-            if (chapterFilter) params.append("chapter", chapterFilter); // 章节筛选
-            if (paperLevelFilter !== "all") params.append("paperLevel", paperLevelFilter);
             // 分页参数
             params.append("page", page.toString());
             params.append("pageSize", pageSize.toString());
@@ -336,46 +313,12 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
                 </Button>
             </div>
 
-            {/* Advanced Filters Row */}
-            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
-                <div className="w-full sm:w-auto">
-                    <KnowledgeFilter
-                        gradeSemester={gradeFilter}
-                        tag={selectedTag}
-                        onFilterChange={handleFilterChange}
-                        subjectName={subjectName}
-                    />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button
-                        variant={paperLevelFilter === "all" ? "secondary" : "outline"}
-                        size="sm"
-                        onClick={() => setPaperLevelFilter("all")}
-                    >
-                        {t.filter.all || "All"}
-                    </Button>
-                    <Button
-                        variant={paperLevelFilter === "a" ? "secondary" : "outline"}
-                        size="sm"
-                        onClick={() => setPaperLevelFilter("a")}
-                    >
-                        {t.editor.paperLevels?.a || "Paper A"}
-                    </Button>
-                    <Button
-                        variant={paperLevelFilter === "b" ? "secondary" : "outline"}
-                        size="sm"
-                        onClick={() => setPaperLevelFilter("b")}
-                    >
-                        {t.editor.paperLevels?.b || "Paper B"}
-                    </Button>
-                    <Button
-                        variant={paperLevelFilter === "other" ? "secondary" : "outline"}
-                        size="sm"
-                        onClick={() => setPaperLevelFilter("other")}
-                    >
-                        {t.editor.paperLevels?.other || "Other"}
-                    </Button>
-                </div>
+            <div className="w-full sm:w-auto">
+                <KnowledgeFilter
+                    tagId={selectedTagId}
+                    onFilterChange={handleFilterChange}
+                    subjectName={subjectName}
+                />
             </div>
 
             {selectedTag && (
@@ -450,8 +393,12 @@ export function ErrorList({ subjectId, subjectName }: ErrorListProps = {}) {
                                     <CardContent>
                                         <div className="text-sm line-clamp-3">
                                             {(() => {
-                                                // 提取文本并清理 LaTeX/Markdown 格式
-                                                const rawText = (item.questionText || "").split('\n\n')[0]; // 取第一段
+                                                // 提取文本：取第一段；含 LaTeX 公式时直接用渲染器展示公式，
+                                                // 否则清理成纯文本摘要（cleanMarkdown 会剥除 $ 定界符）
+                                                const rawText = (item.questionText || "").split('\n\n')[0];
+                                                if (rawText.includes("$")) {
+                                                    return <MarkdownRenderer content={rawText} className="text-sm" />;
+                                                }
                                                 const cleanText = cleanMarkdown(rawText);
 
                                                 return cleanText.length > 80

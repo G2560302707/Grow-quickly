@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, badRequest, internalError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
+import { notebookNameError } from "@/lib/name-validation";
 
 const logger = createLogger('api:notebooks:id');
 
@@ -96,6 +97,12 @@ export async function PUT(
 
         if (!name || !name.trim()) {
             return badRequest("Notebook name is required");
+        }
+
+        // 编码校验：拒绝含解码损坏标记（U+FFFD）或控制字符的名字
+        const nameErr = notebookNameError(name);
+        if (nameErr) {
+            return badRequest(nameErr);
         }
 
         const updated = await prisma.subject.update({
