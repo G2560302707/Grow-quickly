@@ -51,11 +51,14 @@ next-env.d.ts
 /config/app-config.json
 dist-scripts
 
-# Playwright
+# Playwright & 手动 GUI 测试截图
 /playwright-report/
 /test-results/
 /blob-report/
 /playwright/.cache/
+
+# GUI 手动测试截图（不入库）
+/gui-test-screenshots/
 
 # Local Database
 *.db
