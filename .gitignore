@@ -98,4 +98,7 @@ uniapp/src/project.private.config.json
 deploy.zip
 deploy/bundle/*.tar
 deploy/bundle/*.tar.gz
+deploy/bundle/*.zip
+wrong-notebook.tar
+wrong-notebook-admin.tar
 deploy/config/app-config.json
