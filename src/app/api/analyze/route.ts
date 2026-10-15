@@ -9,8 +9,193 @@ import { badRequest, internalError, createErrorResponse, ErrorCode } from "@grow
 import { createLogger } from "@grow/shared/logger";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { GONGKAO_NOTEBOOKS } from "@grow/shared/subjects";
+import { stitchImagesVertically, StitchImageInput, StitchResult } from "@/lib/image-stitch";
 
 const logger = createLogger('api:analyze');
+
+// 图片类型白名单 + 大小上限，防止任意数据/超大载荷打到 AI 上游
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+// 多图拼接参数
+const MAX_IMAGES = 5;                        // 最多 5 张
+const MAX_IMAGE_DECODED_BYTES = 5 * 1024 * 1024; // 单张解码后 ≤ 5MB
+const MAX_TOTAL_BASE64_CHARS = 60_000_000;   // 多图请求整体 base64 上限（约 45MB 解码后）
+
+interface AnalysisContext {
+    userGrade: 7 | 8 | 9 | 10 | 11 | 12 | null;
+    userGradeSemester: string | null;
+    subjectChinese: string | null;
+}
+
+/** 解析用户年级/学期与错题本学科（单图与多图共用） */
+async function resolveAnalysisContext(session: any, subjectId?: string): Promise<AnalysisContext> {
+    let userGrade: 7 | 8 | 9 | 10 | 11 | 12 | null = null;
+    let userGradeSemester: string | null = null;
+    let subjectName: 'math' | 'physics' | 'chemistry' | 'biology' | 'english' | 'chinese' | 'history' | 'geography' | 'politics' | null = null;
+
+    if (session?.user?.email) {
+        try {
+            // 获取用户信息
+            const user = await prisma.user.findUnique({
+                where: { email: session.user.email },
+                select: { educationStage: true, enrollmentYear: true }
+            });
+
+            if (user) {
+                userGrade = calculateGradeNumber(user.educationStage, user.enrollmentYear);
+                if (user.educationStage && user.enrollmentYear) {
+                    userGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh');
+                }
+                logger.debug({ userGrade, userGradeSemester }, 'Calculated user grade');
+            }
+
+            // 获取错题本信息以推断学科
+            if (subjectId) {
+                const subject = await prisma.subject.findUnique({
+                    where: { id: subjectId },
+                    select: { name: true }
+                });
+
+                if (subject) {
+                    // 行测错题本（言语理解/判断推理/数量关系/资料分析/常识判断/申论）：
+                    // 不映射到 K12 学科，走行测考点标签注入（subject='gongkao' 系统标签）
+                    const isGongkaoNotebook = (GONGKAO_NOTEBOOKS as readonly string[]).includes(subject.name)
+                        || /行测|申论|言语|判断|数量|资料|常识/.test(subject.name);
+                    subjectName = isGongkaoNotebook ? null : inferSubjectFromName(subject.name);
+                    logger.debug({ subjectName, subjectDisplayName: subject.name, isGongkaoNotebook }, 'Inferred subject');
+                }
+            }
+        } catch (error) {
+            logger.error({ error }, 'Error fetching user/subject info');
+            // 继续执行，不传递年级参数（会返回所有年级的标签）
+        }
+    }
+
+    // 将内部科目名称转换为中文科目名称
+    const subjectNameMapping: Record<string, string> = {
+        'math': '数学',
+        'physics': '物理',
+        'chemistry': '化学',
+        'biology': '生物',
+        'english': '英语',
+        'chinese': '语文',
+        'history': '历史',
+        'geography': '地理',
+        'politics': '政治',
+    };
+    const subjectChinese = subjectName ? subjectNameMapping[subjectName] : null;
+
+    return { userGrade, userGradeSemester, subjectChinese };
+}
+
+/** 多图模式：校验 → 拼接 → 整体识别，返回结构化题目 + 拼接图 base64 */
+async function handleMultiImageAnalysis(
+    images: any[],
+    language: 'zh' | 'en' | undefined,
+    ctx: AnalysisContext
+): Promise<NextResponse> {
+    if (images.length > MAX_IMAGES) {
+        return createErrorResponse(
+            `图片数量超过限制：最多 ${MAX_IMAGES} 张`,
+            400,
+            ErrorCode.INVALID_INPUT,
+            `Maximum ${MAX_IMAGES} images allowed`
+        );
+    }
+
+    const inputs: StitchImageInput[] = [];
+    let totalBase64 = 0;
+
+    for (let i = 0; i < images.length; i++) {
+        const raw = images[i];
+        if (!raw || typeof raw !== 'object') {
+            return badRequest(`第 ${i + 1} 张图片数据无效`);
+        }
+        let { base64, mimeType } = raw as { base64?: string; mimeType?: string };
+
+        if (typeof base64 !== 'string' || !base64) {
+            return badRequest(`第 ${i + 1} 张图片数据缺失`);
+        }
+
+        // 解析 Data URL（兼容 data:image/jpeg;base64,...）
+        if (base64.startsWith('data:')) {
+            const matches = base64.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+                mimeType = matches[1];
+                base64 = matches[2];
+            }
+        }
+
+        const mime = (mimeType || '').toLowerCase();
+        if (!ALLOWED_MIME_TYPES.includes(mime)) {
+            return createErrorResponse(
+                `第 ${i + 1} 张图片格式不支持，仅支持 JPEG/PNG/WebP/GIF`,
+                400,
+                ErrorCode.INVALID_INPUT
+            );
+        }
+
+        const decodedBytes = (base64.length * 3) / 4;
+        if (decodedBytes > MAX_IMAGE_DECODED_BYTES) {
+            return createErrorResponse(
+                `第 ${i + 1} 张图片过大，单张上限约 5MB`,
+                400,
+                ErrorCode.INVALID_INPUT
+            );
+        }
+
+        totalBase64 += base64.length;
+        inputs.push({ base64, mimeType: mime });
+    }
+
+    if (totalBase64 > MAX_TOTAL_BASE64_CHARS) {
+        return createErrorResponse(
+            '图片总量过大，请减少张数或压缩后重试',
+            400,
+            ErrorCode.INVALID_INPUT
+        );
+    }
+
+    // 纵向拼接成一张完整题目图
+    let merged: StitchResult;
+    try {
+        merged = await stitchImagesVertically(inputs);
+    } catch (err: any) {
+        logger.error({ error: err?.message || String(err) }, 'Image stitching failed');
+        return createErrorResponse(
+            err?.message?.includes('过长')
+                ? err.message
+                : '图片拼接失败，请减少图片数量或更换图片后重试',
+            400,
+            ErrorCode.INVALID_INPUT,
+            err?.message || String(err)
+        );
+    }
+
+    logger.info({
+        imagesCount: inputs.length,
+        mergedWidth: merged.width,
+        mergedHeight: merged.height,
+        mergedSize: merged.base64.length
+    }, 'Multi-image stitched, calling AI');
+
+    const aiService = getAIService();
+    const analysisResult = await aiService.analyzeImage(
+        merged.base64,
+        merged.mimeType,
+        language,
+        ctx.userGrade,
+        ctx.subjectChinese,
+        ctx.userGradeSemester
+    );
+
+    logger.info({ imagesCount: inputs.length }, 'Multi-image analysis successful');
+
+    return NextResponse.json({
+        ...analysisResult,
+        mergedImageBase64: merged.base64,
+    });
+}
 
 export async function POST(req: Request) {
     logger.info('Analyze API called');
@@ -25,25 +210,32 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        let { imageBase64, mimeType, language, subjectId } = body;
+        let { imageBase64, mimeType, language, subjectId, images } = body;
 
         logger.debug({
             imageLength: imageBase64?.length,
             mimeType,
             language,
-            subjectId
+            subjectId,
+            imagesCount: Array.isArray(images) ? images.length : 0
         }, 'Request received');
+
+        // 限流：AI 接口按用户每分钟 10 次，防滥用与成本失控
+        const aiLimit = rateLimit(`ai:analyze:${session.user?.email || "anon"}`, { limit: 10, windowMs: 60 * 1000 });
+        if (!aiLimit.allowed) {
+            return tooManyRequests(aiLimit.retryAfterSeconds, "AI 请求过于频繁，请稍后再试");
+        }
+
+        // 多图拼接模式（单题跨多张）：images[] 纵向拼接后整体识别
+        if (Array.isArray(images) && images.length > 0) {
+            const ctx = await resolveAnalysisContext(session, subjectId);
+            return await handleMultiImageAnalysis(images, language, ctx);
+        }
 
         if (!imageBase64) {
             logger.warn('Missing image data');
             return badRequest("Missing image data");
         }
-
-    // 限流：AI 接口按用户每分钟 10 次，防滥用与成本失控
-    const aiLimit = rateLimit(`ai:analyze:${session.user?.email || "anon"}`, { limit: 10, windowMs: 60 * 1000 });
-    if (!aiLimit.allowed) {
-        return tooManyRequests(aiLimit.retryAfterSeconds, "AI 请求过于频繁，请稍后再试");
-    }
 
         // Parse Data URL if present
         if (imageBase64.startsWith('data:')) {
@@ -55,8 +247,6 @@ export async function POST(req: Request) {
             }
         }
 
-        // 图片类型白名单 + 大小上限，防止任意数据/超大载荷打到 AI 上游
-        const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
         if (mimeType && !ALLOWED_MIME_TYPES.includes(mimeType)) {
             return NextResponse.json(
                 { message: '不支持的图片格式，仅支持 JPEG/PNG/WebP/GIF', code: 'INVALID_INPUT' },
@@ -70,67 +260,11 @@ export async function POST(req: Request) {
             );
         }
 
-        // 先获取用户年级信息，用于动态生成 AI prompt 中的标签列表
-        let userGrade: 7 | 8 | 9 | 10 | 11 | 12 | null = null;
-        let userGradeSemester: string | null = null;
-        let subjectName: 'math' | 'physics' | 'chemistry' | 'biology' | 'english' | 'chinese' | 'history' | 'geography' | 'politics' | null = null;
+        const ctx = await resolveAnalysisContext(session, subjectId);
 
-        if (session?.user?.email) {
-            try {
-                // 获取用户信息
-                const user = await prisma.user.findUnique({
-                    where: { email: session.user.email },
-                    select: { educationStage: true, enrollmentYear: true }
-                });
-
-                if (user) {
-                    userGrade = calculateGradeNumber(user.educationStage, user.enrollmentYear);
-                    if (user.educationStage && user.enrollmentYear) {
-                        userGradeSemester = calculateGrade(user.educationStage, user.enrollmentYear, new Date(), 'zh');
-                    }
-                    logger.debug({ userGrade, userGradeSemester }, 'Calculated user grade');
-                }
-
-                // 获取错题本信息以推断学科
-                if (subjectId) {
-                    const subject = await prisma.subject.findUnique({
-                        where: { id: subjectId },
-                        select: { name: true }
-                    });
-
-                    if (subject) {
-                        // 行测错题本（言语理解/判断推理/数量关系/资料分析/常识判断/申论）：
-                        // 不映射到 K12 学科，走行测考点标签注入（subject='gongkao' 系统标签）
-                        const isGongkaoNotebook = (GONGKAO_NOTEBOOKS as readonly string[]).includes(subject.name)
-                            || /行测|申论|言语|判断|数量|资料|常识/.test(subject.name);
-                        subjectName = isGongkaoNotebook ? null : inferSubjectFromName(subject.name);
-                        logger.debug({ subjectName, subjectDisplayName: subject.name, isGongkaoNotebook }, 'Inferred subject');
-                    }
-                }
-            } catch (error) {
-                logger.error({ error }, 'Error fetching user/subject info');
-                // 继续执行，不传递年级参数（会返回所有年级的标签）
-            }
-        }
-
-
-        // 将内部科目名称转换为中文科目名称
-        const subjectNameMapping: Record<string, string> = {
-            'math': '数学',
-            'physics': '物理',
-            'chemistry': '化学',
-            'biology': '生物',
-            'english': '英语',
-            'chinese': '语文',
-            'history': '历史',
-            'geography': '地理',
-            'politics': '政治',
-        };
-        const subjectChinese = subjectName ? subjectNameMapping[subjectName] : null;
-
-        logger.info({ userGrade, userGradeSemester, subject: subjectChinese }, 'Calling AI service for image analysis');
+        logger.info({ userGrade: ctx.userGrade, userGradeSemester: ctx.userGradeSemester, subject: ctx.subjectChinese }, 'Calling AI service for image analysis');
         const aiService = getAIService();
-        const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language, userGrade, subjectChinese, userGradeSemester);
+        const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language, ctx.userGrade, ctx.subjectChinese, ctx.userGradeSemester);
 
         logger.debug({
             knowledgePointsCount: analysisResult.knowledgePoints?.length,

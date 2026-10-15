@@ -22,27 +22,74 @@
 				<text class="step-no num">2</text>
 				<text class="step-title">拍摄题目</text>
 			</view>
-			<view v-if="!imagePath" class="upload-zone" hover-class="hv" @tap="chooseImage('camera')">
-				<view class="camera-glyph">
-					<view class="camera-body">
-						<view class="camera-lens" />
+			<!-- 多图模式：一道题跨多张，按顺序拼接成完整题目 -->
+			<template v-if="isMultiMode">
+				<view class="multi-tip">
+					已选 {{ multiImages.length }}/{{ MAX_MULTI }} 张，将按 1→{{ multiImages.length }} 顺序纵向拼接后整体识别。
+				</view>
+				<view class="multi-list">
+					<view v-for="(img, idx) in multiImages" :key="img.path + '-' + idx" class="multi-item">
+						<text class="multi-idx">{{ idx + 1 }}</text>
+						<image :src="img.path" class="multi-thumb" mode="aspectFill" @tap="previewImageList(idx)" />
+						<view class="multi-meta">
+							<text class="multi-name">第 {{ idx + 1 }} 张</text>
+						</view>
+						<view class="multi-ctrls">
+							<text
+								class="multi-btn"
+								:class="{ 'multi-btn-disabled': idx === 0 || analyzing }"
+								@tap="moveMulti(idx, -1)"
+							>↑</text>
+							<text
+								class="multi-btn"
+								:class="{ 'multi-btn-disabled': idx === multiImages.length - 1 || analyzing }"
+								@tap="moveMulti(idx, 1)"
+							>↓</text>
+							<text
+								class="multi-btn multi-btn-danger"
+								:class="{ 'multi-btn-disabled': analyzing }"
+								@tap="removeMulti(idx)"
+							>✕</text>
+						</view>
 					</view>
-					<view class="camera-hump" />
 				</view>
-				<text class="upload-text">点击拍照</text>
-				<text class="upload-hint">支持整页多题，AI 自动定位题目</text>
-			</view>
-			<view v-else class="preview-wrap">
-				<image :src="imagePath" class="preview-image" mode="aspectFit" @tap="preview" />
-				<view class="preview-actions">
-					<button class="btn-outline small-btn" hover-class="button-hover" @tap="chooseImage('camera')">重拍</button>
-					<button class="btn-outline small-btn" hover-class="button-hover" @tap="chooseImage('album')">换一张</button>
-					<button class="btn-outline small-btn" hover-class="button-hover" @tap="reopenCrop">重新框选</button>
+				<view class="multi-actions">
+					<button
+						class="btn-outline small-btn"
+						:disabled="analyzing || multiImages.length >= MAX_MULTI"
+						hover-class="button-hover"
+						@tap="addMoreImages"
+					>添加更多{{ multiImages.length < MAX_MULTI ? `（还可加 ${MAX_MULTI - multiImages.length} 张）` : "" }}</button>
+					<button class="btn-outline small-btn" :disabled="analyzing" hover-class="button-hover" @tap="resetMulti">清空重选</button>
 				</view>
-			</view>
-			<view class="alt-row">
-				<text class="alt-link" @tap="chooseImage('album')">从相册选择 →</text>
-			</view>
+				<view class="alt-row">
+					<text class="alt-link" @tap="addMoreImages">继续从相册选择 →</text>
+				</view>
+			</template>
+			<!-- 单图模式：一张整页图，AI 定位/框选/裁剪 -->
+			<template v-else>
+				<view v-if="!imagePath" class="upload-zone" hover-class="hv" @tap="chooseImage('camera')">
+					<view class="camera-glyph">
+						<view class="camera-body">
+							<view class="camera-lens" />
+						</view>
+						<view class="camera-hump" />
+					</view>
+					<text class="upload-text">点击拍照</text>
+					<text class="upload-hint">支持整页多题，AI 自动定位题目</text>
+				</view>
+				<view v-else class="preview-wrap">
+					<image :src="imagePath" class="preview-image" mode="aspectFit" @tap="preview" />
+					<view class="preview-actions">
+						<button class="btn-outline small-btn" hover-class="button-hover" @tap="chooseImage('camera')">重拍</button>
+						<button class="btn-outline small-btn" hover-class="button-hover" @tap="chooseImage('album')">换一张</button>
+						<button class="btn-outline small-btn" hover-class="button-hover" @tap="reopenCrop">重新框选</button>
+					</view>
+				</view>
+				<view class="alt-row">
+					<text class="alt-link" @tap="chooseImage('album')">从相册选择 →</text>
+				</view>
+			</template>
 		</view>
 
 		<!-- 步骤三：AI 识别 -->
@@ -54,12 +101,12 @@
 
 			<button
 				class="btn-primary analyze-btn"
-				:disabled="!imagePath || !selectedNotebook || analyzing"
+				:disabled="(!isMultiMode && !imagePath) || (isMultiMode && multiImages.length < 2) || !selectedNotebook || analyzing"
 				hover-class="button-hover"
 				@tap="handleAnalyze"
 			>
-				<text v-if="analyzing">AI 识别中，约需 10-30 秒...</text>
-				<text v-else>开始 AI 识别</text>
+				<text v-if="analyzing">{{ isMultiMode ? "正在拼接识别..." : "AI 识别中，约需 10-30 秒..." }}</text>
+				<text v-else>{{ isMultiMode ? "合并并识别" : "开始 AI 识别" }}</text>
 			</button>
 			<view v-if="errorMsg" class="error-tip analyze-error">{{ errorMsg }}</view>
 			<view v-if="analyzing" class="analyzing-hint">
@@ -171,6 +218,7 @@ import { onShow } from "@dcloudio/uni-app";
 import {
 	listNotebooks,
 	analyzeImage,
+	analyzeMultiImages,
 	createErrorItem,
 	detectQuestions,
 	reanswerQuestion,
@@ -202,6 +250,12 @@ const editedQuestionText = ref("");
 const reanswering = ref(false);
 // 当前 imagePath 对应的 base64，识别后复用给重新解答（避免重复读文件）
 const imageBase64Cache = ref("");
+
+// 多图拼接模式（单题跨多张）：待拼接图片列表与合并图缓存（保存原图用）
+const MAX_MULTI = 5;
+const multiImages = ref<{ path: string }[]>([]);
+const mergedImageBase64Cache = ref("");
+const isMultiMode = computed(() => multiImages.value.length >= 2);
 
 // 整页原图与题目定位（用于框选/重框选/连续录题）
 const originalPath = ref("");
@@ -277,24 +331,108 @@ function onNotebookChange(e: any) {
 	selectedNotebookId.value = notebooks.value[index]?.id || "";
 }
 
+/** 进入单图流程：1 张整页图 → 框选/裁剪 → 识别 */
+function enterSingle(path: string) {
+	multiImages.value = [];
+	mergedImageBase64Cache.value = "";
+	imagePath.value = path;
+	originalPath.value = path;
+	result.value = null;
+	errorMsg.value = "";
+	detected.value = [];
+	editingQuestion.value = false;
+	imageBase64Cache.value = "";
+	// 打开裁剪浮层并同时请求 AI 题目定位
+	showCropOverlay.value = true;
+	startDetect();
+}
+
+/** 进入多图拼接流程：≥2 张按顺序纵向拼接成一道完整题目，跳过框选/裁剪 */
+function enterMulti(paths: string[]) {
+	imagePath.value = "";
+	originalPath.value = "";
+	showCropOverlay.value = false;
+	detected.value = [];
+	result.value = null;
+	errorMsg.value = "";
+	editingQuestion.value = false;
+	imageBase64Cache.value = "";
+	mergedImageBase64Cache.value = "";
+	multiImages.value = paths.slice(0, MAX_MULTI).map(p => ({ path: p }));
+}
+
 function chooseImage(sourceType: "camera" | "album") {
+	// 相册支持一次多选（最多 5 张）；相机一次一张
+	const isMultiPick = sourceType === "album";
 	uni.chooseImage({
-		count: 1,
+		count: isMultiPick ? MAX_MULTI : 1,
 		sizeType: ["compressed"],
 		sourceType: [sourceType],
 		success: (res) => {
-			imagePath.value = res.tempFilePaths[0];
-			originalPath.value = res.tempFilePaths[0];
-			result.value = null;
-			errorMsg.value = "";
-			detected.value = [];
-			editingQuestion.value = false;
-			imageBase64Cache.value = "";
-			// 打开裁剪浮层并同时请求 AI 题目定位
-			showCropOverlay.value = true;
-			startDetect();
+			const raw = res.tempFilePaths;
+			const files = Array.isArray(raw) ? raw : raw != null ? [raw] : [] as string[];
+			if (files.length >= 2) {
+				enterMulti(files);
+			} else if (files.length === 1) {
+				enterSingle(files[0]);
+			}
 		},
 	});
+}
+
+/** 多图模式：继续追加照片（最多 MAX_MULTI 张） */
+function addMoreImages() {
+	const remaining = MAX_MULTI - multiImages.value.length;
+	if (remaining <= 0) return;
+	uni.chooseImage({
+		count: remaining,
+		sizeType: ["compressed"],
+		sourceType: ["album"],
+		success: (res) => {
+			const raw = res.tempFilePaths || [];
+			const files = (Array.isArray(raw) ? raw : [raw] as string[]).slice(0, remaining);
+			if (!files.length) return;
+			multiImages.value = [
+				...multiImages.value,
+				...files.map(p => ({ path: p })),
+			];
+			mergedImageBase64Cache.value = ""; // 图片变了，旧的拼接图作废
+		},
+	});
+}
+
+function removeMulti(index: number) {
+	if (analyzing.value) return;
+	mergedImageBase64Cache.value = ""; // 图片变了，旧的拼接图作废
+	multiImages.value = multiImages.value.filter((_, i) => i !== index);
+	if (multiImages.value.length === 1) {
+		// 只剩 1 张时退回单图流程，保留该图继续框选
+		enterSingle(multiImages.value[0].path);
+	}
+}
+
+function moveMulti(index: number, dir: -1 | 1) {
+	if (analyzing.value) return;
+	mergedImageBase64Cache.value = ""; // 顺序变了，旧图作废
+	const target = index + dir;
+	if (target < 0 || target >= multiImages.value.length) return;
+	const next = [...multiImages.value];
+	[next[index], next[target]] = [next[target], next[index]];
+	multiImages.value = next;
+}
+
+function resetMulti() {
+	multiImages.value = [];
+	mergedImageBase64Cache.value = "";
+	imagePath.value = "";
+	originalPath.value = "";
+	result.value = null;
+	errorMsg.value = "";
+	detected.value = [];
+}
+
+function previewImageList(index: number) {
+	uni.previewImage({ urls: multiImages.value.map(i => i.path), current: index });
 }
 
 /** 请求 AI 定位整页中的各题位置；失败时浮层回退为自由框选 */
@@ -370,6 +508,9 @@ function readImageAsBase64(filePath: string): Promise<string> {
 }
 
 async function handleAnalyze() {
+	if (isMultiMode.value) {
+		return handleMultiAnalyze();
+	}
 	if (!imagePath.value || !selectedNotebook.value) return;
 	analyzing.value = true;
 	errorMsg.value = "";
@@ -379,6 +520,32 @@ async function handleAnalyze() {
 		const base64 = await readImageAsBase64(imagePath.value);
 		imageBase64Cache.value = base64;
 		result.value = await analyzeImage(base64, selectedNotebook.value.id);
+		syncSelectedFromAi(result.value?.knowledgePoints);
+	} catch (e: any) {
+		errorMsg.value = e?.message || "AI 识别失败，请重试";
+	} finally {
+		analyzing.value = false;
+	}
+}
+
+/** 多图拼接识别：每张转 base64 → 后端 images[] 拼接成完整题目 → 整体识别；合并图作为原图 */
+async function handleMultiAnalyze() {
+	if (multiImages.value.length < 2 || !selectedNotebook.value) return;
+	analyzing.value = true;
+	errorMsg.value = "";
+	result.value = null;
+	editingQuestion.value = false;
+	try {
+		const imagesPayload: { base64: string; mimeType: string }[] = [];
+		for (const img of multiImages.value) {
+			const base64 = await readImageAsBase64(img.path);
+			imagesPayload.push({ base64, mimeType: "image/jpeg" });
+		}
+		const data = await analyzeMultiImages(imagesPayload, selectedNotebook.value.id);
+		// 以拼接后的完整图为原图（重新解答与保存都复用）
+		mergedImageBase64Cache.value = data.mergedImageBase64 || "";
+		imageBase64Cache.value = mergedImageBase64Cache.value;
+		result.value = data;
 		syncSelectedFromAi(result.value?.knowledgePoints);
 	} catch (e: any) {
 		errorMsg.value = e?.message || "AI 识别失败，请重试";
@@ -456,7 +623,18 @@ async function handleSave() {
 	}
 	saving.value = true;
 	try {
-		const base64 = await readImageAsBase64(imagePath.value);
+		// 原图：多图模式用拼接后的完整图；单图模式用当前图 base64
+		let base64: string;
+		if (isMultiMode.value) {
+			if (!mergedImageBase64Cache.value) {
+				uni.showToast({ title: "缺少拼接图，请重新识别", icon: "none" });
+				saving.value = false;
+				return;
+			}
+			base64 = mergedImageBase64Cache.value;
+		} else {
+			base64 = await readImageAsBase64(imagePath.value);
+		}
 		const item = await createErrorItem({
 			questionText: result.value.questionText || "",
 			answerText: result.value.answerText || "",
@@ -471,6 +649,14 @@ async function handleSave() {
 		uni.showToast({ title: "已保存", icon: "success" });
 		result.value = null;
 		selectedTagNames.value = [];
+		imageBase64Cache.value = "";
+		if (isMultiMode.value) {
+			// 多图模式没有可复用的单张原图，直接回详情
+			multiImages.value = [];
+			mergedImageBase64Cache.value = "";
+			uni.navigateTo({ url: `/pages/detail/detail?id=${item.id}` });
+			return;
+		}
 		// 同一张图可能还有其他题：询问是否继续框选
 		uni.showModal({
 			title: "已保存",
@@ -637,6 +823,83 @@ async function handleSave() {
 .alt-link {
 	font-size: 26rpx;
 	color: var(--brand-600);
+}
+
+/* ---------- 多图拼接 ---------- */
+.multi-tip {
+	font-size: 24rpx;
+	color: var(--ink-400);
+	line-height: 1.5;
+	margin-bottom: 16rpx;
+}
+.multi-list {
+	display: flex;
+	flex-direction: column;
+	gap: 16rpx;
+}
+.multi-item {
+	display: flex;
+	align-items: center;
+	gap: 16rpx;
+	background: var(--bg-fill);
+	border-radius: 16rpx;
+	padding: 16rpx;
+}
+.multi-idx {
+	width: 44rpx;
+	height: 44rpx;
+	border-radius: 50%;
+	background: var(--brand-600);
+	color: #ffffff;
+	font-size: 24rpx;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+.multi-thumb {
+	width: 96rpx;
+	height: 128rpx;
+	border-radius: 8rpx;
+	background: #eef0f3;
+	flex-shrink: 0;
+}
+.multi-meta {
+	flex: 1;
+	min-width: 0;
+}
+.multi-name {
+	font-size: 24rpx;
+	color: var(--ink-700);
+}
+.multi-ctrls {
+	display: flex;
+	gap: 12rpx;
+	flex-shrink: 0;
+}
+.multi-btn {
+	width: 56rpx;
+	height: 56rpx;
+	line-height: 56rpx;
+	text-align: center;
+	border-radius: 12rpx;
+	background: var(--bg-fill);
+	border: 1rpx solid var(--brand-100);
+	color: var(--brand-600);
+	font-size: 28rpx;
+}
+.multi-btn-danger {
+	color: var(--danger-600, #ff4d4f);
+	border-color: var(--danger-100, #ffd6d6);
+}
+.multi-btn-disabled {
+	opacity: 0.4;
+}
+.multi-actions {
+	display: flex;
+	gap: 20rpx;
+	margin-top: 20rpx;
 }
 
 /* ---------- 识别 ---------- */

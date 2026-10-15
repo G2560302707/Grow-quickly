@@ -115,6 +115,7 @@ export const translations = {
         upload: {
             // dragDrop: "Click or drag image to upload", // Moved to app
             support: "Support JPG, PNG (Max 5MB)",
+              multiSupport: "Select up to 5 photos and they will be stitched into one complete question",
             analyze: "Analyze with AI",
             // analyzing: "Analyzing...", // Moved to app
             takePhoto: "Take Photo",
@@ -797,6 +798,7 @@ export const translations = {
         upload: {
             // dragDrop: "点击或拖拽上传图片", // Moved to app
             support: "支持 JPG, PNG (最大 5MB)",
+              multiSupport: "可一次选最多 5 张照片，将按顺序拼接成一道完整题目",
             analyze: "AI 智能解析",
             // analyzing: "解析中...", // Moved to app
             takePhoto: "拍照",

@@ -21,6 +21,7 @@ import { TextInputZone } from "@/components/text-input-zone";
 import { DirectTextEditor } from "@/components/direct-text-editor";
 import { alertDialog, confirmDialog } from "@/components/ui/app-dialog";
 import { QuestionBoxPicker, type DetectedBox } from "@/components/question-box-picker";
+import { MultiImagePicker, MultiImageItem, MAX_MULTI_IMAGES } from "@/components/multi-image-picker";
 
 // 裁剪组件仅在用户点击裁剪时才需要，懒加载以减小首屏包体
 const ImageCropper = dynamic(
@@ -59,6 +60,10 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
     const [isBoxPickerOpen, setIsBoxPickerOpen] = useState(false);
     const originalFileRef = useRef<File | null>(null);
 
+    // 多图拼接模式（单题跨多张）：待拼接图片列表
+    const [multiImages, setMultiImages] = useState<MultiImageItem[]>([]);
+    const multiImagesRef = useRef<MultiImageItem[]>([]);
+
     // Timeout Config
     const safetyTimeout = aiTimeout + 10000;
 
@@ -70,6 +75,14 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
             }
         };
     }, [croppingImage]);
+
+    // 多图模式：同步最新列表并在卸载时释放预览 URL
+    multiImagesRef.current = multiImages;
+    useEffect(() => {
+        return () => {
+            multiImagesRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl));
+        };
+    }, []);
 
     useEffect(() => {
         // Fetch notebooks for auto-selection
@@ -112,6 +125,52 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
         originalFileRef.current = file;
         // 先请求 AI 定位整页题目：有题号框则弹框选，否则回退自由裁剪
         runDetect(imageUrl, file);
+    };
+
+    // ---------- 多图拼接模式（单题跨多张）----------
+
+    const createMultiItems = (files: File[]): MultiImageItem[] =>
+        files.map(file => ({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            file,
+            previewUrl: URL.createObjectURL(file),
+        }));
+
+    /** 初次选中 ≥2 张：进入多图拼接流程 */
+    const handleImagesSelect = (files: File[]) => {
+        const items = createMultiItems(files).slice(0, MAX_MULTI_IMAGES);
+        setMultiImages(items);
+    };
+
+    /** 在多图列表里继续追加照片 */
+    const handleAddMoreImages = (files: File[]) => {
+        const newItems = createMultiItems(files);
+        setMultiImages(prev => [...prev, ...newItems].slice(0, MAX_MULTI_IMAGES));
+    };
+
+    const handleRemoveMulti = (id: string) => {
+        setMultiImages(prev => {
+            const item = prev.find(i => i.id === id);
+            if (item) URL.revokeObjectURL(item.previewUrl);
+            return prev.filter(i => i.id !== id);
+        });
+    };
+
+    const handleMoveMulti = (id: string, direction: -1 | 1) => {
+        setMultiImages(prev => {
+            const index = prev.findIndex(i => i.id === id);
+            if (index < 0) return prev;
+            const target = index + direction;
+            if (target < 0 || target >= prev.length) return prev;
+            const next = [...prev];
+            [next[index], next[target]] = [next[target], next[index]];
+            return next;
+        });
+    };
+
+    const handleCancelMulti = () => {
+        multiImages.forEach(item => URL.revokeObjectURL(item.previewUrl));
+        setMultiImages([]);
     };
 
     const runDetect = async (imageUrl: string, file: File) => {
@@ -175,6 +234,80 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
         // Convert Blob to File
         const file = new File([croppedBlob], "cropped-image.jpg", { type: "image/jpeg" });
         handleAnalyze(file);
+    };
+
+    /** 多图拼接识别：每张压缩 → 交给后端拼接成一张完整题目 → 校对 */
+    const handleMultiAnalyze = async () => {
+        if (multiImages.length < 2) return;
+        const startTime = Date.now();
+        frontendLogger.info('[HomeAnalyzeMulti]', 'Starting multi-image analysis', {
+            count: multiImages.length,
+        });
+
+        try {
+            frontendLogger.info('[HomeAnalyzeMulti]', 'Step 1/3: Compressing images');
+            setAnalysisStep('compressing');
+            const imagesPayload: { base64: string; mimeType: string }[] = [];
+            for (const item of multiImages) {
+                const base64 = await processImageFile(item.file);
+                imagesPayload.push({ base64, mimeType: 'image/jpeg' });
+            }
+            frontendLogger.info('[HomeAnalyzeMulti]', 'Images compressed', { count: imagesPayload.length });
+
+            frontendLogger.info('[HomeAnalyzeMulti]', 'Step 2/3: Calling /api/analyze with images[]');
+            setAnalysisStep('analyzing');
+            const apiStartTime = Date.now();
+            const data = await apiClient.post<AnalyzeResponse & { mergedImageBase64?: string }>("/api/analyze", {
+                images: imagesPayload,
+                language,
+                subjectId: initialNotebookId || autoSelectedNotebookId || undefined,
+                multiStitched: true,
+            }, { timeout: aiTimeout });
+            const apiDuration = Date.now() - apiStartTime;
+            frontendLogger.info('[HomeAnalyzeMulti]', 'API responded', {
+                apiDuration,
+                hasMergedImage: !!data?.mergedImageBase64,
+            });
+
+            setAnalysisStep('processing');
+            setProgress(100);
+
+            // 以拼接后的完整图为原图（校对展示 + 保存 originalImageUrl）
+            if (data?.mergedImageBase64) {
+                setCurrentImage(data.mergedImageBase64);
+            }
+            setParsedData(data);
+            setStep("review");
+
+            const totalDuration = Date.now() - startTime;
+            frontendLogger.info('[HomeAnalyzeMulti]', 'Multi-image analysis completed', { totalDuration });
+        } catch (error: any) {
+            const errorDuration = Date.now() - startTime;
+            frontendLogger.error('[HomeErrorMulti]', 'Multi-image analysis failed', {
+                errorDuration,
+                error: error.message || String(error),
+            });
+
+            try {
+                let errorMessage = t.common?.messages?.analysisFailed || 'Analysis failed, please try again';
+                const backendErrorType = error?.data?.message;
+                if (backendErrorType && typeof backendErrorType === 'string') {
+                    if (t.errors && typeof t.errors === 'object' && backendErrorType in t.errors) {
+                        const mappedError = (t.errors as any)[backendErrorType];
+                        if (typeof mappedError === 'string') errorMessage = mappedError;
+                    } else {
+                        errorMessage = backendErrorType;
+                    }
+                } else if (error?.message?.includes('fetch') || error?.message?.includes('network')) {
+                    errorMessage = t.errors?.AI_CONNECTION_FAILED || '网络连接失败';
+                }
+                await alertDialog({ description: errorMessage });
+            } catch (innerError) {
+                await alertDialog({ description: 'Analysis failed. Please try again.' });
+            }
+        } finally {
+            setAnalysisStep('idle');
+        }
     };
 
     const handleAnalyze = async (file: File) => {
@@ -558,20 +691,37 @@ export function UploadWorkspace({ initialNotebookId }: UploadWorkspaceProps) {
                     </div>
 
                     {inputMode === "image" ? (
-                        <>
-                            <UploadZone onImageSelect={onImageSelect} isAnalyzing={analysisStep !== 'idle'} />
-                            {croppingImage && (
-                                <div className="flex justify-center">
-                                    <button
-                                        type="button"
-                                        className="text-sm text-primary hover:underline"
-                                        onClick={reopenPickerOrCropper}
-                                    >
-                                        {t.common.detect?.reuseImage || "继续用当前图片框选录题"}
-                                    </button>
-                                </div>
-                            )}
-                        </>
+                        multiImages.length >= 2 ? (
+                            <MultiImagePicker
+                                images={multiImages}
+                                isAnalyzing={analysisStep !== 'idle'}
+                                onRemove={handleRemoveMulti}
+                                onMove={handleMoveMulti}
+                                onAddMore={handleAddMoreImages}
+                                onAnalyze={handleMultiAnalyze}
+                                onCancel={handleCancelMulti}
+                            />
+                        ) : (
+                            <>
+                                <UploadZone
+                                    onImageSelect={onImageSelect}
+                                    onImagesSelect={handleImagesSelect}
+                                    isAnalyzing={analysisStep !== 'idle'}
+                                    maxFiles={MAX_MULTI_IMAGES}
+                                />
+                                {croppingImage && (
+                                    <div className="flex justify-center">
+                                        <button
+                                            type="button"
+                                            className="text-sm text-primary hover:underline"
+                                            onClick={reopenPickerOrCropper}
+                                        >
+                                            {t.common.detect?.reuseImage || "继续用当前图片框选录题"}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        )
                     ) : inputMode === "text" ? (
                         <TextInputZone
                             onSubmit={handleTextSubmit}

@@ -331,4 +331,92 @@ describe('/api/analyze', () => {
             expect(data.knowledgePoints).toBeDefined();
         });
     });
+
+    describe('POST /api/analyze (多图拼接 images[])', () => {
+        // 真实 sharp 生成两张小 PNG，验证服务端拼接链路
+        async function makePngBase64(width: number, height: number, color: string): Promise<string> {
+            const { default: sharp } = await import('sharp');
+            const buf = await sharp({
+                create: { width, height, channels: 3, background: color },
+            }).png().toBuffer();
+            return `data:image/png;base64,${buf.toString('base64')}`;
+        }
+
+        it('应该拼接多张图并整体识别，返回 mergedImageBase64', async () => {
+            const aiResult = {
+                questionText: '跨页大题题干',
+                answerText: '答案',
+                analysis: '解析',
+                knowledgePoints: ['跨页'],
+            };
+            mocks.mockAIService.analyzeImage.mockResolvedValue(aiResult);
+
+            const img1 = await makePngBase64(200, 100, '#ff0000');
+            const img2 = await makePngBase64(200, 150, '#0000ff');
+
+            const request = new Request('http://localhost/api/analyze', {
+                method: 'POST',
+                body: JSON.stringify({
+                    images: [
+                        { base64: img1, mimeType: 'image/png' },
+                        { base64: img2, mimeType: 'image/png' },
+                    ],
+                    language: 'zh',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.questionText).toBe('跨页大题题干');
+            // 只调用一次 analyzeImage，且入参为拼接后的 JPEG
+            expect(mocks.mockAIService.analyzeImage).toHaveBeenCalledTimes(1);
+            const callArgs = mocks.mockAIService.analyzeImage.mock.calls[0];
+            expect(callArgs[1]).toBe('image/jpeg');
+            expect(callArgs[0]).toBeTruthy();
+            // 返回拼接图供前端校对/保存原图
+            expect(data.mergedImageBase64).toBeTruthy();
+            expect(String(data.mergedImageBase64)).not.toContain('data:');
+        });
+
+        it('应该拒绝超过上限（5 张）的请求', async () => {
+            const img = await makePngBase64(10, 10, '#000000');
+            const images = Array.from({ length: 6 }, () => ({ base64: img, mimeType: 'image/png' }));
+
+            const request = new Request('http://localhost/api/analyze', {
+                method: 'POST',
+                body: JSON.stringify({ images, language: 'zh' }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(400);
+            expect(data.message).toContain('图片数量超过限制');
+            expect(mocks.mockAIService.analyzeImage).not.toHaveBeenCalled();
+        });
+
+        it('应该拒绝不支持的图片格式', async () => {
+            const request = new Request('http://localhost/api/analyze', {
+                method: 'POST',
+                body: JSON.stringify({
+                    images: [
+                        { base64: 'aGVsbG8=', mimeType: 'image/svg+xml' },
+                    ],
+                    language: 'zh',
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            const response = await POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(400);
+            expect(data.message).toContain('格式不支持');
+            expect(mocks.mockAIService.analyzeImage).not.toHaveBeenCalled();
+        });
+    });
 });

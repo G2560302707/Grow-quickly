@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { UploadZone } from "@/components/upload-zone";
@@ -16,6 +16,7 @@ import { ArrowLeft, Upload, PenLine } from "lucide-react";
 import { ProgressFeedback, ProgressStatus } from "@/components/ui/progress-feedback";
 import { frontendLogger } from "@/lib/frontend-logger";
 import { TextInputZone } from "@/components/text-input-zone";
+import { MultiImagePicker, MultiImageItem, MAX_MULTI_IMAGES } from "@/components/multi-image-picker";
 
 import { alertDialog } from "@/components/ui/app-dialog";
 
@@ -38,6 +39,10 @@ export default function AddErrorPage() {
     const [croppingImage, setCroppingImage] = useState<string | null>(null);
     const [isCropperOpen, setIsCropperOpen] = useState(false);
 
+    // 多图拼接模式（单题跨多张）：待拼接图片列表
+    const [multiImages, setMultiImages] = useState<MultiImageItem[]>([]);
+    const multiImagesRef = useRef<MultiImageItem[]>([]);
+
     // Timeout Config
     // 设置页已迁管理端（/api/settings 在学习端不存在）；AI 超时以后端读共享配置为准，前端用默认 fetch 超时
     const aiTimeout = 180000;
@@ -51,6 +56,14 @@ export default function AddErrorPage() {
             }
         };
     }, [croppingImage]);
+
+    // 多图模式：同步最新列表并在卸载时释放预览 URL
+    multiImagesRef.current = multiImages;
+    useEffect(() => {
+        return () => {
+            multiImagesRef.current.forEach(item => URL.revokeObjectURL(item.previewUrl));
+        };
+    }, []);
 
     useEffect(() => {
         // Fetch notebook info
@@ -91,6 +104,126 @@ export default function AddErrorPage() {
         const imageUrl = URL.createObjectURL(file);
         setCroppingImage(imageUrl);
         setIsCropperOpen(true);
+    };
+
+    // ---------- 多图拼接模式（单题跨多张）----------
+
+    const createMultiItems = (files: File[]): MultiImageItem[] =>
+        files.map(file => ({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            file,
+            previewUrl: URL.createObjectURL(file),
+        }));
+
+    /** 初次选中 ≥2 张：进入多图拼接流程 */
+    const handleImagesSelect = (files: File[]) => {
+        const items = createMultiItems(files).slice(0, MAX_MULTI_IMAGES);
+        setMultiImages(items);
+    };
+
+    /** 在多图列表里继续追加照片 */
+    const handleAddMoreImages = (files: File[]) => {
+        const newItems = createMultiItems(files);
+        setMultiImages(prev => [...prev, ...newItems].slice(0, MAX_MULTI_IMAGES));
+    };
+
+    const handleRemoveMulti = (id: string) => {
+        setMultiImages(prev => {
+            const item = prev.find(i => i.id === id);
+            if (item) URL.revokeObjectURL(item.previewUrl);
+            return prev.filter(i => i.id !== id);
+        });
+    };
+
+    const handleMoveMulti = (id: string, direction: -1 | 1) => {
+        setMultiImages(prev => {
+            const index = prev.findIndex(i => i.id === id);
+            if (index < 0) return prev;
+            const target = index + direction;
+            if (target < 0 || target >= prev.length) return prev;
+            const next = [...prev];
+            [next[index], next[target]] = [next[target], next[index]];
+            return next;
+        });
+    };
+
+    const handleCancelMulti = () => {
+        multiImages.forEach(item => URL.revokeObjectURL(item.previewUrl));
+        setMultiImages([]);
+    };
+
+    /** 多图拼接识别：每张压缩 → 后端拼成一张完整题目 → 校对 */
+    const handleMultiAnalyze = async () => {
+        if (multiImages.length < 2) return;
+        const startTime = Date.now();
+        frontendLogger.info('[AddAnalyzeMulti]', 'Starting multi-image analysis', {
+            count: multiImages.length,
+        });
+
+        try {
+            frontendLogger.info('[AddAnalyzeMulti]', 'Step 1/3: Compressing images');
+            setAnalysisStep('compressing');
+            const imagesPayload: { base64: string; mimeType: string }[] = [];
+            for (const item of multiImages) {
+                const base64 = await processImageFile(item.file);
+                imagesPayload.push({ base64, mimeType: 'image/jpeg' });
+            }
+            frontendLogger.info('[AddAnalyzeMulti]', 'Images compressed', { count: imagesPayload.length });
+
+            frontendLogger.info('[AddAnalyzeMulti]', 'Step 2/3: Calling /api/analyze with images[]');
+            setAnalysisStep('analyzing');
+            const apiStartTime = Date.now();
+            const data = await apiClient.post<AnalyzeResponse & { mergedImageBase64?: string }>("/api/analyze", {
+                images: imagesPayload,
+                language,
+                subjectId: notebookId,
+                multiStitched: true,
+            }, { timeout: aiTimeout });
+            const apiDuration = Date.now() - apiStartTime;
+            frontendLogger.info('[AddAnalyzeMulti]', 'API responded', {
+                apiDuration,
+                hasMergedImage: !!data?.mergedImageBase64,
+            });
+
+            setAnalysisStep('processing');
+            setProgress(100);
+
+            // 以拼接后的完整图为原图（校对展示 + 保存 originalImageUrl）
+            if (data?.mergedImageBase64) {
+                setCurrentImage(data.mergedImageBase64);
+            }
+            setParsedData(data);
+            setStep("review");
+
+            const totalDuration = Date.now() - startTime;
+            frontendLogger.info('[AddAnalyzeMulti]', 'Multi-image analysis completed', { totalDuration });
+        } catch (error: any) {
+            const errorDuration = Date.now() - startTime;
+            frontendLogger.error('[AddErrorMulti]', 'Multi-image analysis failed', {
+                errorDuration,
+                error: error.message || String(error),
+            });
+
+            try {
+                let errorMessage = t.common?.messages?.analysisFailed || 'Analysis failed, please try again';
+                const backendErrorType = error?.data?.message;
+                if (backendErrorType && typeof backendErrorType === 'string') {
+                    if (t.errors && typeof t.errors === 'object' && backendErrorType in t.errors) {
+                        const mappedError = (t.errors as any)[backendErrorType];
+                        if (typeof mappedError === 'string') errorMessage = mappedError;
+                    } else {
+                        errorMessage = backendErrorType;
+                    }
+                } else if (error?.message?.includes('fetch') || error?.message?.includes('network')) {
+                    errorMessage = t.errors?.AI_CONNECTION_FAILED || '网络连接失败';
+                }
+                await alertDialog({ description: errorMessage });
+            } catch (innerError) {
+                await alertDialog({ description: 'Analysis failed. Please try again.' });
+            }
+        } finally {
+            setAnalysisStep('idle');
+        }
     };
 
     const handleCropComplete = async (croppedBlob: Blob) => {
@@ -383,7 +516,24 @@ export default function AddErrorPage() {
                         </div>
 
                         {inputMode === "image" ? (
-                            <UploadZone onImageSelect={onImageSelect} isAnalyzing={analysisStep !== 'idle'} />
+                            multiImages.length >= 2 ? (
+                                <MultiImagePicker
+                                    images={multiImages}
+                                    isAnalyzing={analysisStep !== 'idle'}
+                                    onRemove={handleRemoveMulti}
+                                    onMove={handleMoveMulti}
+                                    onAddMore={handleAddMoreImages}
+                                    onAnalyze={handleMultiAnalyze}
+                                    onCancel={handleCancelMulti}
+                                />
+                            ) : (
+                                <UploadZone
+                                    onImageSelect={onImageSelect}
+                                    onImagesSelect={handleImagesSelect}
+                                    isAnalyzing={analysisStep !== 'idle'}
+                                    maxFiles={MAX_MULTI_IMAGES}
+                                />
+                            )
                         ) : (
                             <TextInputZone
                                 onSubmit={handleTextSubmit}

@@ -388,6 +388,17 @@ export function analyzeImage(imageBase64: string, subjectId?: string): Promise<P
     });
 }
 
+/** 多图拼接识别：同一道题的多张照片交给后端纵向拼接成一张完整题目图后整体识别；返回合并图供原图保存 */
+export function analyzeMultiImages(
+    images: { base64: string; mimeType: string }[],
+    subjectId?: string
+): Promise<ParsedQuestion & { mergedImageBase64?: string }> {
+    return request("/api/analyze", {
+        method: "POST",
+        data: { images, language: "zh", subjectId, multiStitched: true },
+    });
+}
+
 /** 整页题目定位结果：bbox 为 0-100 百分比坐标 */
 export interface DetectedQuestionBox {
     number: number;

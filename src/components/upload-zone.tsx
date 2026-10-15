@@ -21,11 +21,15 @@ declare global {
 }
 
 interface UploadZoneProps {
-    onImageSelect: (file: File) => void;  // 改为传递 File 对象
+    onImageSelect: (file: File) => void;  // 单张模式：传递 File 对象
+    /** 多张模式（maxFiles > 1 且一次选中多张时）回调 */
+    onImagesSelect?: (files: File[]) => void;
     isAnalyzing: boolean;
+    /** 最多可选张数，默认 1（保持单张行为） */
+    maxFiles?: number;
 }
 
-export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
+export function UploadZone({ onImageSelect, onImagesSelect, isAnalyzing, maxFiles = 1 }: UploadZoneProps) {
     const { t } = useLanguage();
     const [isScreenshotting, setIsScreenshotting] = useState(false);
     const [isClient, setIsClient] = useState(false);
@@ -42,13 +46,15 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
 
     const onDrop = useCallback(
         (acceptedFiles: File[]) => {
-            const file = acceptedFiles[0];
-            if (file) {
-                // 直接传递 File 对象，让父组件处理压缩
-                onImageSelect(file);
+            if (acceptedFiles.length === 0) return;
+            // 多图模式：一次选多张时整批交给父组件（按顺序拼接成一道完整题目）
+            if (maxFiles > 1 && onImagesSelect && acceptedFiles.length > 1) {
+                onImagesSelect(acceptedFiles);
+            } else {
+                onImageSelect(acceptedFiles[0]);
             }
         },
-        [onImageSelect]
+        [maxFiles, onImageSelect, onImagesSelect]
     );
 
     // 相机直达：capture="environment" 让手机端直接调起后置相机，跳过"拍照 or 图库"选择
@@ -69,7 +75,7 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
         accept: {
             "image/*": [".jpeg", ".jpg", ".png"],
         },
-        maxFiles: 1,
+        maxFiles,
         disabled: isAnalyzing,
     });
     // 检查是否支持屏幕截图
@@ -219,6 +225,11 @@ export function UploadZone({ onImageSelect, isAnalyzing }: UploadZoneProps) {
                         <p className="text-xs text-muted-foreground mt-2">
                             {t.upload.support}
                         </p>
+                        {maxFiles > 1 && (
+                            <p className="text-xs text-primary/70 mt-1">
+                                {t.upload?.multiSupport || "可一次选多张照片，将按顺序拼接成一道完整题目"}
+                            </p>
+                        )}
                     </div>
                 </CardContent>
             </Card>
