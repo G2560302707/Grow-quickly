@@ -36,6 +36,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# AI 识别评估日志（一次调用一行 JSONL，含结构化结果，不入库）
+.ai-eval/
+
 # vercel
 .vercel
 
@@ -102,3 +105,8 @@ deploy/bundle/*.zip
 wrong-notebook.tar
 wrong-notebook-admin.tar
 deploy/config/app-config.json
+
+# 本地临时脚本与截图（自测/素材管线工具，不入库）
+/_scratch_*/
+# codex 本地记忆（约定不入库）
+/codex记忆/

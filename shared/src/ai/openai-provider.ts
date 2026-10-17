@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, BankImportItem } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt, generateBankImportPrompt } from './prompts';
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt, generateBankImportPrompt, generateOcrExplainPrompt, SKIP_EXPLANATION_HINT } from './prompts';
 import { getAppConfig } from '../config';
 import { safeParseParsedQuestion, parseDetectedQuestions, parseSimilarBatch, parseBankImportBatch } from './schema';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
@@ -107,7 +107,7 @@ export class OpenAIProvider implements AIService {
         return text.substring(contentStartIndex, endIndex).trim();
     }
 
-    private parseResponse(text: string): ParsedQuestion {
+    private parseResponse(text: string, explainMode: 'ai' | 'skip' = 'ai'): ParsedQuestion {
         logger.debug({ textLength: text.length }, 'Parsing AI response');
 
         const questionText = this.extractTag(text, "question_text");
@@ -120,8 +120,8 @@ export class OpenAIProvider implements AIService {
         const mistakeAnalysis = this.extractTag(text, "mistake_analysis") || "";
         const mistakeStatusRaw = this.extractTag(text, "mistake_status");
 
-        // Basic Validation
-        if (!questionText || !answerText || !analysis) {
+        // Basic Validation（skip 模式：解析由用户上传解析图提供，允许 AI 省略 <analysis>）
+        if (!questionText || !answerText || (explainMode !== 'skip' && !analysis)) {
             logger.error({ rawTextSample: text.substring(0, 500) }, 'Missing critical XML tags');
             throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
         }
@@ -148,7 +148,7 @@ export class OpenAIProvider implements AIService {
         const result: ParsedQuestion = {
             questionText,
             answerText,
-            analysis,
+            analysis: analysis || "",
             wrongAnswerText,
             mistakeAnalysis,
             mistakeStatus,
@@ -170,7 +170,7 @@ export class OpenAIProvider implements AIService {
         }
     }
 
-    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: 7 | 8 | 9 | 10 | 11 | 12 | null, subject?: string | null, gradeSemester?: string | null): Promise<ParsedQuestion> {
+    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: 7 | 8 | 9 | 10 | 11 | 12 | null, subject?: string | null, gradeSemester?: string | null, explainMode: 'ai' | 'skip' = 'ai'): Promise<ParsedQuestion> {
         const config = getAppConfig();
 
         // 从数据库获取各学科标签
@@ -191,6 +191,7 @@ export class OpenAIProvider implements AIService {
             prefetchedBiologyTags,
             prefetchedEnglishTags,
             prefetchedGongkaoTags,
+            providerHints: explainMode === 'skip' ? SKIP_EXPLANATION_HINT : '',
         }, gradeSemester);
 
         logger.box('🔍 AI Image Analysis Request', {
@@ -319,7 +320,7 @@ export class OpenAIProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
-            const parsedResult = this.parseResponse(text);
+            const parsedResult = this.parseResponse(text, explainMode);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -537,6 +538,64 @@ export class OpenAIProvider implements AIService {
                 error: error instanceof Error ? error.message : String(error),
             });
             this.handleError(error);
+            throw error;
+        }
+    }
+
+    /** 解析图 OCR：逐字转录图片中的解析文本（不解题不改写），供「上传解析图」模式 */
+    async transcribeImage(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<string> {
+        const prompt = generateOcrExplainPrompt();
+        const dataUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:${mimeType};base64,${imageBase64}`;
+        logger.info({ provider: 'OpenAI', imageSize: imageBase64.length, mimeType, isLongCat: this.isLongCat }, 'OCR transcribe Request');
+
+        try {
+            const startTime = Date.now();
+            let text = '';
+
+            if (this.isLongCat) {
+                // LongCat 走裸 fetch + 专用多模态格式（与 analyzeImage 同一适配）
+                const messages = this.adaptMessagesForLongCat([
+                    { role: 'user', content: [
+                        { type: 'text', text: prompt },
+                        { type: 'image_url', image_url: { url: dataUrl } },
+                    ] },
+                ]);
+                const res = await retryOperation(() => fetch(`${this.baseURL}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    signal: AbortSignal.timeout(this.timeoutMs),
+                    body: JSON.stringify({ model: this.model, messages, max_tokens: 4096 }),
+                }), { label: 'openai:longcat:transcribeImage' });
+                if (!res.ok) {
+                    const errBody = await res.text();
+                    logger.error({ status: res.status, body: errBody }, 'LongCat API error');
+                    throw new Error(`${res.status} status code (${errBody})`);
+                }
+                const json: any = await res.json();
+                text = json?.choices?.[0]?.message?.content || '';
+            } else {
+                const response = await retryOperation(() => this.openai.chat.completions.create({
+                    model: this.model,
+                    messages: [
+                        { role: 'user', content: [
+                            { type: 'text', text: prompt },
+                            { type: 'image_url', image_url: { url: dataUrl } },
+                        ] },
+                    ],
+                    max_tokens: 4096,
+                }), { label: 'openai:transcribeImage' });
+                text = response.choices?.[0]?.message?.content || '';
+            }
+
+            logger.info({ provider: 'OpenAI', durationMs: Date.now() - startTime }, 'OpenAI transcribeImage completed');
+            text = (text || '').trim();
+            if (!text) throw new Error('Empty response from AI');
+            return text;
+        } catch (error) {
+            logger.error({ error }, 'Error during transcribeImage');
             throw error;
         }
     }

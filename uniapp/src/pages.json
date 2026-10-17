@@ -149,6 +149,33 @@
 				"navigationBarBackgroundColor": "#ffffff",
 				"backgroundColor": "#f4f5fa"
 			}
+		},
+		{
+			"path": "pages/theme/theme",
+			"style": {
+				"navigationBarTitleText": "外观主题",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
+			"path": "pages/notebook-manage/notebook-manage",
+			"style": {
+				"navigationBarTitleText": "错题本管理",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
+		},
+		{
+			"path": "pages/notebook-edit/notebook-edit",
+			"style": {
+				"navigationBarTitleText": "新建错题本",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa"
+			}
 		}
 	],
 	"tabBar": {
@@ -160,26 +187,26 @@
 			{
 				"pagePath": "pages/index/index",
 				"text": "错题本",
-				"iconPath": "static/tab/home.png",
-				"selectedIconPath": "static/tab/home-active.png"
+				"iconPath": "static/tab/book.png",
+				"selectedIconPath": "static/tab/studio-ink/book-active.png"
 			},
 			{
 				"pagePath": "pages/analyze/analyze",
 				"text": "识别",
 				"iconPath": "static/tab/scan.png",
-				"selectedIconPath": "static/tab/scan-active.png"
+				"selectedIconPath": "static/tab/studio-ink/scan-active.png"
 			},
 			{
 				"pagePath": "pages/focus/focus",
 				"text": "专注",
-				"iconPath": "static/tab/focus.png",
-				"selectedIconPath": "static/tab/focus-active.png"
+				"iconPath": "static/tab/timer.png",
+				"selectedIconPath": "static/tab/studio-ink/timer-active.png"
 			},
 			{
 				"pagePath": "pages/profile/profile",
 				"text": "我的",
-				"iconPath": "static/tab/me.png",
-				"selectedIconPath": "static/tab/me-active.png"
+				"iconPath": "static/tab/user.png",
+				"selectedIconPath": "static/tab/studio-ink/user-active.png"
 			}
 		]
 	},

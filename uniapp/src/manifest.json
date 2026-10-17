@@ -66,8 +66,13 @@
     "mp-toutiao" : {
         "usingComponents" : true
     },
-    "uniStatistics": {  
+    "uniStatistics": {
         "enable": false
     },
-    "vueVersion" : "3"
+    "vueVersion" : "3",
+    /* H5 桌面浏览器适配：>480px 窗口按 375 基准计算 rpx，避免内容被等比放大 */
+    "h5" : {
+        "rpxCalcMaxDeviceWidth" : 480,
+        "rpxCalcBaseDeviceWidth" : 375
+    }
 }

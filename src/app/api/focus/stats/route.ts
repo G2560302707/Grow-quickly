@@ -10,7 +10,9 @@ const logger = createLogger('api:focus:stats');
 /**
  * GET /api/focus/stats — 专注统计
  * todaySeconds 今日专注 / weekSeconds 近 7 天 / streakDays 连续打卡天数 /
- * last7Days 每日秒数(含今日) / totalSessions / totalSeconds 累计
+ * last7Days 每日秒数(含今日) / totalSessions / totalSeconds 累计 /
+ * dailyGoalMin 每日目标(分钟,跨端持久化) /
+ * byMode 分模式洞察(wave-2)：各模式累计秒数/次数/完成次数
  */
 export async function GET() {
     const session = await getServerSession(authOptions);
@@ -23,10 +25,16 @@ export async function GET() {
         const userId = session.user.id;
 
         // 会话量级有限（个人每天几次），直接取全量在内存聚合，避免多时区 groupBy 复杂度
-        const sessions = await prisma.focusSession.findMany({
-            where: { userId },
-            select: { durationSeconds: true, createdAt: true, completed: true },
-        });
+        const [sessions, user] = await Promise.all([
+            prisma.focusSession.findMany({
+                where: { userId },
+                select: { durationSeconds: true, createdAt: true, completed: true, mode: true },
+            }),
+            prisma.user.findUnique({
+                where: { id: userId },
+                select: { focusDailyGoalMin: true },
+            }),
+        ]);
 
         const dayKey = (d: Date) => {
             const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -37,6 +45,7 @@ export async function GET() {
         const perDay = new Map<number, number>();
         let totalSeconds = 0;
         let totalSessions = 0;
+        const byMode: Record<string, { seconds: number; sessions: number; completed: number }> = {};
 
         for (const s of sessions) {
             const k = dayKey(s.createdAt);
@@ -44,6 +53,10 @@ export async function GET() {
             perDay.set(k, (perDay.get(k) || 0) + dur);
             totalSeconds += dur;
             totalSessions += 1;
+            const bucket = (byMode[s.mode] ||= { seconds: 0, sessions: 0, completed: 0 });
+            bucket.seconds += dur;
+            bucket.sessions += 1;
+            if (s.completed) bucket.completed += 1;
         }
 
         const todaySeconds = perDay.get(today) || 0;
@@ -75,6 +88,8 @@ export async function GET() {
             totalSessions,
             totalSeconds,
             last7Days,
+            dailyGoalMin: user?.focusDailyGoalMin ?? 120,
+            byMode,
         });
     } catch (error) {
         logger.error({ error }, 'Error fetching focus stats');

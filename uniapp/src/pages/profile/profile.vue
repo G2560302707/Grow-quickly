@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view :class="['page', themeCls]">
 		<!-- 深蓝头部 -->
 		<view class="header">
 			<view class="header-ring" />
@@ -41,13 +41,25 @@
 
 		<!-- 菜单 -->
 		<view class="card menu-card fade-up">
-			<view class="menu-item" hover-class="hv" @tap="goNotebooks">
+			<view class="menu-item" hover-class="hv" @tap="goTheme">
+				<view class="menu-icon menu-icon-brand">
+					<view class="glyph-palette">
+						<view class="glyph-palette-dot" :style="{ background: themeDots[0] }" />
+						<view class="glyph-palette-dot" :style="{ background: themeDots[1] }" />
+						<view class="glyph-palette-dot" :style="{ background: themeDots[2] }" />
+					</view>
+				</view>
+				<text class="menu-text">外观主题</text>
+				<text class="menu-extra">{{ currentThemeName }}</text>
+				<text class="menu-arrow">›</text>
+			</view>
+			<view class="menu-item" hover-class="hv" @tap="goNotebookManage">
 				<view class="menu-icon menu-icon-brand">
 					<view class="glyph-book">
 						<view class="glyph-book-spine" />
 					</view>
 				</view>
-				<text class="menu-text">我的错题本</text>
+				<text class="menu-text">错题本管理</text>
 				<text class="menu-arrow">›</text>
 			</view>
 			<view class="menu-item" hover-class="hv" @tap="goStats">
@@ -115,6 +127,11 @@ import { ref, computed } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { getOverviewStats, getPracticeSummary, type OverviewStats, type PracticeSummary } from "@/api";
 import { getSession, logout, type Session } from "@/utils/auth";
+import { getThemeMeta, useThemeClass } from "@/utils/theme";
+
+const themeCls = useThemeClass();
+const currentThemeName = ref(getThemeMeta().name);
+const themeDots = ref(getThemeMeta().dots);
 
 const session = ref<Session | null>(null);
 const statsLoading = ref(true);
@@ -139,6 +156,8 @@ const displayEmail = computed(() => {
 });
 
 onShow(async () => {
+	currentThemeName.value = getThemeMeta().name;
+	themeDots.value = getThemeMeta().dots;
 	statsLoading.value = true;
 	const [sess, ov, pr] = await Promise.all([
 		getSession().catch(() => null),
@@ -151,8 +170,12 @@ onShow(async () => {
 	statsLoading.value = false;
 });
 
-function goNotebooks() {
-	uni.switchTab({ url: "/pages/index/index" });
+function goTheme() {
+	uni.navigateTo({ url: "/pages/theme/theme" });
+}
+
+function goNotebookManage() {
+	uni.navigateTo({ url: "/pages/notebook-manage/notebook-manage" });
 }
 
 function goStats() {
@@ -179,7 +202,7 @@ function handleLogout() {
 	uni.showModal({
 		title: "提示",
 		content: "确定退出登录吗？",
-		confirmColor: "#3d52d5",
+		confirmColor: getThemeMeta().primary,
 		success: (res) => {
 			if (res.confirm) {
 				logout();
@@ -211,7 +234,7 @@ function handleLogout() {
 	width: 340rpx;
 	height: 340rpx;
 	border-radius: 50%;
-	background: radial-gradient(circle, rgba(85, 104, 232, 0.28) 0%, rgba(85, 104, 232, 0) 70%);
+	background: radial-gradient(circle, var(--glow-primary) 0%, transparent 70%);
 	top: -60rpx;
 	right: 60rpx;
 }
@@ -224,8 +247,8 @@ function handleLogout() {
 	width: 120rpx;
 	height: 120rpx;
 	border-radius: 50%;
-	background: linear-gradient(140deg, #5568e8 0%, #3d52d5 80%);
-	border: 3rpx solid rgba(201, 151, 63, 0.75);
+	background: linear-gradient(140deg, var(--brand-500) 0%, var(--brand-600) 80%);
+	border: 3rpx solid var(--gold-500);
 	box-shadow: 0 12rpx 32rpx rgba(5, 10, 26, 0.35);
 	color: #ffffff;
 	display: flex;
@@ -326,17 +349,12 @@ function handleLogout() {
 	margin-right: 24rpx;
 	flex-shrink: 0;
 }
-.menu-icon-brand {
+/* 图标底色/描边统一走主题变量，随主题换肤 */
+.menu-icon-brand,
+.menu-icon-blue,
+.menu-icon-gold {
 	background: var(--brand-50);
 	border: 1rpx solid var(--brand-100);
-}
-.menu-icon-blue {
-	background: #eaf3fb;
-	border: 1rpx solid #d3e5f3;
-}
-.menu-icon-gold {
-	background: var(--gold-50);
-	border: 1rpx solid var(--gold-100);
 }
 .menu-text {
 	flex: 1;
@@ -349,12 +367,27 @@ function handleLogout() {
 	font-size: 40rpx;
 	font-weight: 300;
 }
+.menu-extra {
+	font-size: 24rpx;
+	color: var(--ink-400);
+	margin-right: 6rpx;
+}
 .hv {
 	opacity: 0.72;
 	background: #fafbfd;
 }
 
 /* ---------- CSS 图标 ---------- */
+.glyph-palette {
+	display: flex;
+	align-items: center;
+	gap: 8rpx;
+}
+.glyph-palette-dot {
+	width: 16rpx;
+	height: 16rpx;
+	border-radius: 50%;
+}
 .glyph-user {
 	position: relative;
 	width: 36rpx;
@@ -412,7 +445,7 @@ function handleLogout() {
 .glyph-tag-body {
 	position: absolute;
 	inset: 0;
-	border: 3rpx solid var(--gold-600, #c9a227);
+	border: 3rpx solid var(--brand-600);
 	border-radius: 6rpx 6rpx 6rpx 14rpx;
 	transform: rotate(-20deg);
 }
@@ -422,7 +455,7 @@ function handleLogout() {
 	top: 8rpx;
 	width: 8rpx;
 	height: 8rpx;
-	border: 2rpx solid var(--gold-600, #c9a227);
+	border: 2rpx solid var(--brand-600);
 	border-radius: 50%;
 	z-index: 1;
 }
@@ -435,7 +468,7 @@ function handleLogout() {
 .glyph-bar {
 	width: 8rpx;
 	border-radius: 3rpx;
-	background: #1273b4;
+	background: var(--brand-600);
 }
 .glyph-bar-1 {
 	height: 18rpx;
@@ -450,7 +483,7 @@ function handleLogout() {
 	position: relative;
 	width: 40rpx;
 	height: 34rpx;
-	border: 3rpx solid var(--gold-600);
+	border: 3rpx solid var(--brand-600);
 	border-radius: 10rpx;
 	display: flex;
 	align-items: center;
@@ -461,7 +494,7 @@ function handleLogout() {
 	width: 8rpx;
 	height: 8rpx;
 	border-radius: 50%;
-	background: var(--gold-600);
+	background: var(--brand-600);
 }
 .glyph-chat-dot-2 {
 	opacity: 0.55;

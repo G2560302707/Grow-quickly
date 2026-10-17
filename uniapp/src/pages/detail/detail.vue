@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view :class="['page', themeCls]">
 		<template v-if="loading">
 			<view class="card">
 				<view class="skel sk-line sk-lg" />
@@ -134,6 +134,9 @@
 </template>
 
 <script setup lang="ts">
+import { useThemeClass } from "@/utils/theme";
+
+const themeCls = useThemeClass();
 import { ref, computed } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import {

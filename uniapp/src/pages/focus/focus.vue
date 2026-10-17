@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view :class="['page', themeCls]">
 		<!-- 模式选择 -->
 		<view v-if="phase === 'idle'" class="card fade-up">
 			<view class="seg">
@@ -79,28 +79,13 @@
 				<button class="step-btn" hover-class="hv" @tap="stepMinutes(5)">+</button>
 			</view>
 
-			<!-- 模块绑定 -->
-			<view class="bind-head">本次专注绑定模块（可选）</view>
-			<view class="opt-row">
-				<view
-					v-for="name in BIND_NAMES"
-					:key="name"
-					class="opt-chip"
-					:class="{ 'opt-chip-active': moduleName === name }"
-					hover-class="hv"
-					@tap="moduleName = moduleName === name ? '' : name"
-				>
-					{{ name }}
-				</view>
-			</view>
-
 			<button class="btn-primary start-btn" hover-class="button-hover" @tap="start">开始专注</button>
 		</view>
 
 		<!-- 计时中 / 暂停 -->
 		<template v-else-if="phase === 'running' || phase === 'paused'">
 			<view class="card timer-card fade-up">
-				<text class="timer-mode">{{ modeLabel }}<template v-if="moduleName"> · {{ moduleName }}</template></text>
+				<text class="timer-mode">{{ modeLabel }}</text>
 				<view
 					class="timer-ring"
 					:style="{
@@ -112,6 +97,15 @@
 						<text class="timer-elapsed num">已专注 {{ fmtMinutes(elapsed) }}</text>
 					</view>
 				</view>
+				<!-- 成长物陪伴 -->
+				<view class="grow-wrap">
+					<view class="grow-track-label">
+						<text class="grow-emoji">{{ growEmoji }}</text>
+						<text class="grow-label">{{ growLabel }}</text>
+					</view>
+					<view class="grow-track"><view class="grow-fill" :style="{ width: growPct + '%' }" /></view>
+				</view>
+
 				<!-- 模考分段进度 -->
 				<view v-if="mode === 'mock'" class="mock-status">
 					<text class="mock-current">当前建议模块：<text class="mock-current-name">{{ currentSegment.name }}</text></text>
@@ -139,25 +133,20 @@
 					<text class="done-unit">分钟专注</text>
 				</view>
 				<text class="done-title">{{ doneTitle }}</text>
-				<text class="done-sub">{{ lastModuleName ? `「${lastModuleName}」· ` : "" }}{{ lastModeLabel }}</text>
+				<text class="done-sub">{{ lastModeLabel }}</text>
 				<view v-if="lastCompleted && mode === 'pomodoro'" class="break-tip">
 					<text class="break-tip-text">休息 5 分钟，看看窗外——下一组更稳</text>
 				</view>
+				<view v-if="lastCompleted" class="done-celebrate">
+					<text class="done-celebrate-emoji">{{ mode === 'mock' ? '📄' : '🌸' }}</text>
+					<text class="done-celebrate-text">{{ mode === 'mock' ? '整套卷子搞定，牛！' : '这组专注开花结果 · 规则 × 坚持' }}</text>
+				</view>
 				<view class="judge-row">
-					<button class="btn-outline judge-btn" hover-class="button-hover" @tap="backToIdle">再来一组</button>
-					<button class="btn-primary judge-btn" hover-class="button-hover" @tap="goHome">完成</button>
+					<button class="btn-outline judge-btn" hover-class="button-hover" @tap="restart">再来一组</button>
+					<button class="btn-primary judge-btn" hover-class="button-hover" @tap="backToIdle">完成</button>
 				</view>
 			</view>
 		</template>
-
-		<!-- 练习记录入口 -->
-		<view class="card entry-card fade-up" hover-class="hv" @tap="goHistory">
-			<view class="entry-text">
-				<text class="entry-title">练习记录</text>
-				<text class="entry-sub">练过的每道题、对错与来源都在这里</text>
-			</view>
-			<text class="entry-arrow">›</text>
-		</view>
 
 		<!-- 统计条 -->
 		<view class="card stats-card fade-up">
@@ -178,13 +167,97 @@
 				</view>
 			</picker>
 		</view>
+
+		<!-- 今日目标 -->
+		<view v-if="phase === 'idle'" class="card goal-card fade-up">
+			<view class="goal-head">
+				<text class="goal-title">今日目标</text>
+				<text class="goal-progress num">{{ fmtMinutes(stats.todaySeconds) }}<text class="goal-total">/{{ dailyGoalMin }}</text></text>
+			</view>
+			<view class="goal-track">
+				<view class="goal-fill" :class="{ 'goal-fill-done': todayGoalDone }" :style="{ width: todayGoalPct + '%' }" />
+			</view>
+			<view class="goal-foot">
+				<text class="goal-tip" :class="{ 'goal-tip-done': todayGoalDone }">{{ todayGoalDone ? '🎉 今日目标达成' : `再专注 ${Math.max(0, dailyGoalMin - fmtMinutes(stats.todaySeconds))} 分钟即达标` }}</text>
+				<view class="goal-options">
+					<view v-for="g in DAILY_GOAL_OPTIONS" :key="g" class="opt-chip" :class="{ 'opt-chip-active': dailyGoalMin === g }" hover-class="hv" @tap="setDailyGoal(g)">{{ g }}分</view>
+				</view>
+			</view>
+		</view>
+
+		<!-- 数据洞察 -->
+		<view v-if="phase === 'idle'" class="card insight-card fade-up">
+			<view class="insight-head">
+				<text class="insight-title">数据洞察</text>
+				<text class="insight-sub">累计完成 {{ weekCompletionPct }}%</text>
+			</view>
+			<template v-if="hasInsights">
+				<view class="insight-bars">
+					<view v-for="(d, i) in weekBars" :key="d.date" class="insight-col">
+						<text v-if="d.minutes > 0" class="insight-col-val num">{{ d.minutes }}</text>
+						<view class="insight-bar-track">
+							<view class="insight-bar" :class="{ 'insight-bar-on': d.minutes > 0 }" :style="{ height: (d.minutes > 0 ? Math.max(18, d.pct) : 6) + '%' }" />
+						</view>
+						<text class="insight-col-label" :class="{ 'insight-col-now': i === weekBars.length - 1 }">{{ d.date }}</text>
+					</view>
+				</view>
+				<view v-if="modeRows.length" class="insight-modes">
+					<view v-for="m in modeRows" :key="m.key" class="insight-mode-row">
+						<text class="insight-mode-name">{{ m.emoji }} {{ m.name }}</text>
+						<view class="insight-mode-track">
+							<view class="insight-mode-fill" :style="{ width: m.pct + '%' }" />
+						</view>
+						<text class="insight-mode-val num">{{ fmtMinutes(m.seconds) }}分</text>
+					</view>
+				</view>
+			</template>
+			<view v-else class="insight-empty">
+				<text class="insight-empty-text">还没有专注记录，完成第一组就会点亮这里 🌱</text>
+			</view>
+		</view>
+
+		<!-- 专注徽章 -->
+		<view v-if="phase === 'idle'" class="card badge-card fade-up">
+			<view class="badge-head">
+				<text class="badge-title">专注徽章</text>
+				<text class="badge-sub">{{ earnedCount }}/{{ BADGES.length }} 已达成</text>
+			</view>
+			<view class="badge-row">
+				<view v-for="b in BADGES" :key="b.key" class="badge-item" :class="{ 'badge-locked': !b.check(stats) }">
+					<view class="badge-icon-wrap">
+						<image class="badge-icon" :src="b.icon" mode="aspectFit" />
+					</view>
+					<text class="badge-name">{{ b.name }}</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 勋章仪式感：解锁新徽章时全屏庆祝（Phase 1.9） -->
+		<view v-if="currentBadge" class="badge-fest" @tap="dismissBadge">
+			<view class="badge-fest-mask" />
+			<view class="badge-fest-body">
+				<view class="fest-particles">
+					<text v-for="i in FEST_PARTICLES.length" :key="i" class="fest-dot" :style="festDotStyle(i)" />
+				</view>
+				<view class="fest-icon-wrap">
+					<view class="fest-halo" />
+					<image class="fest-icon" :src="currentBadge.icon" mode="aspectFit" />
+				</view>
+				<text class="fest-title">解锁新徽章</text>
+				<text class="fest-name">{{ currentBadge.name }}</text>
+				<text class="fest-hint">轻触任意处继续</text>
+			</view>
+		</view>
 	</view>
 </template>
 
 <script setup lang="ts">
+import { useThemeClass } from "@/utils/theme";
+
+const themeCls = useThemeClass();
 import { ref, computed, onUnmounted } from "vue";
 import { onLoad, onShow, onHide } from "@dcloudio/uni-app";
-import { recordFocusSession, getFocusStats, type FocusStats } from "@/api";
+import { recordFocusSession, getFocusStats, setFocusDailyGoal, type FocusStats } from "@/api";
 
 const MODES = [
 	{ value: "pomodoro", label: "番茄专注" },
@@ -196,7 +269,6 @@ type Mode = (typeof MODES)[number]["value"];
 const POMODORO_OPTIONS = [25, 45, 60];
 const MOCK_OPTIONS = [90, 120, 150, 180];
 const MOCK_TOTAL_CAP = 240; // 服务端单次上限 4 小时
-const BIND_NAMES = ["言语理解", "判断推理", "数量关系", "资料分析", "常识判断"];
 const SEG_COLORS = ["#E8993C", "#5568E8", "#8B5CF6", "#0E9F8A", "#18A058"];
 // 国考行测 120 分钟建议用时分配（常识→资料）
 const MOCK_SEGMENTS_BASE = [
@@ -215,6 +287,24 @@ const QUOTES = [
 	"今天偷的懒，都会变成考场上划掉的选项。",
 	"岗位只招第一名，并列都不要。",
 	"先做完，再做好——考场上没有完美，只有完成。",
+];
+// 成长物陪伴：按本次会话进度分阶段（生动化）
+const GROW_STAGES = [
+	{ emoji: "🌱", label: "刚播下种子" },
+	{ emoji: "🌱", label: "悄悄破土" },
+	{ emoji: "🌿", label: "长出嫩叶" },
+	{ emoji: "🌳", label: "枝繁叶茂" },
+	{ emoji: "🌸", label: "含苞待放" },
+];
+// 专注徽章：由现有统计派生，无需额外后台字段
+// 图标来自 Microsoft Fluent Emoji (3D 风格, MIT 协议), 本地渲染为透明底 PNG
+const BADGES: { key: string; name: string; icon: string; check: (s: FocusStats) => boolean }[] = [
+	{ key: "first", name: "初次专注", icon: "/static/badges/first.png", check: s => s.totalSessions >= 1 },
+	{ key: "streak3", name: "三日连击", icon: "/static/badges/streak3.png", check: s => s.streakDays >= 3 },
+	{ key: "streak7", name: "一周坚持", icon: "/static/badges/streak7.png", check: s => s.streakDays >= 7 },
+	{ key: "hour10", name: "十小时", icon: "/static/badges/hour10.png", check: s => s.totalSeconds >= 36000 },
+	{ key: "hour50", name: "五十小时", icon: "/static/badges/hour50.png", check: s => s.totalSeconds >= 180000 },
+	{ key: "sessions50", name: "五十组", icon: "/static/badges/sessions50.png", check: s => s.totalSessions >= 50 },
 ];
 
 // 模考各段用时(分钟),默认按国考建议分配;总时长 = 各段之和
@@ -253,10 +343,11 @@ function editSegment(i: number, delta: number) {
 
 const STORAGE_KEY = "focus_running_v1";
 const EXAM_DATE_KEY = "exam_target_date";
+const DAILY_GOAL_KEY = "focus_daily_goal_min";
+const DAILY_GOAL_OPTIONS = [60, 120, 180, 240];
 
 const mode = ref<Mode>("pomodoro");
 const targetMinutes = ref(25);
-const moduleName = ref("");
 const phase = ref<"idle" | "running" | "paused" | "done">("idle");
 const elapsed = ref(0); // 已专注秒数（展示用，由墙钟推算）
 /** 暂停时冻结的累计秒数；运行中 = baseElapsed + (now - runningSince) */
@@ -269,10 +360,10 @@ const quoteTimer = ref<ReturnType<typeof setInterval> | null>(null);
 
 const stats = ref<FocusStats>({ todaySeconds: 0, weekSeconds: 0, streakDays: 0, totalSessions: 0, totalSeconds: 0, last7Days: [] });
 const examTarget = ref(uni.getStorageSync(EXAM_DATE_KEY) || "");
+const dailyGoalMin = ref<number>(Number(uni.getStorageSync(DAILY_GOAL_KEY)) || 120);
 
 const lastCompleted = ref(false);
 const lastElapsed = ref(0);
-const lastModuleName = ref("");
 const lastModeLabel = ref("");
 
 const modeLabel = computed(() => MODES.find(m => m.value === mode.value)?.label || "");
@@ -287,6 +378,77 @@ const remainText = computed(() => {
 	return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 });
 const progressDeg = computed(() => Math.min(360, (elapsed.value / targetSeconds.value) * 360));
+// 成长物：本次会话进度 → 阶段
+const growPct = computed(() => (targetSeconds.value > 0 ? Math.min(100, (elapsed.value / targetSeconds.value) * 100) : 0));
+const growStage = computed(() => {
+	const g = growPct.value;
+	if (g <= 0) return 0;
+	if (g < 25) return 1;
+	if (g < 50) return 2;
+	if (g < 75) return 3;
+	return 4;
+});
+const growEmoji = computed(() => GROW_STAGES[growStage.value].emoji);
+const growLabel = computed(() => GROW_STAGES[growStage.value].label);
+// 今日目标
+const todayGoalPct = computed(() => (dailyGoalMin.value > 0 ? Math.min(100, (stats.value.todaySeconds / (dailyGoalMin.value * 60)) * 100) : 0));
+const todayGoalDone = computed(() => stats.value.todaySeconds >= dailyGoalMin.value * 60);
+// 徽章（统计派生）
+const earnedCount = computed(() => BADGES.filter(b => b.check(stats.value)).length);
+
+// 勋章仪式感（Phase 1.9）：完成专注后对比前后徽章状态，新解锁的全屏庆祝
+const FEST_PARTICLES = Array.from({ length: 14 }, (_, i) => {
+	const angle = (i / 14) * Math.PI * 2 + (i % 3) * 0.22;
+	const dist = 96 + (i % 4) * 26;
+	return {
+		x: Math.round(Math.cos(angle) * dist),
+		y: Math.round(Math.sin(angle) * dist),
+		delay: (i % 5) * 0.09,
+		size: 6 + (i % 3) * 3,
+		alt: i % 2 === 1,
+	};
+});
+function festDotStyle(i: number) {
+	const p = FEST_PARTICLES[i - 1];
+	return {
+		width: p.size + "px",
+		height: p.size + "px",
+		animationDelay: p.delay + "s",
+		"--px": p.x + "px",
+		"--py": p.y + "px",
+	};
+}
+const celebrateQueue = ref<{ key: string; name: string; icon: string }[]>([]);
+const currentBadge = computed(() => celebrateQueue.value[0] ?? null);
+let celebrateTimer: ReturnType<typeof setTimeout> | null = null;
+
+function snapshotEarnedKeys(): string[] {
+	return BADGES.filter(b => b.check(stats.value)).map(b => b.key);
+}
+
+function detectNewBadges(beforeKeys: string[]) {
+	const before = new Set(beforeKeys);
+	const fresh = BADGES.filter(b => b.check(stats.value) && !before.has(b.key));
+	if (!fresh.length) return;
+	const wasEmpty = celebrateQueue.value.length === 0;
+	celebrateQueue.value = [...celebrateQueue.value, ...fresh];
+	uni.vibrateLong?.();
+	if (wasEmpty) armAutoDismiss();
+}
+
+function dismissBadge() {
+	if (celebrateTimer) {
+		clearTimeout(celebrateTimer);
+		celebrateTimer = null;
+	}
+	celebrateQueue.value = celebrateQueue.value.slice(1);
+	if (celebrateQueue.value.length) armAutoDismiss();
+}
+
+function armAutoDismiss() {
+	if (celebrateTimer) clearTimeout(celebrateTimer);
+	celebrateTimer = setTimeout(dismissBadge, 4200);
+}
 const examDaysLeft = computed(() => {
 	if (!examTarget.value) return null;
 	const diff = Math.ceil((new Date(examTarget.value).getTime() - Date.now()) / 86_400_000);
@@ -415,7 +577,6 @@ function giveUp() {
 				uni.removeStorageSync(STORAGE_KEY);
 				lastCompleted.value = false;
 				lastElapsed.value = elapsed.value;
-				lastModuleName.value = moduleName.value;
 				lastModeLabel.value = modeLabel.value;
 				phase.value = "done";
 				loadStats();
@@ -431,14 +592,17 @@ function complete(natural: boolean) {
 	baseElapsed.value = elapsed.value;
 	uni.vibrateShort?.();
 	const wasMock = mode.value === "mock";
+	const beforeKeys = snapshotEarnedKeys();
 	lastCompleted.value = natural;
 	lastElapsed.value = elapsed.value;
-	lastModuleName.value = moduleName.value;
 	lastModeLabel.value = modeLabel.value;
 	submit(natural).finally(() => {
 		uni.removeStorageSync(STORAGE_KEY);
 		phase.value = "done";
-		loadStats();
+		loadStats().then(() => {
+			// 仅自然完成才庆祝新徽章（放弃不算）
+			if (natural) detectNewBadges(beforeKeys);
+		});
 	});
 	if (natural) {
 		uni.showToast({ title: wasMock ? "收卷！" : "专注完成！", icon: "none" });
@@ -449,7 +613,6 @@ async function submit(completed: boolean) {
 	try {
 		await recordFocusSession({
 			mode: mode.value,
-			moduleName: moduleName.value || undefined,
 			targetSeconds: targetSeconds.value,
 			durationSeconds: Math.max(60, elapsed.value),
 			completed,
@@ -463,12 +626,10 @@ function backToIdle() {
 	phase.value = "idle";
 }
 
-function goHome() {
-	uni.switchTab({ url: "/pages/index/index" });
-}
-
-function goHistory() {
-	uni.navigateTo({ url: "/pages/practice/history" });
+// 再来一组：保留当前模式与时长，直接开跑下一组
+function restart() {
+	lastCompleted.value = false;
+	start();
 }
 
 // ---------- 断点续计 ----------
@@ -478,7 +639,6 @@ function persistRunning() {
 	if (phase.value === "running") syncElapsedFromWallClock();
 	uni.setStorageSync(STORAGE_KEY, {
 		mode: mode.value,
-		moduleName: moduleName.value,
 		targetMinutes: targetMinutes.value,
 		segMinutes: mode.value === "mock" ? segMinutes.value : undefined,
 		baseElapsed: baseElapsed.value,
@@ -493,7 +653,6 @@ function restoreRunning() {
 	const saved = uni.getStorageSync(STORAGE_KEY);
 	if (!saved || !saved.targetMinutes) return;
 	mode.value = saved.mode;
-	moduleName.value = saved.moduleName || "";
 	targetMinutes.value = saved.targetMinutes;
 	if (mode.value === "mock" && Array.isArray(saved.segMinutes) && saved.segMinutes.length === MOCK_SEGMENTS_BASE.length) {
 		segMinutes.value = saved.segMinutes;
@@ -528,8 +687,15 @@ function restoreRunning() {
 
 // ---------- 统计与考试倒计时 ----------
 function loadStats() {
-	getFocusStats()
-		.then(res => (stats.value = res))
+	return getFocusStats()
+		.then(res => {
+			stats.value = res;
+			// 每日目标以后台为准（跨端同步）；老接口无字段时保留本地值
+			if (typeof res.dailyGoalMin === "number" && res.dailyGoalMin > 0) {
+				dailyGoalMin.value = res.dailyGoalMin;
+				uni.setStorageSync(DAILY_GOAL_KEY, res.dailyGoalMin);
+			}
+		})
 		.catch(() => {});
 }
 
@@ -539,6 +705,49 @@ const todayStr = (() => {
 	const p = (n: number) => String(n).padStart(2, "0");
 	return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 })();
+
+async function setDailyGoal(v: number) {
+	dailyGoalMin.value = v;
+	uni.setStorageSync(DAILY_GOAL_KEY, v);
+	uni.showToast({ title: `今日目标 ${v} 分钟`, icon: "none" });
+	try {
+		await setFocusDailyGoal(v); // 同步到后台，换设备不丢
+	} catch {
+		// 失败保留本地值，下次 loadStats 会被服务端值校正
+	}
+}
+
+// 数据洞察（wave-2）：近 7 天趋势 + 分模式时长分布
+const MODE_META: Record<string, { name: string; emoji: string }> = {
+	pomodoro: { name: "番茄钟", emoji: "🍅" },
+	mock: { name: "整卷模考", emoji: "📄" },
+	custom: { name: "自定义", emoji: "⏱️" },
+};
+const weekBars = computed(() => {
+	const max = Math.max(1, ...stats.value.last7Days.map(d => d.seconds));
+	return stats.value.last7Days.map(d => ({
+		date: d.date,
+		pct: Math.round((d.seconds / max) * 100),
+		minutes: fmtMinutes(d.seconds),
+	}));
+});
+const modeRows = computed(() => {
+	const bm = stats.value.byMode || {};
+	const rows = Object.entries(bm)
+		.map(([k, v]) => ({ key: k, ...(MODE_META[k] || { name: k, emoji: "⏱️" }), ...v }))
+		.filter(r => r.seconds > 0)
+		.sort((a, b) => b.seconds - a.seconds);
+	const max = Math.max(1, ...rows.map(r => r.seconds));
+	return rows.map(r => ({ ...r, pct: Math.round((r.seconds / max) * 100) }));
+});
+const weekCompleted = computed(() => {
+	const bm = stats.value.byMode || {};
+	return Object.values(bm).reduce((s, m) => s + m.completed, 0);
+});
+const weekCompletionPct = computed(() =>
+	stats.value.totalSessions > 0 ? Math.round((weekCompleted.value / stats.value.totalSessions) * 100) : 0
+);
+const hasInsights = computed(() => weekBars.value.some(b => b.minutes > 0) || modeRows.value.length > 0);
 
 function onExamDateChange(e: any) {
 	const v = (e?.detail?.value || "").trim();
@@ -572,7 +781,10 @@ onHide(() => {
 	if (phase.value === "running") syncElapsedFromWallClock();
 	persistRunning();
 });
-onUnmounted(stopTimers);
+onUnmounted(() => {
+	stopTimers();
+	if (celebrateTimer) clearTimeout(celebrateTimer);
+});
 </script>
 
 <style scoped>
@@ -583,7 +795,7 @@ onUnmounted(stopTimers);
 /* ---------- 模式分段 ---------- */
 .seg {
 	display: flex;
-	background: #eceef5;
+	background: var(--line-100);
 	border-radius: 999rpx;
 	padding: 6rpx;
 }
@@ -631,12 +843,6 @@ onUnmounted(stopTimers);
 	font-size: 23rpx;
 	color: var(--ink-400);
 	line-height: 1.6;
-}
-.bind-head {
-	margin: 34rpx 0 6rpx;
-	font-size: 26rpx;
-	font-weight: 600;
-	color: var(--ink-900);
 }
 
 /* ---------- 模考分段时间轴 ---------- */
@@ -890,32 +1096,6 @@ onUnmounted(stopTimers);
 }
 
 /* ---------- 统计条 ---------- */
-.entry-card {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 30rpx 32rpx;
-	margin-bottom: 24rpx;
-}
-.entry-text {
-	display: flex;
-	flex-direction: column;
-	gap: 6rpx;
-}
-.entry-title {
-	font-size: 30rpx;
-	font-weight: 700;
-	color: var(--ink-900);
-}
-.entry-sub {
-	font-size: 24rpx;
-	color: var(--ink-400);
-}
-.entry-arrow {
-	font-size: 44rpx;
-	color: var(--ink-300);
-	line-height: 1;
-}
 .stats-card {
 	display: flex;
 	align-items: stretch;
@@ -951,7 +1131,442 @@ onUnmounted(stopTimers);
 	width: 1rpx;
 	background: var(--line-100);
 }
+
+/* ---------- 成长物陪伴 ---------- */
+.grow-wrap {
+	width: 100%;
+	margin: 32rpx 0 4rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12rpx;
+}
+.grow-track-label {
+	display: flex;
+	align-items: center;
+	gap: 12rpx;
+	font-size: 25rpx;
+	color: var(--ink-500);
+}
+.grow-emoji {
+	font-size: 46rpx;
+	line-height: 1;
+}
+.grow-label {
+	font-weight: 600;
+	color: var(--brand-600);
+}
+.grow-track {
+	width: 360rpx;
+	height: 10rpx;
+	border-radius: 999rpx;
+	background: var(--bg-fill);
+	overflow: hidden;
+}
+.grow-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #2dd4a7, #18a058);
+	border-radius: 999rpx;
+	transition: width 0.5s linear;
+}
+
+/* ---------- 完成庆祝 ---------- */
+.done-celebrate {
+	margin-top: 22rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6rpx;
+	padding: 16rpx 30rpx;
+	background: linear-gradient(135deg, #fff7ed, #fef3c7);
+	border-radius: 16rpx;
+	width: 100%;
+	box-sizing: border-box;
+}
+.done-celebrate-emoji {
+	font-size: 48rpx;
+	line-height: 1;
+}
+.done-celebrate-text {
+	font-size: 25rpx;
+	font-weight: 600;
+	color: #b45309;
+}
+
+/* ---------- 今日目标 ---------- */
+.goal-card {
+	margin-top: 24rpx;
+	padding: 30rpx 32rpx;
+}
+.goal-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin-bottom: 18rpx;
+}
+.goal-title {
+	font-size: 28rpx;
+	font-weight: 700;
+	color: var(--ink-900);
+}
+.goal-progress {
+	font-size: 40rpx;
+	font-weight: 700;
+	color: var(--brand-600);
+	margin: 0;
+}
+.goal-total {
+	font-size: 24rpx;
+	font-weight: 500;
+	color: var(--ink-400);
+}
+.goal-track {
+	height: 14rpx;
+	border-radius: 999rpx;
+	background: var(--bg-fill);
+	overflow: hidden;
+}
+.goal-fill {
+	height: 100%;
+	background: linear-gradient(90deg, var(--brand-500), var(--brand-600));
+	border-radius: 999rpx;
+	transition: width 0.5s ease;
+}
+.goal-fill-done {
+	background: linear-gradient(90deg, #18a058, #0e9f6e);
+}
+.goal-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 16rpx;
+}
+.goal-tip {
+	font-size: 23rpx;
+	color: var(--ink-400);
+}
+.goal-tip-done {
+	color: #16a34a;
+	font-weight: 600;
+}
+.goal-options {
+	display: flex;
+	gap: 10rpx;
+}
+.goal-options .opt-chip {
+	padding: 8rpx 20rpx;
+	font-size: 23rpx;
+	margin: 0;
+}
+
+/* ---------- 专注徽章 ---------- */
+.badge-card {
+	margin-top: 24rpx;
+	padding: 30rpx 32rpx 34rpx;
+}
+.badge-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	margin-bottom: 20rpx;
+}
+.badge-title {
+	font-size: 28rpx;
+	font-weight: 700;
+	color: var(--ink-900);
+}
+.badge-sub {
+	font-size: 23rpx;
+	color: var(--ink-400);
+}
+.badge-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 18rpx;
+}
+.badge-item {
+	width: calc((100% - 36rpx) / 3);
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8rpx;
+	padding: 20rpx 0;
+	background: var(--bg-fill);
+	border-radius: 14rpx;
+}
+.badge-icon-wrap {
+	width: 96rpx;
+	height: 96rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* 已达成勋章的金色光晕 */
+	background: radial-gradient(circle, rgba(232, 168, 44, 0.18) 0%, rgba(232, 168, 44, 0) 72%);
+}
+.badge-icon {
+	width: 78rpx;
+	height: 78rpx;
+	filter: drop-shadow(0 4rpx 10rpx rgba(21, 28, 48, 0.18));
+}
+.badge-name {
+	font-size: 22rpx;
+	font-weight: 600;
+	color: var(--ink-700);
+}
+.badge-locked {
+	opacity: 0.5;
+}
+.badge-locked .badge-icon-wrap {
+	background: none;
+}
+.badge-locked .badge-icon {
+	filter: grayscale(1);
+	opacity: 0.75;
+	width: 66rpx;
+	height: 66rpx;
+}
+.badge-locked .badge-name {
+	color: var(--ink-400);
+	font-weight: 500;
+}
 .hv {
 	opacity: 0.85;
+}
+
+/* ---------- 数据洞察 ---------- */
+.insight-card {
+	margin-top: 24rpx;
+}
+.insight-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+}
+.insight-title {
+	font-size: 30rpx;
+	font-weight: 700;
+	color: var(--ink-900);
+}
+.insight-sub {
+	font-size: 24rpx;
+	color: var(--ink-400);
+}
+.insight-bars {
+	display: flex;
+	align-items: flex-end;
+	gap: 14rpx;
+	margin-top: 28rpx;
+}
+.insight-col {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8rpx;
+}
+.insight-col-val {
+	font-size: 20rpx;
+	color: var(--ink-500);
+}
+.insight-bar-track {
+	height: 120rpx;
+	width: 100%;
+	display: flex;
+	align-items: flex-end;
+}
+.insight-bar {
+	width: 100%;
+	min-height: 8rpx;
+	border-radius: 8rpx 8rpx 4rpx 4rpx;
+	background: var(--line-100);
+	transition: height 0.4s ease;
+}
+.insight-bar-on {
+	background: linear-gradient(180deg, var(--brand-500), var(--brand-600));
+}
+.insight-col-label {
+	font-size: 20rpx;
+	color: var(--ink-400);
+}
+.insight-col-now {
+	color: var(--brand-600);
+	font-weight: 600;
+}
+.insight-modes {
+	margin-top: 30rpx;
+	border-top: 1rpx solid #eef0f6;
+	padding-top: 24rpx;
+	display: flex;
+	flex-direction: column;
+	gap: 18rpx;
+}
+.insight-mode-row {
+	display: flex;
+	align-items: center;
+	gap: 16rpx;
+}
+.insight-mode-name {
+	width: 150rpx;
+	font-size: 24rpx;
+	color: var(--ink-600);
+	flex-shrink: 0;
+}
+.insight-mode-track {
+	flex: 1;
+	height: 14rpx;
+	border-radius: 999rpx;
+	background: var(--line-100);
+	overflow: hidden;
+}
+.insight-mode-fill {
+	height: 100%;
+	border-radius: 999rpx;
+	background: linear-gradient(90deg, var(--brand-500), var(--brand-600));
+	transition: width 0.4s ease;
+}
+.insight-mode-val {
+	width: 90rpx;
+	text-align: right;
+	font-size: 22rpx;
+	color: var(--ink-500);
+	flex-shrink: 0;
+}
+.insight-empty {
+	padding: 30rpx 0 6rpx;
+}
+.insight-empty-text {
+	font-size: 24rpx;
+	color: var(--ink-400);
+}
+
+/* ---------- 勋章仪式感（Phase 1.9） ---------- */
+.badge-fest {
+	position: fixed;
+	inset: 0;
+	z-index: 999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.badge-fest-mask {
+	position: absolute;
+	inset: 0;
+	background: rgba(8, 14, 30, 0.86);
+	backdrop-filter: blur(8px);
+	animation: fest-fade 0.3s ease both;
+}
+.badge-fest-body {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	animation: fest-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.fest-particles {
+	position: absolute;
+	left: 50%;
+	top: 80px;
+	width: 0;
+	height: 0;
+	pointer-events: none;
+}
+.fest-dot {
+	position: absolute;
+	left: 0;
+	top: 0;
+	border-radius: 50%;
+	background: radial-gradient(circle at 35% 35%, #ffe9b0, #f5b942);
+	box-shadow: 0 0 12rpx rgba(245, 185, 66, 0.9);
+	opacity: 0;
+	transform: translate(-50%, -50%) scale(0.4);
+	animation: fest-fly 1.7s ease-out infinite;
+}
+.fest-icon-wrap {
+	position: relative;
+	width: 300rpx;
+	height: 300rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.fest-icon {
+	width: 260rpx;
+	height: 260rpx;
+	filter: drop-shadow(0 0 24px rgba(255, 200, 80, 0.65));
+	animation: fest-breathe 2.4s ease-in-out 0.6s infinite;
+}
+.fest-halo {
+	position: absolute;
+	inset: -6rpx;
+	border-radius: 50%;
+	border: 2rpx dashed rgba(255, 205, 96, 0.55);
+	animation: fest-spin 9s linear infinite;
+}
+.fest-title {
+	margin-top: 56rpx;
+	font-size: 28rpx;
+	color: rgba(255, 255, 255, 0.65);
+	letter-spacing: 8rpx;
+}
+.fest-name {
+	margin-top: 18rpx;
+	font-size: 52rpx;
+	font-weight: 700;
+	color: #ffd479;
+	text-shadow: 0 2rpx 18rpx rgba(245, 185, 66, 0.45);
+}
+.fest-hint {
+	margin-top: 72rpx;
+	font-size: 24rpx;
+	color: rgba(255, 255, 255, 0.4);
+}
+@keyframes fest-fly {
+	0% {
+		opacity: 0;
+		transform: translate(-50%, -50%) scale(0.4);
+	}
+	15% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		transform: translate(calc(-50% + var(--px)), calc(-50% + var(--py))) scale(1);
+	}
+}
+@keyframes fest-pop {
+	0% {
+		transform: scale(0.2);
+		opacity: 0;
+	}
+	60% {
+		transform: scale(1.12);
+	}
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+@keyframes fest-fade {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+@keyframes fest-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@keyframes fest-breathe {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.06);
+	}
 }
 </style>

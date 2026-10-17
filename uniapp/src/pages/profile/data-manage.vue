@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view :class="['page', themeCls]">
 		<!-- 导出备份 -->
 		<view class="card fade-up">
 			<view class="section-head">
@@ -35,6 +35,9 @@
 </template>
 
 <script setup lang="ts">
+import { useThemeClass } from "@/utils/theme";
+
+const themeCls = useThemeClass();
 import { ref } from "vue";
 import { importUserData, type ImportStats } from "@/api";
 import { BASE_URL } from "@/utils/config";

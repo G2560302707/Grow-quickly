@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view :class="['page', themeCls]">
 		<!-- 步骤一：选择错题本 -->
 		<view class="card fade-up">
 			<view class="step-head">
@@ -92,12 +92,23 @@
 			</template>
 		</view>
 
-		<!-- 步骤三：AI 识别 -->
+		<!-- 步骤三：选择解析方式并识别 -->
 		<view class="card fade-up">
 			<view class="step-head">
 				<text class="step-no num">3</text>
-				<text class="step-title">AI 识别与保存</text>
+				<text class="step-title">选择解析方式并识别</text>
 			</view>
+
+			<!-- 解析方式二选一：AI 解析 / 上传解析图 -->
+			<view class="mode-pills">
+				<view class="mode-pill" :class="{ active: explainMode === 'ai' }" hover-class="hv" @tap="explainMode = 'ai'">
+					<text>AI 解析</text>
+				</view>
+				<view class="mode-pill" :class="{ active: explainMode === 'upload' }" hover-class="hv" @tap="explainMode = 'upload'">
+					<text>上传解析图</text>
+				</view>
+			</view>
+			<text class="mode-hint">{{ explainMode === 'ai' ? "识别题干、答案与解析，均由 AI 生成" : "AI 只识别题干与答案；解析从你上传的解析图提取，可不上传" }}</text>
 
 			<button
 				class="btn-primary analyze-btn"
@@ -106,12 +117,14 @@
 				@tap="handleAnalyze"
 			>
 				<text v-if="analyzing">{{ isMultiMode ? "正在拼接识别..." : "AI 识别中，约需 10-30 秒..." }}</text>
-				<text v-else>{{ isMultiMode ? "合并并识别" : "开始 AI 识别" }}</text>
+				<text v-else>{{ isMultiMode
+					? (explainMode === 'upload' ? "合并并识别（随后上传解析图）" : "合并并识别")
+					: (explainMode === 'upload' ? "识别题目（随后上传解析图）" : "开始 AI 识别") }}</text>
 			</button>
 			<view v-if="errorMsg" class="error-tip analyze-error">{{ errorMsg }}</view>
 			<view v-if="analyzing" class="analyzing-hint">
 				<view class="pulse-dot" />
-				<text class="analyzing-text">正在识别题目、答案与解析</text>
+				<text class="analyzing-text">{{ explainMode === 'upload' ? "正在识别题目与答案" : "正在识别题目、答案与解析" }}</text>
 			</view>
 		</view>
 
@@ -163,9 +176,31 @@
 				<text class="result-label">正确答案</text>
 				<MdRich :content="result.answerText" />
 			</view>
-			<view v-if="result.analysis" class="result-block">
-				<text class="result-label">解析</text>
-				<MdRich :content="result.analysis" />
+			<view class="result-block">
+				<view class="result-label-row">
+					<text class="result-label">解析</text>
+					<text v-if="explainMode === 'upload' && ocrText" class="edit-link" @tap="pickExplainImage">重新上传解析图</text>
+				</view>
+				<template v-if="explainMode === 'ai'">
+					<MdRich v-if="result.analysis" :content="result.analysis" />
+					<text v-else class="tag-hint">AI 未返回解析内容</text>
+				</template>
+				<template v-else>
+					<view v-if="!ocrText && !ocrUploading" class="ocr-upload" hover-class="hv" @tap="pickExplainImage">
+						<text class="ocr-upload-plus">＋</text>
+						<text class="ocr-upload-text">拍摄或上传解析图</text>
+						<text class="ocr-upload-hint">教材答案页、老师板书、解析册均可；解析可留空</text>
+					</view>
+					<view v-if="ocrUploading" class="analyzing-hint">
+						<view class="pulse-dot" />
+						<text class="analyzing-text">正在提取解析文字...</text>
+					</view>
+					<view v-if="ocrError" class="error-tip">{{ ocrError }}</view>
+					<template v-if="ocrText">
+						<textarea v-model="ocrText" class="ocr-edit" :maxlength="-1" auto-height disabled-color="#ffffff" />
+						<text class="tag-hint">以上为解析图转录结果，可直接修改；不上传也能直接保存</text>
+					</template>
+				</template>
 			</view>
 			<view v-if="result.mistakeAnalysis" class="result-block">
 				<text class="result-label">错因分析</text>
@@ -213,12 +248,16 @@
 </template>
 
 <script setup lang="ts">
+import { useThemeClass } from "@/utils/theme";
+
+const themeCls = useThemeClass();
 import { ref, computed } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import {
 	listNotebooks,
 	analyzeImage,
 	analyzeMultiImages,
+	ocrExplainImage,
 	createErrorItem,
 	detectQuestions,
 	reanswerQuestion,
@@ -250,6 +289,12 @@ const editedQuestionText = ref("");
 const reanswering = ref(false);
 // 当前 imagePath 对应的 base64，识别后复用给重新解答（避免重复读文件）
 const imageBase64Cache = ref("");
+
+// 解析方式二选一：ai=AI 生成解析（默认，全流程不变）；upload=AI 只识别题干答案，解析由用户上传解析图 OCR 提取
+const explainMode = ref<"ai" | "upload">("ai");
+const ocrText = ref(""); // 解析图转录文本（可编辑）
+const ocrUploading = ref(false);
+const ocrError = ref("");
 
 // 多图拼接模式（单题跨多张）：待拼接图片列表与合并图缓存（保存原图用）
 const MAX_MULTI = 5;
@@ -507,6 +552,42 @@ function readImageAsBase64(filePath: string): Promise<string> {
 	// #endif
 }
 
+/**
+ * 「上传解析图」模式：拍摄/相册选一张解析图 → /api/ocr-explain 逐字转录 → 可编辑文本。
+ * 不上传也允许保存（解析留空）。
+ */
+function pickExplainImage() {
+	uni.showActionSheet({
+		itemList: ["拍照", "从相册选择"],
+		success: res => {
+			const sourceType = res.tapIndex === 0 ? "camera" : "album";
+			uni.chooseImage({
+				count: 1,
+				sizeType: ["compressed"],
+				sourceType: [sourceType],
+				success: async r => {
+					const path = (r.tempFilePaths || [])[0];
+					if (!path) return;
+					ocrError.value = "";
+					ocrUploading.value = true;
+					try {
+						const base64 = await readImageAsBase64(path);
+						const data = await ocrExplainImage(base64);
+						ocrText.value = (data.text || "").trim();
+						if (!ocrText.value) {
+							ocrError.value = "未能从图片提取到文字，请换一张更清晰的图片";
+						}
+					} catch (e: any) {
+						ocrError.value = e?.message || "解析图识别失败，请重试";
+					} finally {
+						ocrUploading.value = false;
+					}
+				},
+			});
+		},
+	});
+}
+
 async function handleAnalyze() {
 	if (isMultiMode.value) {
 		return handleMultiAnalyze();
@@ -516,10 +597,12 @@ async function handleAnalyze() {
 	errorMsg.value = "";
 	result.value = null;
 	editingQuestion.value = false;
+	ocrText.value = "";
+	ocrError.value = "";
 	try {
 		const base64 = await readImageAsBase64(imagePath.value);
 		imageBase64Cache.value = base64;
-		result.value = await analyzeImage(base64, selectedNotebook.value.id);
+		result.value = await analyzeImage(base64, selectedNotebook.value.id, explainMode.value === "upload" ? "skip" : "ai");
 		syncSelectedFromAi(result.value?.knowledgePoints);
 	} catch (e: any) {
 		errorMsg.value = e?.message || "AI 识别失败，请重试";
@@ -535,13 +618,15 @@ async function handleMultiAnalyze() {
 	errorMsg.value = "";
 	result.value = null;
 	editingQuestion.value = false;
+	ocrText.value = "";
+	ocrError.value = "";
 	try {
 		const imagesPayload: { base64: string; mimeType: string }[] = [];
 		for (const img of multiImages.value) {
 			const base64 = await readImageAsBase64(img.path);
 			imagesPayload.push({ base64, mimeType: "image/jpeg" });
 		}
-		const data = await analyzeMultiImages(imagesPayload, selectedNotebook.value.id);
+		const data = await analyzeMultiImages(imagesPayload, selectedNotebook.value.id, explainMode.value === "upload" ? "skip" : "ai");
 		// 以拼接后的完整图为原图（重新解答与保存都复用）
 		mergedImageBase64Cache.value = data.mergedImageBase64 || "";
 		imageBase64Cache.value = mergedImageBase64Cache.value;
@@ -635,16 +720,21 @@ async function handleSave() {
 		} else {
 			base64 = await readImageAsBase64(imagePath.value);
 		}
+		// 解析：AI 模式取 AI 结果；上传模式取 OCR 转录文本（可空，允许不上传直接保存）
+		const analysisFinal = explainMode.value === "upload"
+			? ocrText.value.trim()
+			: (result.value.analysis || "");
 		const item = await createErrorItem({
 			questionText: result.value.questionText || "",
 			answerText: result.value.answerText || "",
-			analysis: result.value.analysis || "",
+			analysis: analysisFinal,
 			wrongAnswerText: result.value.wrongAnswerText || "",
 			mistakeAnalysis: result.value.mistakeAnalysis || "",
 			mistakeStatus: result.value.mistakeStatus,
 			knowledgePoints: selectedTagNames.value,
 			originalImageUrl: base64,
 			subjectId: selectedNotebook.value.id,
+			explanationSource: explainMode.value === "upload" ? (analysisFinal ? "ocr" : null) : "ai",
 		});
 		uni.showToast({ title: "已保存", icon: "success" });
 		result.value = null;
@@ -902,9 +992,39 @@ async function handleSave() {
 	margin-top: 20rpx;
 }
 
+/* ---------- 解析方式二选一 ---------- */
+.mode-pills {
+	display: flex;
+	gap: 16rpx;
+	margin-top: 20rpx;
+}
+.mode-pill {
+	flex: 1;
+	text-align: center;
+	padding: 18rpx 0;
+	border-radius: 14rpx;
+	border: 1rpx solid var(--line-100);
+	background: var(--bg-fill);
+	font-size: 27rpx;
+	color: var(--ink-500);
+}
+.mode-pill.active {
+	background: var(--brand-50);
+	border-color: var(--brand-600);
+	color: var(--brand-600);
+	font-weight: 600;
+}
+.mode-hint {
+	display: block;
+	margin-top: 14rpx;
+	font-size: 22rpx;
+	line-height: 1.6;
+	color: var(--ink-400);
+}
+
 /* ---------- 识别 ---------- */
 .analyze-btn {
-	margin-top: 8rpx;
+	margin-top: 24rpx;
 }
 .analyze-error {
 	margin: 24rpx 0 0;
@@ -937,6 +1057,47 @@ async function handleSave() {
 .analyzing-text {
 	font-size: 24rpx;
 	color: var(--ink-400);
+}
+
+/* ---------- 上传解析图 ---------- */
+.ocr-upload {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 44rpx 24rpx;
+	border: 2rpx dashed var(--line-100);
+	border-radius: 16rpx;
+	background: var(--bg-fill);
+}
+.ocr-upload-plus {
+	font-size: 52rpx;
+	line-height: 1;
+	color: var(--brand-600);
+	margin-bottom: 14rpx;
+}
+.ocr-upload-text {
+	font-size: 28rpx;
+	font-weight: 600;
+	color: var(--ink-600);
+	margin-bottom: 8rpx;
+}
+.ocr-upload-hint {
+	font-size: 22rpx;
+	color: var(--ink-400);
+}
+.ocr-edit {
+	width: 100%;
+	min-height: 200rpx;
+	box-sizing: border-box;
+	padding: 20rpx 24rpx;
+	font-size: 26rpx;
+	line-height: 1.7;
+	color: var(--ink-600);
+	background: var(--bg-fill);
+	border-radius: 12rpx;
+	border: 1rpx solid var(--line-100);
+	margin-bottom: 12rpx;
 }
 
 /* ---------- 结果 ---------- */

@@ -58,6 +58,9 @@ page {
   --shadow-float: 0 16rpx 40rpx rgba(10, 16, 34, 0.14);
   --shadow-primary: 0 8rpx 22rpx rgba(61, 82, 213, 0.26);
 
+  /* 深色页头光晕（随主题换色） */
+  --glow-primary: rgba(85, 104, 232, 0.25);
+
   background-color: var(--bg-page);
   color: var(--ink-900);
   font-size: 28rpx;
@@ -74,6 +77,38 @@ page {
 /* ---------- 页面容器 ---------- */
 .page {
   min-height: 100vh;
+  background-color: var(--bg-page);
+}
+
+/* ============================================================
+   外观主题（变量覆盖组）：默认=书房墨蓝（即上方 page 令牌原值）。
+   页面根 view 挂 .page.t-xxx 后整页换肤；子元素通过 var() 继承。
+   ============================================================ */
+
+/* 冷灰精密：近白画布 · 钢青为主 · 仪器琥珀点睛 */
+.page.t-cool-steel {
+  --brand-900: #16181d;
+  --brand-800: #1d2025;
+  --brand-700: #1e4e60;
+  --brand-600: #1f6e8c;
+  --brand-500: #2f7f9e;
+  --brand-100: #d9e8ee;
+  --brand-50: #ecf3f6;
+  --gold-600: #c07f2d;
+  --gold-500: #cd9146;
+  --gold-100: #f3e5d3;
+  --gold-50: #f8f1e6;
+  --ink-900: #1a1d21;
+  --ink-600: #4a5058;
+  --ink-500: #6b727c;
+  --ink-400: #9aa1ab;
+  --ink-300: #c6ccd2;
+  --line-100: #e2e7e9;
+  --line-50: #eff2f3;
+  --bg-page: #f4f6f7;
+  --bg-fill: #edf0f2;
+  --shadow-primary: 0 10rpx 26rpx rgba(31, 110, 140, 0.18);
+  --glow-primary: rgba(47, 127, 158, 0.22);
 }
 
 /* ---------- 卡片 ---------- */

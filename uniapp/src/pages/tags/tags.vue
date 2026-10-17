@@ -1,6 +1,6 @@
 <template>
 	<scroll-view scroll-y class="page-scroll" :show-scrollbar="false" enable-back-to-top>
-		<view class="page">
+		<view :class="['page', themeCls]">
 			<view v-if="loading" class="empty-tip">加载中...</view>
 			<template v-else>
 				<view v-if="needsImport" class="card import-card fade-up">
@@ -63,6 +63,9 @@
 </template>
 
 <script setup lang="ts">
+import { useThemeClass } from "@/utils/theme";
+
+const themeCls = useThemeClass();
 import { ref, computed } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import {

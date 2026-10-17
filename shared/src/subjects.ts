@@ -33,3 +33,50 @@ export const AI_SUBJECT_OPTIONS = [
 export type AiSubject = (typeof AI_SUBJECT_OPTIONS)[number];
 
 export const AI_SUBJECT_PROMPT_LIST = AI_SUBJECT_OPTIONS.map((s) => `"${s}"`).join(", ");
+
+/** 错题本图标 key 白名单（与 uniapp static/notebook-icons 资源一一对应） */
+export const NOTEBOOK_ICON_KEYS = [
+    // 行测科目
+    "changshi",
+    "yanyu",
+    "panduan",
+    "shuliang",
+    "ziliao",
+    "shenlun",
+    // 学科课程
+    "math",
+    "english",
+    "chinese",
+    "politics",
+    "history",
+    "geography",
+    "physics",
+    "chemistry",
+    "biology",
+    // 知识点
+    "formula",
+    "vocab",
+    "reading",
+    "logic",
+    "chart",
+    "mistake",
+    "point",
+    "note",
+    // 学习场景
+    "practice",
+    "review",
+    "weak",
+    "mock",
+    "star",
+    "folder",
+    "other",
+] as const;
+
+export type NotebookIconKey = (typeof NOTEBOOK_ICON_KEYS)[number];
+
+/** 校验并归一 iconKey，非法值回退 other */
+export function normalizeNotebookIconKey(v: unknown): NotebookIconKey {
+    return (NOTEBOOK_ICON_KEYS as readonly string[]).includes(String(v))
+        ? (String(v) as NotebookIconKey)
+        : "other";
+}

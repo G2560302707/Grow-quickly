@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, forbidden, notFound, badRequest, internalError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
+import { normalizeNotebookIconKey } from "@grow/shared/subjects";
 import { notebookNameError } from "@/lib/name-validation";
 
 const logger = createLogger('api:notebooks:id');
@@ -93,7 +94,7 @@ export async function PUT(
         }
 
         const body = await req.json();
-        const { name } = body;
+        const { name, iconKey } = body;
 
         if (!name || !name.trim()) {
             return badRequest("Notebook name is required");
@@ -109,6 +110,7 @@ export async function PUT(
             where: { id },
             data: {
                 name: name.trim(),
+                iconKey: normalizeNotebookIconKey(iconKey ?? notebook.iconKey),
             },
             include: {
                 _count: {
@@ -168,9 +170,25 @@ export async function DELETE(
             return forbidden("Not authorized to delete this notebook");
         }
 
-        // 检查是否有错题
+        // 默认本不可删除
+        if (notebook.isDefault) {
+            return badRequest("默认错题本不可删除");
+        }
+
+        // 有错题时迁入用户默认本（无则先补建），再删除本
         if (notebook._count.errorItems > 0) {
-            return badRequest("Cannot delete notebook with error items. Please move or delete all items first.");
+            let defaultNb = await prisma.subject.findFirst({
+                where: { userId: user.id, isDefault: true },
+            });
+            if (!defaultNb) {
+                defaultNb = await prisma.subject.create({
+                    data: { name: "其他", userId: user.id, iconKey: "other", isDefault: true },
+                });
+            }
+            await prisma.errorItem.updateMany({
+                where: { subjectId: id },
+                data: { subjectId: defaultNb.id },
+            });
         }
 
         await prisma.subject.delete({

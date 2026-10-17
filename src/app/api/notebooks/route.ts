@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { unauthorized, badRequest, conflict, internalError } from "@grow/shared/api-errors";
 import { createLogger } from "@grow/shared/logger";
-import { GONGKAO_NOTEBOOKS } from "@grow/shared/subjects";
+import { GONGKAO_NOTEBOOKS, normalizeNotebookIconKey } from "@grow/shared/subjects";
 import { notebookNameError } from "@/lib/name-validation";
 
 const logger = createLogger('api:notebooks');
@@ -44,7 +44,7 @@ export async function GET() {
             },
         });
 
-        // If no notebooks exist, create default 考公/行测 modules
+        // If no notebooks exist, create default 考公/行测 modules + 默认本「其他」
         if (notebooks.length === 0) {
             const defaultSubjects = [...GONGKAO_NOTEBOOKS];
 
@@ -56,6 +56,15 @@ export async function GET() {
                     }
                 })
             ));
+
+            await prisma.subject.create({
+                data: {
+                    name: "其他",
+                    userId: user!.id,
+                    iconKey: "other",
+                    isDefault: true,
+                },
+            });
 
             // Fetch again
             notebooks = await prisma.subject.findMany({
@@ -102,7 +111,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { name } = body;
+        const { name, iconKey } = body;
 
         if (!name || !name.trim()) {
             return badRequest("Notebook name is required");
@@ -113,6 +122,8 @@ export async function POST(req: Request) {
         if (nameErr) {
             return badRequest(nameErr);
         }
+
+        const safeIconKey = normalizeNotebookIconKey(iconKey);
 
         // 检查是否已存在同名错题本
         const existing = await prisma.subject.findUnique({
@@ -132,6 +143,7 @@ export async function POST(req: Request) {
             data: {
                 name: name.trim(),
                 userId: user.id,
+                iconKey: safeIconKey,
             },
             include: {
                 _count: {
@@ -141,6 +153,16 @@ export async function POST(req: Request) {
                 },
             },
         });
+
+        // 用户尚无默认本时（首个本），将其设为默认
+        const hasDefault = await prisma.subject.findFirst({
+            where: { userId: user.id, isDefault: true },
+            select: { id: true },
+        });
+        if (!hasDefault) {
+            await prisma.subject.update({ where: { id: notebook.id }, data: { isDefault: true } });
+            notebook.isDefault = true;
+        }
 
         return NextResponse.json(notebook, { status: 201 });
     } catch (error) {

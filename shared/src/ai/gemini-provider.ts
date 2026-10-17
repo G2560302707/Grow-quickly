@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, AIConfig, ReanswerQuestionResult, GeogebraAnalysisResult, BankImportItem } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt, generateBankImportPrompt } from './prompts';
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt, generateBankImportPrompt, generateOcrExplainPrompt, SKIP_EXPLANATION_HINT } from './prompts';
 import { safeParseParsedQuestion, parseDetectedQuestions, parseSimilarBatch, parseBankImportBatch } from './schema';
 import { getAppConfig } from '../config';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
@@ -66,7 +66,7 @@ export class GeminiProvider implements AIService {
         return text.substring(startIndex + startTag.length, endIndex).trim();
     }
 
-    private parseResponse(text: string): ParsedQuestion {
+    private parseResponse(text: string, explainMode: 'ai' | 'skip' = 'ai'): ParsedQuestion {
         logger.debug({ textLength: text.length }, 'Parsing AI response');
 
         const questionText = this.extractTag(text, "question_text");
@@ -79,8 +79,8 @@ export class GeminiProvider implements AIService {
         const mistakeAnalysis = this.extractTag(text, "mistake_analysis") || "";
         const mistakeStatusRaw = this.extractTag(text, "mistake_status");
 
-        // Basic Validation
-        if (!questionText || !answerText || !analysis) {
+        // Basic Validation（skip 模式：解析由用户上传解析图提供，允许 AI 省略 <analysis>）
+        if (!questionText || !answerText || (explainMode !== 'skip' && !analysis)) {
             logger.error({ rawTextSample: text.substring(0, 500) }, 'Missing critical XML tags');
             throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
         }
@@ -106,7 +106,7 @@ export class GeminiProvider implements AIService {
         const result: ParsedQuestion = {
             questionText,
             answerText,
-            analysis,
+            analysis: analysis || "",
             wrongAnswerText,
             mistakeAnalysis,
             mistakeStatus,
@@ -126,7 +126,7 @@ export class GeminiProvider implements AIService {
         }
     }
 
-    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: 7 | 8 | 9 | 10 | 11 | 12 | null, subject?: string | null, gradeSemester?: string | null): Promise<ParsedQuestion> {
+    async analyzeImage(imageBase64: string, mimeType: string = "image/jpeg", language: 'zh' | 'en' = 'zh', grade?: 7 | 8 | 9 | 10 | 11 | 12 | null, subject?: string | null, gradeSemester?: string | null, explainMode: 'ai' | 'skip' = 'ai'): Promise<ParsedQuestion> {
         const config = getAppConfig();
 
         // 从数据库获取各学科标签
@@ -146,6 +146,7 @@ export class GeminiProvider implements AIService {
             prefetchedBiologyTags,
             prefetchedEnglishTags,
             prefetchedGongkaoTags,
+            providerHints: explainMode === 'skip' ? SKIP_EXPLANATION_HINT : '',
         }, gradeSemester);
 
         logger.box('🔍 AI Image Analysis Request', {
@@ -214,7 +215,7 @@ export class GeminiProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
-            const parsedResult = this.parseResponse(text);
+            const parsedResult = this.parseResponse(text, explainMode);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -440,6 +441,33 @@ export class GeminiProvider implements AIService {
 
         } catch (error) {
             logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Error during reanswer');
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    /** 解析图 OCR：逐字转录图片中的解析文本（不解题不改写），供「上传解析图」模式 */
+    async transcribeImage(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<string> {
+        const prompt = generateOcrExplainPrompt();
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        logger.info({ provider: 'Gemini', imageSize: base64Data.length, mimeType }, 'OCR transcribe Request');
+
+        try {
+            const startTime = Date.now();
+            const response = await retryOperation(() => this.ai.models.generateContent({
+                model: this.modelName,
+                contents: [
+                    { text: prompt },
+                    { inlineData: { mimeType, data: base64Data } },
+                ],
+            }), { label: 'gemini:transcribeImage' });
+            logger.info({ provider: 'Gemini', durationMs: Date.now() - startTime }, 'Gemini transcribeImage completed');
+
+            const text = (response.text || '').trim();
+            if (!text) throw new Error('Empty response from AI');
+            return text;
+        } catch (error) {
+            logger.error({ error }, 'Error during transcribeImage');
             this.handleError(error);
             throw error;
         }

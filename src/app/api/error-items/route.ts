@@ -31,6 +31,7 @@ export async function POST(req: Request) {
             originalImageUrl,
             subjectId,
             geogebraCommands,
+            explanationSource,
         } = body;
 
         // 图片大小校验：base64 数据超限直接拒绝
@@ -134,6 +135,7 @@ export async function POST(req: Request) {
                     questionText,
                     answerText,
                     analysis,
+                    explanationSource: typeof explanationSource === 'string' && ['ai', 'ocr'].includes(explanationSource) ? explanationSource : null,
                     wrongAnswerText: wrongAnswerText || null,
                     mistakeAnalysis: mistakeAnalysis || null,
                     mistakeStatus: normalizeMistakeStatusForSave(mistakeStatus, wrongAnswerText),

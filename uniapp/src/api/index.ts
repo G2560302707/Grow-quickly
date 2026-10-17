@@ -8,6 +8,8 @@ import { request } from "../utils/request";
 export interface Notebook {
     id: string;
     name: string;
+    iconKey?: string; // 图标键，static/notebook-icons/<key>.png
+    isDefault?: boolean; // 默认本：不可删，删其它本时题目迁入
     _count?: { errorItems: number };
 }
 
@@ -30,6 +32,7 @@ export interface ErrorItem {
     masteryLevel: number;
     originalImageUrl: string;
     knowledgePoints: string | null;
+    explanationSource?: string | null; // 解析来源: ai / ocr
     createdAt?: string;
     subject?: { id: string; name: string } | null;
     tags?: ErrorItemTag[];
@@ -57,6 +60,18 @@ export interface ParsedQuestion {
 
 export function listNotebooks(): Promise<Notebook[]> {
     return request<Notebook[]>("/api/notebooks");
+}
+
+export function createNotebook(name: string, iconKey: string): Promise<Notebook> {
+    return request<Notebook>("/api/notebooks", { method: "POST", data: { name, iconKey } });
+}
+
+export function updateNotebook(id: string, name: string, iconKey: string): Promise<Notebook> {
+    return request<Notebook>(`/api/notebooks/${id}`, { method: "PUT", data: { name, iconKey } });
+}
+
+export function deleteNotebook(id: string): Promise<{ message: string }> {
+    return request<{ message: string }>(`/api/notebooks/${id}`, { method: "DELETE" });
 }
 
 // ---------- 学习概览（新增独立聚合路由，不影响网页端） ----------
@@ -286,6 +301,7 @@ export function createErrorItem(payload: {
     knowledgePoints: string[];
     originalImageUrl: string;
     subjectId: string;
+    explanationSource?: string | null; // 解析来源: ai(AI 生成) / ocr(解析图转录)；不上传解析时为 null
 }): Promise<ErrorItem> {
     return request("/api/error-items", { method: "POST", data: payload });
 }
@@ -381,21 +397,30 @@ export function deleteTag(id: string): Promise<{ success: boolean; deleted: numb
 
 // ---------- AI ----------
 
-export function analyzeImage(imageBase64: string, subjectId?: string): Promise<ParsedQuestion> {
+export function analyzeImage(imageBase64: string, subjectId?: string, explainMode?: "ai" | "skip"): Promise<ParsedQuestion> {
     return request("/api/analyze", {
         method: "POST",
-        data: { imageBase64, language: "zh", subjectId },
+        data: { imageBase64, language: "zh", subjectId, explainMode: explainMode || "ai" },
+    });
+}
+
+/** 解析图 OCR：逐字转录解析/解题过程图片（不解题不改写），供「上传解析图」模式 */
+export function ocrExplainImage(imageBase64: string): Promise<{ text: string }> {
+    return request("/api/ocr-explain", {
+        method: "POST",
+        data: { imageBase64 },
     });
 }
 
 /** 多图拼接识别：同一道题的多张照片交给后端纵向拼接成一张完整题目图后整体识别；返回合并图供原图保存 */
 export function analyzeMultiImages(
     images: { base64: string; mimeType: string }[],
-    subjectId?: string
+    subjectId?: string,
+    explainMode?: "ai" | "skip"
 ): Promise<ParsedQuestion & { mergedImageBase64?: string }> {
     return request("/api/analyze", {
         method: "POST",
-        data: { images, language: "zh", subjectId, multiStitched: true },
+        data: { images, language: "zh", subjectId, multiStitched: true, explainMode: explainMode || "ai" },
     });
 }
 
@@ -571,6 +596,10 @@ export interface FocusStats {
     totalSessions: number;
     totalSeconds: number;
     last7Days: { date: string; seconds: number }[];
+    /** 每日目标(分钟)，后台持久化；老接口无此字段时前端用本地值兜底 */
+    dailyGoalMin?: number;
+    /** 分模式洞察：pomodoro(番茄钟) / mock(整卷模考) / custom(自定义) */
+    byMode?: Record<string, { seconds: number; sessions: number; completed: number }>;
 }
 
 export function recordFocusSession(params: {
@@ -585,6 +614,11 @@ export function recordFocusSession(params: {
 
 export function getFocusStats(): Promise<FocusStats> {
     return request("/api/focus/stats");
+}
+
+/** 设置专注每日目标（分钟），跨端同步到后台 */
+export function setFocusDailyGoal(dailyGoalMin: number): Promise<{ dailyGoalMin: number }> {
+    return request("/api/focus/goal", { method: "POST", data: { dailyGoalMin } });
 }
 
 /** 练习记录列表（分页倒序），用于练习历史窗口；channel 可按渠道筛选 */

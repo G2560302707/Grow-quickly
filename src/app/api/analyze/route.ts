@@ -10,6 +10,7 @@ import { createLogger } from "@grow/shared/logger";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { GONGKAO_NOTEBOOKS } from "@grow/shared/subjects";
 import { stitchImagesVertically, StitchImageInput, StitchResult } from "@/lib/image-stitch";
+import { logAiEval, newEvalEntry, readProviderLabel, AiEvalScene } from "@/lib/ai-eval-log";
 
 const logger = createLogger('api:analyze');
 
@@ -92,7 +93,8 @@ async function resolveAnalysisContext(session: any, subjectId?: string): Promise
 async function handleMultiImageAnalysis(
     images: any[],
     language: 'zh' | 'en' | undefined,
-    ctx: AnalysisContext
+    ctx: AnalysisContext,
+    explainMode: 'ai' | 'skip' = 'ai'
 ): Promise<NextResponse> {
     if (images.length > MAX_IMAGES) {
         return createErrorResponse(
@@ -180,16 +182,30 @@ async function handleMultiImageAnalysis(
     }, 'Multi-image stitched, calling AI');
 
     const aiService = getAIService();
+    const startAt = Date.now();
     const analysisResult = await aiService.analyzeImage(
         merged.base64,
         merged.mimeType,
         language,
         ctx.userGrade,
         ctx.subjectChinese,
-        ctx.userGradeSemester
+        ctx.userGradeSemester,
+        explainMode
     );
+    const durationMs = Date.now() - startAt;
 
     logger.info({ imagesCount: inputs.length }, 'Multi-image analysis successful');
+
+    // 评估日志：记录多图识别结果（供 accuracy/stability 统计）
+    logAiEval(newEvalEntry("analyze_multi", {
+        ok: true,
+        statusCode: 200,
+        durationMs,
+        ...readProviderLabel(),
+        subject: ctx.subjectChinese,
+        imageMeta: { imagesCount: inputs.length, width: merged.width, height: merged.height },
+        result: analysisResult as unknown as Record<string, unknown>,
+    }));
 
     return NextResponse.json({
         ...analysisResult,
@@ -199,6 +215,7 @@ async function handleMultiImageAnalysis(
 
 export async function POST(req: Request) {
     logger.info('Analyze API called');
+    const requestStart = Date.now();
 
     const session = await getServerSession(authOptions);
 
@@ -208,9 +225,19 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    // 评估日志错误路径用：在 try 外声明，catch 里才能引用（try 内是块级作用域）
+    let evalMeta: { scene: AiEvalScene; imageMeta?: Record<string, unknown> } = { scene: "analyze_single" };
+
     try {
         const body = await req.json();
         let { imageBase64, mimeType, language, subjectId, images } = body;
+        // 解析方式：ai=AI 生成解析（默认，兼容旧调用）；skip=用户将上传解析图，AI 只识别题干与答案
+        const explainMode: 'ai' | 'skip' = body.explainMode === 'skip' ? 'skip' : 'ai';
+
+        evalMeta.scene = (Array.isArray(images) && images.length > 0) ? "analyze_multi" : "analyze_single";
+        evalMeta.imageMeta = (Array.isArray(images) && images.length > 0)
+            ? { imagesCount: images.length }
+            : { base64Chars: (typeof imageBase64 === "string" ? imageBase64.length : undefined) };
 
         logger.debug({
             imageLength: imageBase64?.length,
@@ -229,7 +256,7 @@ export async function POST(req: Request) {
         // 多图拼接模式（单题跨多张）：images[] 纵向拼接后整体识别
         if (Array.isArray(images) && images.length > 0) {
             const ctx = await resolveAnalysisContext(session, subjectId);
-            return await handleMultiImageAnalysis(images, language, ctx);
+            return await handleMultiImageAnalysis(images, language, ctx, explainMode);
         }
 
         if (!imageBase64) {
@@ -264,7 +291,9 @@ export async function POST(req: Request) {
 
         logger.info({ userGrade: ctx.userGrade, userGradeSemester: ctx.userGradeSemester, subject: ctx.subjectChinese }, 'Calling AI service for image analysis');
         const aiService = getAIService();
-        const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language, ctx.userGrade, ctx.subjectChinese, ctx.userGradeSemester);
+        const startAt = Date.now();
+        const analysisResult = await aiService.analyzeImage(imageBase64, mimeType, language, ctx.userGrade, ctx.subjectChinese, ctx.userGradeSemester, explainMode);
+        const durationMs = Date.now() - startAt;
 
         logger.debug({
             knowledgePointsCount: analysisResult.knowledgePoints?.length,
@@ -278,6 +307,17 @@ export async function POST(req: Request) {
         }
 
         logger.info('AI analysis successful');
+
+        // 评估日志：记录单图识别结果（供 accuracy/stability 统计）
+        logAiEval(newEvalEntry("analyze_single", {
+            ok: true,
+            statusCode: 200,
+            durationMs,
+            ...readProviderLabel(),
+            subject: ctx.subjectChinese,
+            imageMeta: { base64Chars: imageBase64?.length },
+            result: analysisResult as unknown as Record<string, unknown>,
+        }));
 
         return NextResponse.json(analysisResult);
     } catch (error: any) {
@@ -313,6 +353,18 @@ export async function POST(req: Request) {
         }
 
         // 原始错误已记录日志，details 不回传客户端以免泄漏上游 AI 服务信息
+        logAiEval(newEvalEntry(evalMeta.scene, {
+            ok: false,
+            statusCode: 500,
+            durationMs: Date.now() - requestStart,
+            ...readProviderLabel(),
+            imageMeta: evalMeta.imageMeta,
+            errorCode: ErrorCode.AI_ERROR,
+            errorMessage,
+            rawNote: error.message?.includes('Missing critical XML tags')
+                ? 'PARSE_FAILED: missing critical XML tags'
+                : undefined,
+        }));
         return createErrorResponse(errorMessage, 500, ErrorCode.AI_ERROR);
     }
 }

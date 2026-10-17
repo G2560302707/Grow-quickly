@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view :class="['page', themeCls]">
 		<!-- 搜索与筛选 -->
 		<view class="toolbar">
 			<view class="search-row">
@@ -124,6 +124,9 @@
 </template>
 
 <script setup lang="ts">
+import { useThemeClass } from "@/utils/theme";
+
+const themeCls = useThemeClass();
 import { ref, computed } from "vue";
 import { onLoad, onPullDownRefresh, onReachBottom, onShow } from "@dcloudio/uni-app";
 import { listErrorItems, getUserTagTree, type ErrorItem, type TagTreeNode } from "@/api";

@@ -25,6 +25,8 @@ model User {
   role      String   @default("user") // "admin" or "user"
   isActive  Boolean  @default(true)   // 用户是否启用
 
+  focusDailyGoalMin Int @default(120) // 专注每日目标(分钟)，小程序番茄钟跨端同步
+
   errorItems ErrorItem[]
   subjects   Subject[]
   practiceRecords PracticeRecord[]
@@ -123,6 +125,9 @@ model Subject {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  iconKey   String  @default("other") // 图标键（notebook-icons 资源名），创建/编辑时选择
+  isDefault Boolean @default(false) // 默认本，每用户至多一个；删除其它本时题目迁入此处
+
   errorItems ErrorItem[]
 
   createdAt DateTime @default(now())
@@ -145,6 +150,7 @@ model ErrorItem {
   questionText     String? // Parsed question
   answerText       String? // AI provided answer
   analysis         String? // AI analysis/explanation
+  explanationSource String? // 解析来源: ai(AI 生成) / ocr(用户上传解析图转录)；空值为历史数据
   wrongAnswerText  String? // Student's wrong answer/work if visible
   mistakeAnalysis  String? // Analysis of why the wrong answer happened
   mistakeStatus    String? // not_attempted, wrong_attempt, unknown

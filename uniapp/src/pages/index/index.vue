@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view :class="['page', themeCls]">
 		<!-- 深蓝 Hero：问候 + 录入入口 -->
 		<view class="hero">
 			<view class="hero-ring hero-ring-1" />
@@ -63,8 +63,11 @@
 
 		<!-- 错题本列表 -->
 		<view class="list-head">
-			<text class="list-title">我的错题本</text>
-			<text v-if="!statsLoading" class="list-count num">{{ notebooks.length }} 个</text>
+			<view class="list-head-left">
+				<text class="list-title">我的错题本</text>
+				<text v-if="!statsLoading" class="list-count num">{{ notebooks.length }} 个</text>
+			</view>
+			<text class="list-manage" hover-class="hv" @tap="goManage">管理</text>
 		</view>
 
 		<template v-if="loading && firstLoad">
@@ -94,15 +97,18 @@
 			>
 				<view
 					class="nb-icon"
-					:style="moduleIcon(nb.name)
+					:style="cardIcon(nb)
 						? { background: moduleTint(nb.name) }
 						: { background: moduleGradient(nb.name), boxShadow: moduleShadow(nb.name) }"
 				>
-					<image v-if="moduleIcon(nb.name)" class="nb-icon-img" :src="moduleIcon(nb.name)" mode="aspectFit" />
+					<image v-if="cardIcon(nb)" class="nb-icon-img" :src="cardIcon(nb)" mode="aspectFit" />
 					<text v-else class="nb-icon-char">{{ nb.name.charAt(0) }}</text>
 				</view>
 				<view class="nb-info">
-					<text class="nb-name">{{ nb.name }}</text>
+					<view class="nb-name-row">
+						<text class="nb-name">{{ nb.name }}</text>
+						<text v-if="nb.isDefault" class="nb-default-tag">默认</text>
+					</view>
 					<text class="nb-count num">{{ nb._count?.errorItems ?? 0 }} 道错题</text>
 				</view>
 				<text class="nb-arrow">›</text>
@@ -125,7 +131,11 @@ import {
 	getFocusStats,
 } from "@/api";
 import { subjectIcon, subjectTint } from "@/utils/subject-icon";
+import { notebookIconSrc } from "@/utils/notebook-icons";
+import { useThemeClass, applyNav } from "@/utils/theme";
 import { getSession } from "@/utils/auth";
+
+const themeCls = useThemeClass();
 
 
 const notebooks = ref<Notebook[]>([]);
@@ -196,6 +206,7 @@ const totalItems = computed(() =>
 );
 
 onShow(async () => {
+	applyNav(); // 导航栏跟随主题（深色 Hero 页专属）
 	if (refreshing) return;
 	errorMsg.value = "";
 	// 先确认会话；未登录直接去登录页，避免一串 401
@@ -283,6 +294,15 @@ function moduleIcon(name: string): string {
 	return subjectIcon(name);
 }
 
+/** 卡片图标：有 iconKey 用统一图标库，否则退回按名称映射 */
+function cardIcon(nb: Notebook): string {
+	return nb.iconKey ? notebookIconSrc(nb.iconKey) : subjectIcon(nb.name);
+}
+
+function goManage() {
+	uni.navigateTo({ url: "/pages/notebook-manage/notebook-manage" });
+}
+
 function moduleTint(name: string): string {
 	return subjectTint(name) || 'transparent';
 }
@@ -322,7 +342,7 @@ function moduleShadow(name: string): string {
 	width: 360rpx;
 	height: 360rpx;
 	border-radius: 50%;
-	background: radial-gradient(circle, rgba(85, 104, 232, 0.25) 0%, rgba(85, 104, 232, 0) 70%);
+	background: radial-gradient(circle, var(--glow-primary) 0%, transparent 70%);
 	top: -80rpx;
 	right: 40rpx;
 }
@@ -351,10 +371,10 @@ function moduleShadow(name: string): string {
 .hero-cta {
 	display: flex;
 	align-items: center;
-	background: linear-gradient(135deg, #d9ab52 0%, #c9973f 100%);
+	background: linear-gradient(135deg, var(--gold-500) 0%, var(--gold-600) 100%);
 	border-radius: 999rpx;
 	padding: 14rpx 30rpx;
-	box-shadow: 0 8rpx 24rpx rgba(201, 151, 63, 0.35);
+	box-shadow: var(--shadow-primary);
 }
 .hero-cta-plus {
 	color: #ffffff;
@@ -524,6 +544,31 @@ function moduleShadow(name: string): string {
 .list-count {
 	font-size: 24rpx;
 	color: var(--ink-400);
+}
+.list-head-left {
+	display: flex;
+	align-items: baseline;
+	gap: 12rpx;
+}
+.list-manage {
+	font-size: 26rpx;
+	color: var(--brand-600);
+	font-weight: 500;
+	padding: 4rpx 8rpx;
+}
+.nb-name-row {
+	display: flex;
+	align-items: center;
+	gap: 12rpx;
+}
+.nb-default-tag {
+	font-size: 20rpx;
+	color: var(--brand-600);
+	background: var(--brand-50);
+	border-radius: 8rpx;
+	padding: 2rpx 12rpx;
+	line-height: 1.5;
+	flex-shrink: 0;
 }
 
 /* ---------- 错题本卡片 ---------- */

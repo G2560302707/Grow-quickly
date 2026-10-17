@@ -1,5 +1,5 @@
 <template>
-	<view class="page">
+	<view :class="['page', themeCls]">
 		<view class="card fade-up">
 			<view v-if="profileLoading" class="loading-box">
 				<view class="skel sk-line sk-lg" />
@@ -60,6 +60,9 @@
 </template>
 
 <script setup lang="ts">
+import { useThemeClass } from "@/utils/theme";
+
+const themeCls = useThemeClass();
 import { ref, computed } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { getUserProfile, updateUserProfile, type UserProfile } from "@/api";

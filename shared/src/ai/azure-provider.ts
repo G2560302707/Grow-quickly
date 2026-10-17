@@ -1,6 +1,6 @@
 import { AzureOpenAI } from "openai";
 import { AIService, ParsedQuestion, DetectedQuestion, DifficultyLevel, ReanswerQuestionResult, GeogebraAnalysisResult, BankImportItem } from "./types";
-import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateReanswerPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt, generateBankImportPrompt } from './prompts';
+import { generateAnalyzePrompt, generateSimilarQuestionPrompt, generateReanswerPrompt, generateGeogebraPrompt, generateDetectPrompt, generateSimilarQuestionBatchPrompt, generateBankImportPrompt, generateOcrExplainPrompt, SKIP_EXPLANATION_HINT } from './prompts';
 import { getAppConfig } from '../config';
 import { safeParseParsedQuestion, parseDetectedQuestions, parseSimilarBatch, parseBankImportBatch } from './schema';
 import { getMathTagsFromDB, getTagsFromDB } from './tag-service';
@@ -98,7 +98,7 @@ export class AzureOpenAIProvider implements AIService {
         return text.substring(startIndex + startTag.length, endIndex).trim();
     }
 
-    private parseResponse(text: string): ParsedQuestion {
+    private parseResponse(text: string, explainMode: 'ai' | 'skip' = 'ai'): ParsedQuestion {
         logger.debug({ textLength: text.length }, 'Parsing AI response');
 
         const questionText = this.extractTag(text, "question_text");
@@ -111,8 +111,8 @@ export class AzureOpenAIProvider implements AIService {
         const mistakeAnalysis = this.extractTag(text, "mistake_analysis") || "";
         const mistakeStatusRaw = this.extractTag(text, "mistake_status");
 
-        // Basic Validation
-        if (!questionText || !answerText || !analysis) {
+        // Basic Validation（skip 模式：解析由用户上传解析图提供，允许 AI 省略 <analysis>）
+        if (!questionText || !answerText || (explainMode !== 'skip' && !analysis)) {
             logger.error({ rawTextSample: text.substring(0, 500) }, 'Missing critical XML tags');
             throw new Error("Invalid AI response: Missing critical XML tags (<question_text>, <answer_text>, or <analysis>)");
         }
@@ -138,7 +138,7 @@ export class AzureOpenAIProvider implements AIService {
         const result: ParsedQuestion = {
             questionText,
             answerText,
-            analysis,
+            analysis: analysis || "",
             wrongAnswerText,
             mistakeAnalysis,
             mistakeStatus,
@@ -164,7 +164,8 @@ export class AzureOpenAIProvider implements AIService {
         language: 'zh' | 'en' = 'zh',
         grade?: 7 | 8 | 9 | 10 | 11 | 12 | null,
         subject?: string | null,
-        gradeSemester?: string | null
+        gradeSemester?: string | null,
+        explainMode: 'ai' | 'skip' = 'ai'
     ): Promise<ParsedQuestion> {
         const config = getAppConfig();
 
@@ -186,6 +187,7 @@ export class AzureOpenAIProvider implements AIService {
             prefetchedBiologyTags,
             prefetchedEnglishTags,
             prefetchedGongkaoTags,
+            providerHints: explainMode === 'skip' ? SKIP_EXPLANATION_HINT : '',
         }, gradeSemester);
 
         logger.box('🔍 AI Image Analysis Request', {
@@ -239,7 +241,7 @@ export class AzureOpenAIProvider implements AIService {
             logger.box('🤖 AI Raw Response', text);
 
             if (!text) throw new Error("Empty response from AI");
-            const parsedResult = this.parseResponse(text);
+            const parsedResult = this.parseResponse(text, explainMode);
 
             logger.box('✅ Parsed & Validated Result', JSON.stringify(parsedResult, null, 2));
 
@@ -420,6 +422,35 @@ Knowledge Points: ${knowledgePoints.join(", ")}
                 error: error instanceof Error ? error.message : String(error),
             });
             this.handleError(error);
+            throw error;
+        }
+    }
+
+    /** 解析图 OCR：逐字转录图片中的解析文本（不解题不改写），供「上传解析图」模式 */
+    async transcribeImage(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<string> {
+        const prompt = generateOcrExplainPrompt();
+        const dataUrl = imageBase64.startsWith('data:') ? imageBase64 : `data:${mimeType};base64,${imageBase64}`;
+        logger.info({ provider: 'Azure OpenAI', imageSize: imageBase64.length, mimeType }, 'OCR transcribe Request');
+
+        try {
+            const startTime = Date.now();
+            const response = await this.client.chat.completions.create({
+                model: this.deployment,
+                messages: [
+                    { role: 'user', content: [
+                        { type: 'text', text: prompt },
+                        { type: 'image_url', image_url: { url: dataUrl } },
+                    ] },
+                ],
+                max_tokens: 4096,
+            });
+            this.logCompletion('transcribeImage', startTime, response.usage);
+
+            const text = (response.choices?.[0]?.message?.content || '').trim();
+            if (!text) throw new Error('Empty response from AI');
+            return text;
+        } catch (error) {
+            logger.error({ error }, 'Error during transcribeImage');
             throw error;
         }
     }
