@@ -252,6 +252,7 @@ import { useThemeClass } from "@/utils/theme";
 
 const themeCls = useThemeClass();
 import { ref, computed } from "vue";
+import { isGuest, showLoginGuide } from "@/utils/guest";
 import { onShow } from "@dcloudio/uni-app";
 import {
 	listNotebooks,
@@ -557,6 +558,10 @@ function readImageAsBase64(filePath: string): Promise<string> {
  * 不上传也允许保存（解析留空）。
  */
 function pickExplainImage() {
+	if (isGuest()) {
+		showLoginGuide("解析图识别");
+		return;
+	}
 	uni.showActionSheet({
 		itemList: ["拍照", "从相册选择"],
 		success: res => {
@@ -589,6 +594,10 @@ function pickExplainImage() {
 }
 
 async function handleAnalyze() {
+	if (isGuest()) {
+		showLoginGuide("AI 识别");
+		return;
+	}
 	if (isMultiMode.value) {
 		return handleMultiAnalyze();
 	}
@@ -613,6 +622,10 @@ async function handleAnalyze() {
 
 /** 多图拼接识别：每张转 base64 → 后端 images[] 拼接成完整题目 → 整体识别；合并图作为原图 */
 async function handleMultiAnalyze() {
+	if (isGuest()) {
+		showLoginGuide("AI 识别");
+		return;
+	}
 	if (multiImages.value.length < 2 || !selectedNotebook.value) return;
 	analyzing.value = true;
 	errorMsg.value = "";
@@ -651,6 +664,10 @@ function cancelEditQuestion() {
 
 /** 重新解答：按校正后的题目文本重出答案与解析（复用网页端 /api/reanswer，AI 调用较慢） */
 async function handleReanswer() {
+	if (isGuest()) {
+		showLoginGuide("重新解答");
+		return;
+	}
 	const questionText = editedQuestionText.value.trim();
 	if (!result.value || !questionText || reanswering.value) return;
 	reanswering.value = true;

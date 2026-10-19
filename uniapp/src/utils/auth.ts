@@ -11,6 +11,10 @@
  */
 import { request, postForm, clearAuthCookies } from "./request";
 import { BASE_URL } from "./config";
+import { resetGuestCache, setSessionFetcher } from "./guest";
+
+// 注入会话查询，供游客判定使用（保持 guest → auth 单向依赖）
+setSessionFetcher(getSession);
 
 export interface SessionUser {
     id?: string;
@@ -61,6 +65,7 @@ export async function login(email: string, password: string): Promise<Session> {
     if (!session?.user) {
         throw new Error("登录未建立会话，请重试（若反复失败请检查 Cookie/合法域名配置）");
     }
+    resetGuestCache(); // 退出游客判定，后续接口直连后端
     return session;
 }
 
@@ -92,6 +97,7 @@ export async function loginWithWeChat(): Promise<Session> {
     if (!session?.user) {
         throw new Error("微信登录失败，请确认服务端已配置 WECHAT_APPID/WECHAT_APP_SECRET");
     }
+    resetGuestCache();
     return session;
 }
 
@@ -105,6 +111,7 @@ export async function logout(): Promise<void> {
         });
     } finally {
         clearAuthCookies();
-        uni.reLaunch({ url: "/pages/login/login" });
+        resetGuestCache(); // 回到游客浏览模式
+        uni.reLaunch({ url: "/pages/index/index" });
     }
 }

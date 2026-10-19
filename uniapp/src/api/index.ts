@@ -1,7 +1,12 @@
 /**
  * 业务 API 层：对接现有 Next.js 后端（接口零改动）
+ *
+ * 游客浏览模式：未登录时读接口返回 utils/demo-data 演示数据（不发请求），
+ * 写接口经 guestGuard 拦截并抛引导文案；登录后全部直连后端。
  */
 import { request } from "../utils/request";
+import { guestGuard, isGuest } from "../utils/guest";
+import * as demo from "../utils/demo-data";
 
 // ---------- 类型 ----------
 
@@ -58,19 +63,23 @@ export interface ParsedQuestion {
 
 // ---------- 错题本 ----------
 
-export function listNotebooks(): Promise<Notebook[]> {
+export async function listNotebooks(): Promise<Notebook[]> {
+    if (isGuest()) return demo.demoNotebooks;
     return request<Notebook[]>("/api/notebooks");
 }
 
-export function createNotebook(name: string, iconKey: string): Promise<Notebook> {
+export async function createNotebook(name: string, iconKey: string): Promise<Notebook> {
+    await guestGuard("创建错题本");
     return request<Notebook>("/api/notebooks", { method: "POST", data: { name, iconKey } });
 }
 
-export function updateNotebook(id: string, name: string, iconKey: string): Promise<Notebook> {
+export async function updateNotebook(id: string, name: string, iconKey: string): Promise<Notebook> {
+    await guestGuard("修改错题本");
     return request<Notebook>(`/api/notebooks/${id}`, { method: "PUT", data: { name, iconKey } });
 }
 
-export function deleteNotebook(id: string): Promise<{ message: string }> {
+export async function deleteNotebook(id: string): Promise<{ message: string }> {
+    await guestGuard("删除错题本");
     return request<{ message: string }>(`/api/notebooks/${id}`, { method: "DELETE" });
 }
 
@@ -86,7 +95,8 @@ export interface OverviewStats {
     weekAdded: number;
 }
 
-export function getOverviewStats(): Promise<OverviewStats> {
+export async function getOverviewStats(): Promise<OverviewStats> {
+    if (isGuest()) return demo.demoOverviewStats;
     return request<OverviewStats>("/api/error-items/overview");
 }
 
@@ -98,6 +108,7 @@ export interface PracticeSummary {
 
 /** 复用网页端已有的 /api/stats/practice，仅取 overallStats 汇总部分 */
 export async function getPracticeSummary(): Promise<PracticeSummary> {
+    if (isGuest()) return demo.demoPracticeSummary;
     const res = await request<{
         overallStats?: { total?: number; correct?: number; rate?: number | string };
     }>("/api/stats/practice");
@@ -121,7 +132,8 @@ export interface PracticeStats {
 }
 
 /** 完整练习统计（学习统计页使用，复用网页端已有接口） */
-export function getPracticeStats(): Promise<PracticeStats> {
+export async function getPracticeStats(): Promise<PracticeStats> {
+    if (isGuest()) return demo.demoPracticeStats;
     return request<PracticeStats>("/api/stats/practice");
 }
 
@@ -129,11 +141,12 @@ export function getPracticeStats(): Promise<PracticeStats> {
 
 export type FeedbackType = "feature" | "bug" | "other";
 
-export function submitFeedback(data: {
+export async function submitFeedback(data: {
     type: FeedbackType;
     content: string;
     contact?: string;
 }): Promise<{ success: boolean; id: string }> {
+    await guestGuard("提交反馈");
     return request("/api/feedback", { method: "POST", data });
 }
 
@@ -165,7 +178,8 @@ export interface WeaknessReport {
     topKps: KpDiagnosis[];
 }
 
-export function getWeaknessReport(): Promise<WeaknessReport> {
+export async function getWeaknessReport(): Promise<WeaknessReport> {
+    if (isGuest()) return demo.demoWeaknessReport;
     return request<WeaknessReport>("/api/diagnosis/weakness");
 }
 
@@ -188,11 +202,12 @@ export interface SmartQuestion extends ParsedQuestion {
 }
 
 /** 薄弱点定向出题（不传 tagId 时后端自动取诊断 Top1）；count>1 为批量（一次 AI 调用生成一组，返回 { questions }） */
-export function smartGenerate(params: {
+export async function smartGenerate(params: {
     tagId?: string;
     difficulty?: SmartDifficulty;
     count?: number;
 }, options?: { timeout?: number }): Promise<SmartQuestion & { questions?: SmartQuestion[] }> {
+    await guestGuard("生成练习题");
     return request("/api/practice/smart", {
         method: "POST",
         data: params,
@@ -210,11 +225,13 @@ export interface AnnouncementItem {
     read?: boolean;
 }
 
-export function getAnnouncements(): Promise<{ announcements: AnnouncementItem[] }> {
+export async function getAnnouncements(): Promise<{ announcements: AnnouncementItem[] }> {
+    if (isGuest()) return { announcements: demo.demoAnnouncements };
     return request("/api/announcements");
 }
 
-export function markAnnouncementsRead(): Promise<{ success: boolean; marked: number }> {
+export async function markAnnouncementsRead(): Promise<{ success: boolean; marked: number }> {
+    if (isGuest()) return { success: true, marked: 0 };
     return request("/api/announcements/read-all", { method: "POST", data: {} });
 }
 
@@ -241,21 +258,23 @@ export interface UserProfile {
     enrollmentYear?: number | null;
 }
 
-export function getUserProfile(): Promise<UserProfile> {
+export async function getUserProfile(): Promise<UserProfile> {
+    await guestGuard("编辑资料");
     return request("/api/user");
 }
 
 /** 更新资料（姓名/密码，与网页端设置-账户共用接口；改名后全站即时生效） */
-export function updateUserProfile(data: {
+export async function updateUserProfile(data: {
     name?: string;
     password?: string;
 }): Promise<UserProfile> {
+    await guestGuard("编辑资料");
     return request("/api/user", { method: "PATCH", data });
 }
 
 // ---------- 错题 ----------
 
-export function listErrorItems(params: {
+export async function listErrorItems(params: {
     subjectId?: string;
     query?: string;
     mastery?: "0" | "1";
@@ -265,6 +284,7 @@ export function listErrorItems(params: {
     page?: number;
     pageSize?: number;
 }): Promise<Paginated<ErrorItem>> {
+    if (isGuest()) return demo.filterDemoItems(params);
     const qs = Object.entries(params)
         .filter(([, v]) => v !== undefined && v !== "" && v !== null)
         .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
@@ -272,11 +292,17 @@ export function listErrorItems(params: {
     return request(`/api/error-items/list?${qs}`);
 }
 
-export function getErrorItem(id: string): Promise<ErrorItem> {
+export async function getErrorItem(id: string): Promise<ErrorItem> {
+    if (isGuest()) {
+        const hit = demo.findDemoItem(id);
+        if (hit) return hit;
+        throw new Error("演示数据中未找到该错题");
+    }
     return request(`/api/error-items/${id}`);
 }
 
-export function updateErrorItemNotes(id: string, userNotes: string): Promise<ErrorItem> {
+export async function updateErrorItemNotes(id: string, userNotes: string): Promise<ErrorItem> {
+    await guestGuard("保存笔记");
     return request(`/api/error-items/${id}/notes`, {
         method: "PATCH",
         data: { userNotes },
@@ -284,14 +310,15 @@ export function updateErrorItemNotes(id: string, userNotes: string): Promise<Err
 }
 
 /** 更新掌握度：0 未掌握 / 1 复习中 / 2 已掌握（复用网页端已有接口） */
-export function updateErrorItemMastery(id: string, masteryLevel: number): Promise<ErrorItem> {
+export async function updateErrorItemMastery(id: string, masteryLevel: number): Promise<ErrorItem> {
+    await guestGuard("更新掌握度");
     return request(`/api/error-items/${id}/mastery`, {
         method: "PATCH",
         data: { masteryLevel },
     });
 }
 
-export function createErrorItem(payload: {
+export async function createErrorItem(payload: {
     questionText: string;
     answerText: string;
     analysis: string;
@@ -303,13 +330,15 @@ export function createErrorItem(payload: {
     subjectId: string;
     explanationSource?: string | null; // 解析来源: ai(AI 生成) / ocr(解析图转录)；不上传解析时为 null
 }): Promise<ErrorItem> {
+    await guestGuard("保存错题");
     return request("/api/error-items", { method: "POST", data: payload });
 }
 
-export function updateErrorItem(
+export async function updateErrorItem(
     id: string,
     data: { knowledgePoints?: string[]; subjectId?: string | null },
 ): Promise<ErrorItem> {
+    await guestGuard("更新错题");
     return request(`/api/error-items/${id}`, { method: "PUT", data });
 }
 
@@ -355,15 +384,16 @@ export function collectTagLeaves(nodes: TagTreeNode[]): TagLeaf[] {
     return out;
 }
 
-export function getUserTagTree(): Promise<{
+export async function getUserTagTree(): Promise<{
     tags: TagTreeNode[];
     needsImport: boolean;
     total?: number;
 }> {
+    if (isGuest()) return { tags: demo.demoTagTree, needsImport: false, total: 10 };
     return request("/api/tags?subject=gongkao");
 }
 
-export function importTagTemplate(mode: "merge" | "replace" = "merge"): Promise<{
+export async function importTagTemplate(mode: "merge" | "replace" = "merge"): Promise<{
     success: boolean;
     created: number;
     removed?: number;
@@ -371,33 +401,38 @@ export function importTagTemplate(mode: "merge" | "replace" = "merge"): Promise<
     tags: TagTreeNode[];
     message?: string;
 }> {
+    await guestGuard("导入考点树");
     return request("/api/tags/import-template", {
         method: "POST",
         data: { mode },
     });
 }
 
-export function createTag(payload: {
+export async function createTag(payload: {
     name: string;
     parentId?: string | null;
 }): Promise<{ tag: { id: string; name: string } }> {
+    await guestGuard("新增考点");
     return request("/api/tags", { method: "POST", data: payload });
 }
 
-export function updateTag(
+export async function updateTag(
     id: string,
     payload: { name?: string; parentId?: string | null },
 ): Promise<{ tag: { id: string; name: string } }> {
+    await guestGuard("修改考点");
     return request(`/api/tags/${id}`, { method: "PATCH", data: payload });
 }
 
-export function deleteTag(id: string): Promise<{ success: boolean; deleted: number }> {
+export async function deleteTag(id: string): Promise<{ success: boolean; deleted: number }> {
+    await guestGuard("删除考点");
     return request(`/api/tags?id=${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 // ---------- AI ----------
 
-export function analyzeImage(imageBase64: string, subjectId?: string, explainMode?: "ai" | "skip"): Promise<ParsedQuestion> {
+export async function analyzeImage(imageBase64: string, subjectId?: string, explainMode?: "ai" | "skip"): Promise<ParsedQuestion> {
+    await guestGuard("AI 识别");
     return request("/api/analyze", {
         method: "POST",
         data: { imageBase64, language: "zh", subjectId, explainMode: explainMode || "ai" },
@@ -405,7 +440,8 @@ export function analyzeImage(imageBase64: string, subjectId?: string, explainMod
 }
 
 /** 解析图 OCR：逐字转录解析/解题过程图片（不解题不改写），供「上传解析图」模式 */
-export function ocrExplainImage(imageBase64: string): Promise<{ text: string }> {
+export async function ocrExplainImage(imageBase64: string): Promise<{ text: string }> {
+    await guestGuard("解析图识别");
     return request("/api/ocr-explain", {
         method: "POST",
         data: { imageBase64 },
@@ -413,11 +449,12 @@ export function ocrExplainImage(imageBase64: string): Promise<{ text: string }> 
 }
 
 /** 多图拼接识别：同一道题的多张照片交给后端纵向拼接成一张完整题目图后整体识别；返回合并图供原图保存 */
-export function analyzeMultiImages(
+export async function analyzeMultiImages(
     images: { base64: string; mimeType: string }[],
     subjectId?: string,
     explainMode?: "ai" | "skip"
 ): Promise<ParsedQuestion & { mergedImageBase64?: string }> {
+    await guestGuard("AI 识别");
     return request("/api/analyze", {
         method: "POST",
         data: { images, language: "zh", subjectId, multiStitched: true, explainMode: explainMode || "ai" },
@@ -432,7 +469,8 @@ export interface DetectedQuestionBox {
 }
 
 /** 整页拍照后先定位题目位置，前端框选某题再走 analyzeImage 单题识别 */
-export function detectQuestions(imageBase64: string): Promise<{ questions: DetectedQuestionBox[] }> {
+export async function detectQuestions(imageBase64: string): Promise<{ questions: DetectedQuestionBox[] }> {
+    await guestGuard("题目定位");
     return request("/api/analyze/detect", {
         method: "POST",
         data: { imageBase64, language: "zh" },
@@ -450,12 +488,13 @@ export interface ReanswerQuestionResult {
 }
 
 /** 重新解答：基于校正后的题目文本重新生成答案与解析（复用网页端 /api/reanswer） */
-export function reanswerQuestion(payload: {
+export async function reanswerQuestion(payload: {
     questionText: string;
     language?: "zh" | "en";
     subject?: string;
     imageBase64?: string;
 }, options?: { timeout?: number }): Promise<ReanswerQuestionResult> {
+    await guestGuard("重新解答");
     return request("/api/reanswer", {
         method: "POST",
         data: { language: "zh", ...payload },
@@ -465,10 +504,11 @@ export function reanswerQuestion(payload: {
 
 // ---------- 举一反三 ----------
 
-export function generatePractice(
+export async function generatePractice(
     errorItemId: string,
     difficulty: "easy" | "medium" | "hard" = "medium"
 ): Promise<ParsedQuestion & { questionId?: string | null }> {
+    await guestGuard("生成练习题");
     return request("/api/practice/generate", {
         method: "POST",
         data: { errorItemId, language: "zh", difficulty },
@@ -492,11 +532,16 @@ export interface PracticeRecordItem {
 }
 
 /** 练习记录详情（含答案/解析快照） */
-export function getPracticeRecord(id: string): Promise<PracticeRecordItem> {
+export async function getPracticeRecord(id: string): Promise<PracticeRecordItem> {
+    if (isGuest()) {
+        const hit = demo.demoPracticeRecords.find((r) => r.id === id);
+        if (hit) return hit;
+        throw new Error("演示数据中未找到该记录");
+    }
     return request("/api/practice/records?id=" + id);
 }
 
-export function recordPractice(
+export async function recordPractice(
     subject: string,
     difficulty: string,
     isCorrect: boolean,
@@ -510,6 +555,7 @@ export function recordPractice(
         knowledgePoints?: string[];
     }
 ): Promise<{ savedErrorItemId?: string | null }> {
+    await guestGuard("保存练习记录");
     return request("/api/practice/record", {
         method: "POST",
         data: { subject, difficulty, isCorrect, ...(attribution || {}) },
@@ -540,7 +586,7 @@ export interface PracticeQuestionItem {
     errorItem?: { id: string; questionText: string | null } | null;
 }
 
-export function listPracticeQuestions(params: {
+export async function listPracticeQuestions(params: {
     status?: PracticeQuestionStatus | "all";
     channel?: PracticeChannel;
     difficulty?: string;
@@ -555,6 +601,12 @@ export function listPracticeQuestions(params: {
     pendingCount: number;
     questions: PracticeQuestionItem[];
 }> {
+    if (isGuest()) {
+        const list = demo.demoPracticeQuestions.filter(
+            (q) => !params.status || params.status === "all" || q.status === params.status,
+        );
+        return { total: list.length, page: 1, pageSize: 20, pendingCount: list.length, questions: list };
+    }
     const qs = Object.entries(params)
         .filter(([, v]) => v !== undefined && v !== "" && v !== null)
         .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
@@ -562,12 +614,18 @@ export function listPracticeQuestions(params: {
     return request("/api/practice/questions" + (qs ? "?" + qs : ""));
 }
 
-export function getPracticeQuestion(id: string): Promise<PracticeQuestionItem> {
+export async function getPracticeQuestion(id: string): Promise<PracticeQuestionItem> {
+    if (isGuest()) {
+        const hit = demo.demoPracticeQuestions.find((q) => q.id === id);
+        if (hit) return hit;
+        throw new Error("演示数据中未找到该题目");
+    }
     return request(`/api/practice/questions/${id}`);
 }
 
 /** 不做这道（软删，可恢复）/ 恢复待做 */
-export function patchPracticeQuestion(id: string, action: "discard" | "restore"): Promise<PracticeQuestionItem> {
+export async function patchPracticeQuestion(id: string, action: "discard" | "restore"): Promise<PracticeQuestionItem> {
+    await guestGuard("整理题库");
     return request(`/api/practice/questions/${id}`, { method: "PATCH", data: { action } });
 }
 
@@ -583,7 +641,8 @@ export interface ImportStats {
     tagsLinked: number;
 }
 
-export function importUserData(data: unknown): Promise<{ success?: boolean; stats?: ImportStats }> {
+export async function importUserData(data: unknown): Promise<{ success?: boolean; stats?: ImportStats }> {
+    await guestGuard("导入数据");
     return request("/api/import", { method: "POST", data });
 }
 
@@ -602,27 +661,30 @@ export interface FocusStats {
     byMode?: Record<string, { seconds: number; sessions: number; completed: number }>;
 }
 
-export function recordFocusSession(params: {
+export async function recordFocusSession(params: {
     mode: "pomodoro" | "mock" | "custom";
     moduleName?: string;
     targetSeconds: number;
     durationSeconds: number;
     completed: boolean;
 }) {
+    await guestGuard("同步专注记录");
     return request("/api/focus/sessions", { method: "POST", data: params });
 }
 
-export function getFocusStats(): Promise<FocusStats> {
+export async function getFocusStats(): Promise<FocusStats> {
+    if (isGuest()) return demo.demoFocusStats;
     return request("/api/focus/stats");
 }
 
 /** 设置专注每日目标（分钟），跨端同步到后台 */
-export function setFocusDailyGoal(dailyGoalMin: number): Promise<{ dailyGoalMin: number }> {
+export async function setFocusDailyGoal(dailyGoalMin: number): Promise<{ dailyGoalMin: number }> {
+    if (isGuest()) return { dailyGoalMin };
     return request("/api/focus/goal", { method: "POST", data: { dailyGoalMin } });
 }
 
 /** 练习记录列表（分页倒序），用于练习历史窗口；channel 可按渠道筛选 */
-export function listPracticeRecords(params: {
+export async function listPracticeRecords(params: {
     page?: number;
     pageSize?: number;
     channel?: PracticeChannel;
@@ -632,6 +694,14 @@ export function listPracticeRecords(params: {
     pageSize: number;
     records: PracticeRecordItem[];
 }> {
+    if (isGuest()) {
+        return {
+            total: demo.demoPracticeRecords.length,
+            page: 1,
+            pageSize: 20,
+            records: demo.demoPracticeRecords,
+        };
+    }
     const qs = [
         `page=${params.page || 1}`,
         `pageSize=${params.pageSize || 20}`,

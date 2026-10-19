@@ -1,7 +1,14 @@
 <template>
 	<view :class="['page', themeCls]">
+		<!-- 毛玻璃自定义导航：hero 渐变延伸到状态栏，导航悬浮其上融合 -->
+		<view class="nav-glass" :style="{ paddingTop: statusBarHeight + 'px', height: navTotalHeight + 'px' }">
+			<view class="nav-glass-row">
+				<text class="nav-title">智能错题本</text>
+			</view>
+		</view>
+
 		<!-- 深蓝 Hero：问候 + 录入入口 -->
-		<view class="hero">
+		<view class="hero" :style="{ paddingTop: heroPadTop + 'px' }">
 			<view class="hero-ring hero-ring-1" />
 			<view class="hero-glow" />
 			<view class="greet-row">
@@ -18,6 +25,12 @@
 
 		<!-- 学习概览卡 -->
 		<view class="overview card" :class="{ 'fade-up': playEnterAnim }">
+			<!-- 游客横幅：未登录可浏览演示数据，登录后同步真实数据 -->
+			<view v-if="guestMode" class="notice-bar" hover-class="hv" @tap="goLogin">
+				<text class="notice-badge">游客</text>
+				<text class="notice-title">正在浏览演示数据，登录后同步你的错题本</text>
+				<text class="guest-login">登录</text>
+			</view>
 			<!-- 公告条：有数据再显示，避免从识别切回时高度闪一下 -->
 			<view v-if="notice" class="notice-bar" hover-class="hv" @tap="openAnnouncement">
 				<text class="notice-badge">公告</text>
@@ -132,10 +145,29 @@ import {
 } from "@/api";
 import { subjectIcon, subjectTint } from "@/utils/subject-icon";
 import { notebookIconSrc } from "@/utils/notebook-icons";
-import { useThemeClass, applyNav } from "@/utils/theme";
+import { useThemeClass } from "@/utils/theme";
 import { getSession } from "@/utils/auth";
 
 const themeCls = useThemeClass();
+
+// 自定义导航尺寸：状态栏 + 胶囊对齐（微信）；H5 无胶囊按 44px
+const statusBarHeight = ref(0);
+const navBarHeight = ref(44);
+try {
+	const win = uni.getWindowInfo && uni.getWindowInfo();
+	if (win) statusBarHeight.value = win.statusBarHeight || 0;
+	// #ifdef MP-WEIXIN
+	const menu = uni.getMenuButtonBoundingClientRect();
+	if (menu && menu.height && menu.bottom) {
+		// 玻璃底边锚定胶囊下沿 + 6px 余量，保证问候语完整落在玻璃之外
+		navBarHeight.value = menu.bottom - statusBarHeight.value + 6;
+	}
+	// #endif
+} catch (e) {
+	// 降级保持默认 44px
+}
+const navTotalHeight = computed(() => statusBarHeight.value + navBarHeight.value);
+const heroPadTop = computed(() => navTotalHeight.value + 20);
 
 
 const notebooks = ref<Notebook[]>([]);
@@ -158,6 +190,11 @@ const EMPTY_STATS: OverviewStats = {
 	weekAdded: 0,
 };
 const stats = ref<OverviewStats>({ ...EMPTY_STATS });
+const guestMode = ref(false);
+
+function goLogin() {
+	uni.navigateTo({ url: "/pages/login/login" });
+}
 
 // 公告：展示最新一条，未读时亮红点，点开看全文并标记已读
 const announcements = ref<AnnouncementItem[]>([]);
@@ -206,17 +243,12 @@ const totalItems = computed(() =>
 );
 
 onShow(async () => {
-	applyNav(); // 导航栏跟随主题（深色 Hero 页专属）
 	if (refreshing) return;
 	errorMsg.value = "";
-	// 先确认会话；未登录直接去登录页，避免一串 401
+	// 合规整改：未登录留在首页浏览演示数据，右上角/横幅提供登录入口
 	const session = await getSession().catch(() => null);
-	if (!session?.user) {
-		loading.value = false;
-		uni.reLaunch({ url: "/pages/login/login" });
-		return;
-	}
-	if (session.user.name) userName.value = session.user.name;
+	guestMode.value = !session?.user;
+	if (session?.user?.name) userName.value = session.user.name;
 
 	const isFirst = firstLoad.value;
 	if (isFirst) {
@@ -320,9 +352,40 @@ function moduleShadow(name: string): string {
 
 <style scoped>
 /* ---------- Hero ---------- */
+/* ---------- 毛玻璃自定义导航 ---------- */
+.nav-glass {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 90;
+	display: flex;
+	flex-direction: column;
+	/* 关键：height 含 padding（否则玻璃实际高度多出一个状态栏，真机上会盖住问候语） */
+	box-sizing: border-box;
+	/* 半透明渐变到透明：与 hero 顶色融合，无割裂线 */
+	background: linear-gradient(180deg, var(--nav-glass) 0%, rgba(255, 255, 255, 0) 72%);
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+}
+.nav-glass-row {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.nav-title {
+	color: #ffffff;
+	font-size: 32rpx;
+	font-weight: 600;
+	letter-spacing: 2rpx;
+}
+
+/* ---------- Hero ---------- */
 .hero {
 	background: linear-gradient(180deg, var(--brand-800) 0%, var(--brand-900) 100%);
-	padding: 24rpx 40rpx calc(120rpx + 40rpx);
+	/* 顶部让位毛玻璃导航（内联 padding-top），底部给概览卡叠压留白 */
+	padding: 0 40rpx calc(120rpx + 40rpx);
 	position: relative;
 	overflow: hidden;
 }
@@ -422,6 +485,13 @@ function moduleShadow(name: string): string {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.guest-login {
+		color: var(--brand-600);
+		font-size: 26rpx;
+		font-weight: 600;
+		flex-shrink: 0;
+		padding: 4rpx 8rpx;
 	}
 	.notice-dot {
 		width: 12rpx;

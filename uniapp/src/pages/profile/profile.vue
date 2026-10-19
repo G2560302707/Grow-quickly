@@ -4,11 +4,11 @@
 		<view class="header">
 			<view class="header-ring" />
 			<view class="header-glow" />
-			<view class="user-row">
+			<view class="user-row" hover-class="hv" @tap="onHeaderTap">
 				<view class="avatar"><text class="avatar-char">{{ avatarChar }}</text></view>
 				<view class="user-info">
-					<text class="user-name">{{ session?.user?.name || "未登录" }}</text>
-					<text v-if="displayEmail" class="user-email">{{ displayEmail }}</text>
+					<text class="user-name">{{ session?.user?.name || "游客" }}</text>
+					<text class="user-email">{{ displayEmail || "登录后同步网页端数据" }}</text>
 				</view>
 			</view>
 		</view>
@@ -118,7 +118,7 @@
 			<text class="version-text">智能错题本 · v1.0.0</text>
 		</view>
 
-		<button class="btn-outline logout-btn" hover-class="button-hover" @tap="handleLogout">退出登录</button>
+		<button v-if="session?.user" class="btn-outline logout-btn" hover-class="button-hover" @tap="handleLogout">退出登录</button>
 	</view>
 </template>
 
@@ -127,6 +127,7 @@ import { ref, computed } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { getOverviewStats, getPracticeSummary, type OverviewStats, type PracticeSummary } from "@/api";
 import { getSession, logout, type Session } from "@/utils/auth";
+import { showLoginGuide } from "@/utils/guest";
 import { getThemeMeta, useThemeClass } from "@/utils/theme";
 
 const themeCls = useThemeClass();
@@ -146,7 +147,7 @@ const overview = ref<OverviewStats>({
 });
 const practice = ref<PracticeSummary>({ total: 0, correct: 0, rate: 0 });
 
-const avatarChar = computed(() => (session.value?.user?.name || "未")[0]);
+const avatarChar = computed(() => (session.value?.user?.name || "游")[0]);
 
 /** 微信占位邮箱不展示 */
 const displayEmail = computed(() => {
@@ -191,11 +192,29 @@ function goFeedback() {
 }
 
 function goProfileEdit() {
+	if (requireLoginGate("编辑资料")) return;
 	uni.navigateTo({ url: "/pages/profile-edit/profile-edit" });
 }
 
 function goDataManage() {
+	if (requireLoginGate("数据导入导出")) return;
 	uni.navigateTo({ url: "/pages/profile/data-manage" });
+}
+
+/** 游客点击账号专属功能时弹登录引导 */
+function requireLoginGate(action: string): boolean {
+	if (session.value?.user) return false;
+	showLoginGuide(action);
+	return true;
+}
+
+/** 未登录时点击头部：引导登录；已登录：去编辑资料 */
+function onHeaderTap() {
+	if (session.value?.user) {
+		uni.navigateTo({ url: "/pages/profile-edit/profile-edit" });
+	} else {
+		showLoginGuide("同步错题本数据");
+	}
 }
 
 function handleLogout() {

@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { onLaunch } from "@dcloudio/uni-app";
-import { getSession } from "./utils/auth";
+import { resolveGuest } from "./utils/guest";
 
 onLaunch(async () => {
-  // 启动即校验会话，未登录统一跳登录页
-  const session = await getSession();
-  if (!session?.user) {
-    uni.reLaunch({ url: "/pages/login/login" });
-  }
+  // 合规整改：未登录不再强制跳登录页，允许先浏览（读接口返回演示数据），
+  // 仅预热会话判定，写操作时再按需引导登录
+  await resolveGuest();
 });
 </script>
 
@@ -60,6 +58,8 @@ page {
 
   /* 深色页头光晕（随主题换色） */
   --glow-primary: rgba(85, 104, 232, 0.25);
+  /* 首页自定义导航毛玻璃底色（随主题 hero 顶色调配） */
+  --nav-glass: rgba(23, 34, 75, 0.42);
 
   background-color: var(--bg-page);
   color: var(--ink-900);
@@ -109,6 +109,7 @@ page {
   --bg-fill: #edf0f2;
   --shadow-primary: 0 10rpx 26rpx rgba(31, 110, 140, 0.18);
   --glow-primary: rgba(47, 127, 158, 0.22);
+  --nav-glass: rgba(29, 32, 37, 0.42);
 }
 
 /* ---------- 卡片 ---------- */

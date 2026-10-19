@@ -5,6 +5,7 @@
 			"style": {
 				"navigationBarTitleText": "智能错题本",
 				"enablePullDownRefresh": true,
+				"navigationStyle": "custom",
 				"navigationBarTextStyle": "white",
 				"navigationBarBackgroundColor": "#101a3c",
 				"backgroundColor": "#101a3c",

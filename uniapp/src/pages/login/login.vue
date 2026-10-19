@@ -1,26 +1,26 @@
 <template>
 	<view class="login-page">
-		<!-- 装饰：同心环 + 光晕 -->
+		<!-- 装饰：极光晕 + 同心环 + 网格 + 星点 -->
+		<view class="deco-aurora" />
 		<view class="deco-ring deco-ring-1" />
 		<view class="deco-ring deco-ring-2" />
 		<view class="deco-glow" />
 		<view class="deco-grid" />
 
 		<view class="brand">
-			<view class="brand-mark">
-				<text class="brand-mark-char">错</text>
-				<view class="brand-mark-dot" />
-			</view>
+			<!-- 主视觉：错题从书本升起（专属定制插画） -->
+			<image class="hero-img" src="/static/login-hero.png" mode="aspectFit" />
 			<text class="brand-name">智能错题本</text>
 			<text class="brand-slogan">AI 驱动的错题管理与提分系统</text>
 			<view class="feature-row">
-				<view class="feature-chip"><text class="feature-chip-text">拍照识题</text></view>
-				<view class="feature-chip"><text class="feature-chip-text">AI 解析</text></view>
-				<view class="feature-chip"><text class="feature-chip-text">举一反三</text></view>
+				<view class="feature-chip"><view class="feature-dot feature-dot-blue" /><text class="feature-chip-text">拍照识题</text></view>
+				<view class="feature-chip"><view class="feature-dot feature-dot-gold" /><text class="feature-chip-text">AI 解析</text></view>
+				<view class="feature-chip"><view class="feature-dot feature-dot-blue" /><text class="feature-chip-text">举一反三</text></view>
 			</view>
 		</view>
 
 		<view class="form-card">
+			<view class="card-accent" />
 			<text class="form-title">账号登录</text>
 			<text class="form-sub">使用注册邮箱登录，同步网页端全部数据</text>
 			<view class="field">
@@ -54,6 +54,9 @@
 			<view class="to-register">
 				<text class="to-register-tip">没有账号？</text>
 				<text class="to-register-link" @tap="goRegister">立即注册</text>
+			</view>
+			<view class="to-register">
+				<text class="browse-link" @tap="goBrowse">先逛逛，稍后登录 ›</text>
 			</view>
 		</view>
 
@@ -94,6 +97,11 @@ function goRegister() {
 	uni.redirectTo({ url: "/pages/register/register" });
 }
 
+/** 游客可跳过登录，先浏览演示内容 */
+function goBrowse() {
+	uni.switchTab({ url: "/pages/index/index" });
+}
+
 async function handleWeChatLogin() {
 	if (wxLoading.value) return;
 	wxLoading.value = true;
@@ -121,41 +129,53 @@ async function handleWeChatLogin() {
 }
 
 /* ---------- 装饰 ---------- */
+.deco-aurora {
+	position: absolute;
+	width: 720rpx;
+	height: 720rpx;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(100, 120, 240, 0.26) 0%, rgba(100, 120, 240, 0) 66%);
+	top: -260rpx;
+	left: 50%;
+	margin-left: -360rpx;
+}
 .deco-ring {
 	position: absolute;
 	border-radius: 50%;
-	border: 1rpx solid rgba(255, 255, 255, 0.07);
+	border: 1rpx solid rgba(255, 255, 255, 0.06);
 }
 .deco-ring-1 {
-	width: 560rpx;
-	height: 560rpx;
-	top: -220rpx;
-	right: -180rpx;
+	width: 620rpx;
+	height: 620rpx;
+	top: -160rpx;
+	left: 50%;
+	margin-left: -310rpx;
 }
 .deco-ring-2 {
-	width: 380rpx;
-	height: 380rpx;
-	top: -140rpx;
-	right: -80rpx;
-	border-color: rgba(255, 255, 255, 0.1);
+	width: 440rpx;
+	height: 440rpx;
+	top: -70rpx;
+	left: 50%;
+	margin-left: -220rpx;
+	border-color: rgba(255, 255, 255, 0.09);
 }
 .deco-glow {
 	position: absolute;
 	width: 480rpx;
 	height: 480rpx;
 	border-radius: 50%;
-	background: radial-gradient(circle, rgba(85, 104, 232, 0.32) 0%, rgba(85, 104, 232, 0) 68%);
-	top: -120rpx;
-	left: -160rpx;
+	background: radial-gradient(circle, rgba(201, 151, 63, 0.10) 0%, rgba(201, 151, 63, 0) 68%);
+	bottom: 8%;
+	right: -180rpx;
 }
 .deco-grid {
 	position: absolute;
 	left: 0;
 	right: 0;
 	top: 0;
-	height: 640rpx;
-	background-image: linear-gradient(rgba(255, 255, 255, 0.035) 1rpx, transparent 1rpx),
-		linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1rpx, transparent 1rpx);
+	height: 700rpx;
+	background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1rpx, transparent 1rpx),
+		linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1rpx, transparent 1rpx);
 	background-size: 64rpx 64rpx;
 	mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent);
 	-webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent);
@@ -163,45 +183,30 @@ async function handleWeChatLogin() {
 
 /* ---------- 品牌 ---------- */
 .brand {
-	padding-top: calc(var(--status-bar-height) + 110rpx);
+	padding-top: calc(var(--status-bar-height) + 60rpx);
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	position: relative;
 	z-index: 1;
 }
-.brand-mark {
-	width: 132rpx;
-	height: 132rpx;
-	background: linear-gradient(140deg, #5568e8 0%, #3d52d5 70%);
-	border-radius: 40rpx;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	position: relative;
-	box-shadow: 0 20rpx 48rpx rgba(61, 82, 213, 0.45), inset 0 2rpx 6rpx rgba(255, 255, 255, 0.28);
+.hero-img {
+	width: 340rpx;
+	height: 340rpx;
+	animation: hero-float 3.6s ease-in-out infinite;
+	filter: drop-shadow(0 18rpx 40rpx rgba(10, 15, 36, 0.5));
 }
-.brand-mark-char {
-	color: #ffffff;
-	font-size: 64rpx;
-	font-weight: 700;
-}
-.brand-mark-dot {
-	position: absolute;
-	right: 22rpx;
-	bottom: 22rpx;
-	width: 14rpx;
-	height: 14rpx;
-	border-radius: 50%;
-	background: #c9973f;
-	box-shadow: 0 0 12rpx rgba(201, 151, 63, 0.9);
+@keyframes hero-float {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-12rpx); }
 }
 .brand-name {
 	color: #ffffff;
 	font-size: 44rpx;
 	font-weight: 700;
-	margin-top: 32rpx;
+	margin-top: 8rpx;
 	letter-spacing: 8rpx;
+	text-shadow: 0 4rpx 24rpx rgba(85, 104, 232, 0.55);
 }
 .brand-slogan {
 	color: rgba(255, 255, 255, 0.62);
@@ -212,13 +217,31 @@ async function handleWeChatLogin() {
 .feature-row {
 	display: flex;
 	gap: 16rpx;
-	margin-top: 36rpx;
+	margin-top: 34rpx;
 }
 .feature-chip {
-	background: rgba(255, 255, 255, 0.08);
+	display: flex;
+	align-items: center;
+	background: rgba(255, 255, 255, 0.07);
 	border: 1rpx solid rgba(255, 255, 255, 0.14);
 	border-radius: 999rpx;
-	padding: 10rpx 28rpx;
+	padding: 10rpx 24rpx;
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+}
+.feature-dot {
+	width: 10rpx;
+	height: 10rpx;
+	border-radius: 50%;
+	margin-right: 10rpx;
+}
+.feature-dot-blue {
+	background: #7c8cf8;
+	box-shadow: 0 0 10rpx rgba(124, 140, 248, 0.9);
+}
+.feature-dot-gold {
+	background: #e8b45a;
+	box-shadow: 0 0 10rpx rgba(232, 180, 90, 0.9);
 }
 .feature-chip-text {
 	color: rgba(255, 255, 255, 0.85);
@@ -229,12 +252,22 @@ async function handleWeChatLogin() {
 /* ---------- 表单 ---------- */
 .form-card {
 	background: #ffffff;
-	border-radius: 36rpx;
+	border-radius: 40rpx;
 	padding: 52rpx 44rpx 48rpx;
-	margin-top: 72rpx;
-	box-shadow: 0 24rpx 64rpx rgba(5, 10, 26, 0.4);
+	margin-top: 64rpx;
+	box-shadow: 0 30rpx 90rpx rgba(4, 8, 22, 0.45), 0 4rpx 16rpx rgba(4, 8, 22, 0.25);
 	position: relative;
 	z-index: 1;
+	overflow: hidden;
+}
+.card-accent {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 6rpx;
+	background: linear-gradient(90deg, #5568e8 0%, #8a7bf0 45%, #e8b45a 100%);
+	opacity: 0.9;
 }
 .form-title {
 	display: block;
@@ -259,6 +292,7 @@ async function handleWeChatLogin() {
 	position: relative;
 	background: var(--bg-fill);
 	border-radius: 16rpx;
+	border: 1rpx solid rgba(85, 104, 232, 0.10);
 }
 .field-ph {
 	position: absolute;
@@ -292,6 +326,12 @@ async function handleWeChatLogin() {
 }
 .submit-btn {
 	margin-top: 8rpx;
+	background: linear-gradient(135deg, #6478f0 0%, #5568e8 45%, #3d52d5 100%);
+	box-shadow: 0 14rpx 34rpx rgba(85, 104, 232, 0.42);
+	border: none;
+	color: #ffffff;
+	font-weight: 600;
+	letter-spacing: 4rpx;
 }
 
 /* ---------- 微信一键登录 ---------- */
@@ -344,6 +384,10 @@ async function handleWeChatLogin() {
 	color: var(--brand-600);
 	font-weight: 600;
 	margin-left: 8rpx;
+}
+.browse-link {
+	font-size: 24rpx;
+	color: var(--ink-400);
 }
 
 /* ---------- 页脚 ---------- */
