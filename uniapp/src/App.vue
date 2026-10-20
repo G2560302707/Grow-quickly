@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { onLaunch } from "@dcloudio/uni-app";
 import { resolveGuest } from "./utils/guest";
+import { enableShareMenu } from "./utils/share";
 
 onLaunch(async () => {
+  // 分享能力：启动时先打开菜单项；「发送给朋友 / 分享到朋友圈」的具体内容
+  // 必须由各页面的 onShareAppMessage / onShareTimeline 提供（写在 App.vue 无效）
+  enableShareMenu();
   // 合规整改：未登录不再强制跳登录页，允许先浏览（读接口返回演示数据），
   // 仅预热会话判定，写操作时再按需引导登录
   await resolveGuest();

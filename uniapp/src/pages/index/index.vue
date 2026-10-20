@@ -80,7 +80,10 @@
 				<text class="list-title">我的错题本</text>
 				<text v-if="!statsLoading" class="list-count num">{{ notebooks.length }} 个</text>
 			</view>
-			<text class="list-manage" hover-class="hv" @tap="goManage">管理</text>
+			<view class="list-head-right">
+				<button class="list-share" open-type="share" hover-class="hv">分享</button>
+				<text class="list-manage" hover-class="hv" @tap="goManage">管理</text>
+			</view>
 		</view>
 
 		<template v-if="loading && firstLoad">
@@ -132,7 +135,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { onShow, onPullDownRefresh } from "@dcloudio/uni-app";
+import { onShow, onPullDownRefresh, onShareAppMessage, onShareTimeline } from "@dcloudio/uni-app";
 import {
 	listNotebooks,
 	getOverviewStats,
@@ -147,6 +150,13 @@ import { subjectIcon, subjectTint } from "@/utils/subject-icon";
 import { notebookIconSrc } from "@/utils/notebook-icons";
 import { useThemeClass } from "@/utils/theme";
 import { getSession } from "@/utils/auth";
+import {
+	SHARE_BRAND_TITLE,
+	SHARE_COVER,
+	SHARE_HOME_PATH,
+	SHARE_TIMELINE_TITLE,
+	enableShareMenu,
+} from "@/utils/share";
 
 const themeCls = useThemeClass();
 
@@ -243,6 +253,7 @@ const totalItems = computed(() =>
 );
 
 onShow(async () => {
+	enableShareMenu();
 	if (refreshing) return;
 	errorMsg.value = "";
 	// 合规整改：未登录留在首页浏览演示数据，右上角/横幅提供登录入口
@@ -348,6 +359,20 @@ function moduleShadow(name: string): string {
 	const c = moduleColor(name);
 	return `0 8rpx 20rpx ${c}40`;
 }
+
+/* ---------- 分享 ---------- */
+// 首页只做「小程序名片」：不带任何用户数据，未登录打开即游客浏览
+onShareAppMessage(() => ({
+	title: SHARE_BRAND_TITLE,
+	path: SHARE_HOME_PATH,
+	imageUrl: SHARE_COVER,
+}));
+
+onShareTimeline(() => ({
+	title: SHARE_TIMELINE_TITLE,
+	query: "from=timeline",
+	imageUrl: SHARE_COVER,
+}));
 </script>
 
 <style scoped>
@@ -625,6 +650,27 @@ function moduleShadow(name: string): string {
 	color: var(--brand-600);
 	font-weight: 500;
 	padding: 4rpx 8rpx;
+}
+.list-head-right {
+	display: flex;
+	align-items: center;
+	gap: 20rpx;
+}
+/* 原生 button 复位：只保留文字观感，open-type="share" 触发系统转发面板 */
+.list-share {
+	margin: 0;
+	padding: 4rpx 8rpx;
+	min-height: 0;
+	height: auto;
+	line-height: 1.4;
+	font-size: 26rpx;
+	font-weight: 500;
+	color: var(--brand-600);
+	background: transparent;
+	border: none;
+}
+.list-share::after {
+	border: none;
 }
 .nb-name-row {
 	display: flex;

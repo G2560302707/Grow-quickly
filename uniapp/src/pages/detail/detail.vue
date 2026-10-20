@@ -29,9 +29,10 @@
 					<view class="section-extra-wrap">
 						<text v-if="item.origin" class="origin-chip">{{ originLabel(item.origin) }}</text>
 						<text v-if="item.subject?.name" class="section-extra">{{ item.subject.name }}</text>
+						<button class="share-question" open-type="share" hover-class="hv">分享</button>
 					</view>
 				</view>
-				<MdRich :content="item.questionText" />
+				<MdRich :content="item.questionText || ''" />
 
 				<!-- 答案对比 -->
 				<view class="answer-grid">
@@ -41,7 +42,7 @@
 					</view>
 					<view class="answer-box answer-right">
 						<text class="answer-label">正确答案</text>
-						<MdRich :content="item.answerText" />
+						<MdRich :content="item.answerText || ''" />
 					</view>
 				</view>
 			</view>
@@ -138,7 +139,7 @@ import { useThemeClass } from "@/utils/theme";
 
 const themeCls = useThemeClass();
 import { ref, computed } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShareAppMessage } from "@dcloudio/uni-app";
 import {
 	getErrorItem,
 	updateErrorItemNotes,
@@ -151,6 +152,13 @@ import {
 } from "@/api";
 import MdRich from "@/components/MdRich.vue";
 import { originLabel } from "@/utils/origin";
+import {
+	SHARE_BRAND_TITLE,
+	SHARE_COVER,
+	buildSharePath,
+	prepareShareImage,
+	shareTitleFrom,
+} from "@/utils/share";
 
 const masteryOptions = [
 	{ level: 0, label: "未掌握" },
@@ -170,6 +178,8 @@ const errorMsg = ref("");
 const leafTags = ref<TagLeaf[]>([]);
 const needsTagImport = ref(false);
 const selectedTagNames = ref<string[]>([]);
+/** 分享卡封面：题目原图落盘后的本地路径，失败回落默认封面 */
+const shareImage = ref(SHARE_COVER);
 
 const allTags = computed<string[]>(() => {
 	if (!item.value) return [];
@@ -241,6 +251,10 @@ onLoad(async (query) => {
 		const [data] = await Promise.all([getErrorItem(itemId.value), loadTagTree()]);
 		item.value = data;
 		notes.value = data.userNotes || "";
+		// 预置分享封面：分享回调必须同步返回，不能在这里 await
+		prepareShareImage(data.originalImageUrl).then((path) => {
+			shareImage.value = path;
+		});
 	} catch (e: any) {
 		errorMsg.value = e?.message || "加载失败";
 	} finally {
@@ -288,6 +302,17 @@ function goPractice() {
 		url: `/pages/practice/practice?errorItemId=${itemId.value}&subject=${encodeURIComponent(subjectName)}`,
 	});
 }
+
+/**
+ * 分享本题：落到公开分享页（pages/share/share），未登录好友也能看题与解析。
+ * 故意不定义 onShareTimeline —— 朋友圈只能分享「当前页」，而本页需要登录态，
+ * 未登录打开会报错；朋友圈入口统一放到分享页发起。
+ */
+onShareAppMessage(() => ({
+	title: shareTitleFrom(item.value?.questionText, SHARE_BRAND_TITLE),
+	path: buildSharePath(itemId.value, item.value?.shareToken),
+	imageUrl: shareImage.value,
+}));
 </script>
 
 <style scoped>
@@ -456,6 +481,23 @@ function goPractice() {
 	color: var(--brand-600);
 	border-radius: 8rpx;
 	padding: 4rpx 14rpx;
+}
+/* 分享入口：原生 button 复位，open-type="share" 直接唤起转发面板 */
+.share-question {
+	margin: 0;
+	padding: 4rpx 16rpx;
+	height: auto;
+	min-height: 0;
+	line-height: 1.5;
+	font-size: 22rpx;
+	font-weight: 600;
+	color: var(--brand-600);
+	background: var(--brand-50);
+	border: none;
+	border-radius: 8rpx;
+}
+.share-question::after {
+	border: none;
 }
 
 /* ---------- 笔记 ---------- */

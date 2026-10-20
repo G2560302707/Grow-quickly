@@ -177,6 +177,16 @@
 				"navigationBarBackgroundColor": "#ffffff",
 				"backgroundColor": "#f4f5fa"
 			}
+		},
+		{
+			"path": "pages/share/share",
+			"style": {
+				"navigationBarTitleText": "错题分享",
+				"navigationBarTextStyle": "black",
+				"navigationBarBackgroundColor": "#ffffff",
+				"backgroundColor": "#f4f5fa",
+				"enablePullDownRefresh": false
+			}
 		}
 	],
 	"tabBar": {

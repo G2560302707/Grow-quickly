@@ -177,13 +177,13 @@ function chooseAndImport() {
 		count: 1,
 		type: "file",
 		extension: ["json"],
-		success: (res) => {
+		success: (res: { tempFiles?: Array<{ path: string }> }) => {
 			const file = res.tempFiles && res.tempFiles[0];
 			if (!file) return;
 			wx.getFileSystemManager().readFile({
 				filePath: file.path,
 				encoding: "utf8",
-				success: (r) => doImport(String(r.data)),
+				success: (r: { data: string | ArrayBuffer }) => doImport(String(r.data)),
 				fail: () => uni.showToast({ title: "读取文件失败", icon: "none" }),
 			});
 		},

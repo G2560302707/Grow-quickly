@@ -7,6 +7,7 @@ import { unauthorized, forbidden, notFound, internalError } from "@grow/shared/a
 import { createLogger } from "@grow/shared/logger";
 import { normalizeMistakeStatusForSave } from "@grow/shared/mistake-status";
 import { resolveTagIdForErrorItem, USER_TAG_SUBJECT } from "@/lib/user-tag-tree";
+import { createShareToken } from "@/lib/share-token";
 
 const logger = createLogger('api:error-items:id');
 
@@ -48,7 +49,11 @@ export async function GET(
             return forbidden("Not authorized to access this item");
         }
 
-        return NextResponse.json(errorItem);
+        // 附带分享令牌：小程序端生成分享卡片时直接复用，无需额外请求
+        return NextResponse.json({
+            ...errorItem,
+            shareToken: createShareToken(errorItem.id),
+        });
     } catch (error) {
         logger.error({ error }, 'Error fetching item');
         return internalError("Failed to fetch error item");

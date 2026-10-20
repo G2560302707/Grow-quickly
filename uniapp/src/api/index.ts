@@ -41,6 +41,21 @@ export interface ErrorItem {
     createdAt?: string;
     subject?: { id: string; name: string } | null;
     tags?: ErrorItemTag[];
+    /** 后端下发的分享令牌（仅详情接口返回），用于生成公开分享卡片 */
+    shareToken?: string | null;
+}
+
+/** 分享落地页数据（后端白名单字段，无任何私有信息） */
+export interface SharedErrorItem {
+    id: string;
+    questionText: string | null;
+    answerText: string | null;
+    analysis: string | null;
+    wrongAnswerText: string | null;
+    imageUrl: string | null;
+    subjectName: string | null;
+    tagNames: string[];
+    createdAt: string | null;
 }
 
 export interface Paginated<T> {
@@ -299,6 +314,16 @@ export async function getErrorItem(id: string): Promise<ErrorItem> {
         throw new Error("演示数据中未找到该错题");
     }
     return request(`/api/error-items/${id}`);
+}
+
+/**
+ * 分享落地页取数（公开接口，无需登录 / 无 Cookie）
+ * 适配微信朋友圈单页模式：该模式下无登录态，只能依赖令牌鉴权。
+ */
+export async function getSharedErrorItem(id: string, token: string): Promise<SharedErrorItem> {
+    return request(
+        `/api/share/error-items/${encodeURIComponent(id)}?t=${encodeURIComponent(token)}`,
+    );
 }
 
 export async function updateErrorItemNotes(id: string, userNotes: string): Promise<ErrorItem> {
