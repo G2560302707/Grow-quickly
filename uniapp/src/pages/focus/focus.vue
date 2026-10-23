@@ -30,7 +30,7 @@
 			</view>
 			<view v-if="mode === 'pomodoro'" class="hint">标准番茄钟 25 分钟 + 休息 5 分钟，适合单模块定向刷题</view>
 
-			<!-- 模考：整卷 -->
+			<!-- 模考：整卷（模块名称/数量/用时均可自定义） -->
 			<template v-if="mode === 'mock'">
 				<view class="opt-row">
 					<view
@@ -50,25 +50,36 @@
 				<view class="seg-timeline">
 					<view
 						v-for="(seg, i) in mockSegments"
-						:key="seg.name"
+						:key="i"
 						class="seg-block"
-						:style="{ width: (seg.minutes / targetMinutes) * 100 + '%', background: SEG_COLORS[i % SEG_COLORS.length] }"
+						:style="{ width: (seg.minutes / Math.max(1, targetMinutes)) * 100 + '%', background: SEG_COLORS[i % SEG_COLORS.length] }"
 					>
 						<text class="seg-block-name">{{ seg.name.slice(0, 2) }}</text>
 						<text class="seg-block-min">{{ seg.minutes }}′</text>
 					</view>
 				</view>
 				<view class="seg-edit-list">
-					<view v-for="(seg, i) in mockSegments" :key="seg.name" class="seg-edit-row">
-						<text class="seg-edit-name" :style="{ color: SEG_COLORS[i % SEG_COLORS.length] }">{{ seg.name }}</text>
+					<view v-for="(seg, i) in mockSegments" :key="i" class="seg-edit-row">
+						<input
+							class="seg-name-input"
+							:value="seg.name"
+							:maxlength="MOCK_SEG_NAME_MAX"
+							placeholder="模块名"
+							@blur="onSegNameBlur(i, $event)"
+						/>
 						<view class="seg-edit-stepper">
 							<view class="seg-step" hover-class="hv" @tap="editSegment(i, -1)">−</view>
-							<text class="seg-edit-min num">{{ segMinutes[i] }}′</text>
+							<text class="seg-edit-min num">{{ seg.minutes }}′</text>
 							<view class="seg-step" hover-class="hv" @tap="editSegment(i, 1)">+</view>
 						</view>
+						<view v-if="mockSegments.length > 1" class="seg-del" hover-class="hv" @tap="removeSegment(i)">✕</view>
 					</view>
 				</view>
-				<view class="hint">默认按国考建议用时分配；点 ± 自定义每模块用时，总时长随之变化，超段会提醒切换模块</view>
+				<view class="seg-tools">
+					<view class="opt-chip" hover-class="hv" @tap="addSegment">＋ 添加模块</view>
+					<view class="opt-chip" hover-class="hv" @tap="resetSegments">恢复国考默认</view>
+				</view>
+				<view class="hint">模块名与用时全可自定义：点名称改文字，± 调时间，配置自动保存；预设按当前模块比例缩放，超段会提醒切换模块</view>
 			</template>
 
 			<!-- 自定义 -->
@@ -307,14 +318,53 @@ const BADGES: { key: string; name: string; icon: string; check: (s: FocusStats) 
 	{ key: "sessions50", name: "五十组", icon: "/static/badges/sessions50.png", check: s => s.totalSessions >= 50 },
 ];
 
-// 模考各段用时(分钟),默认按国考建议分配;总时长 = 各段之和
-const segMinutes = ref<number[]>(MOCK_SEGMENTS_BASE.map(s => s.minutes));
-const activePreset = ref<number | null>(120);
+// 模考分段配置：名称、数量、用时均可自定义（本地持久化，跨启动保留）
+const MOCK_CONFIG_KEY = "mock_segments_config_v1";
+const MOCK_SEG_MAX_COUNT = 8;
+const MOCK_SEG_NAME_MAX = 8;
+const MOCK_SEG_MIN_CAP = 90; // 单模块用时上限（分钟）
+
+interface MockSegment {
+	name: string;
+	minutes: number;
+}
+
+function sanitizeSegments(raw: any): MockSegment[] {
+	if (!Array.isArray(raw)) return [];
+	return raw
+		.map((s: any) => ({
+			name: String(s?.name || "").trim().slice(0, MOCK_SEG_NAME_MAX),
+			minutes: Math.round(Number(s?.minutes)),
+		}))
+		.filter((s: MockSegment) => s.name && s.minutes >= 1 && s.minutes <= MOCK_SEG_MIN_CAP)
+		.slice(0, MOCK_SEG_MAX_COUNT);
+}
+
+function loadMockConfig(): MockSegment[] | null {
+	try {
+		const segs = sanitizeSegments(uni.getStorageSync(MOCK_CONFIG_KEY));
+		return segs.length ? segs : null;
+	} catch {
+		return null;
+	}
+}
+
+// 各段用时与名称（默认按国考行测建议分配）；总时长 = 各段之和
+const mockSegments = ref<MockSegment[]>(loadMockConfig() || MOCK_SEGMENTS_BASE.map(s => ({ ...s })));
+const activePreset = ref<number | null>(null);
+
+function sumMockMinutes(): number {
+	return mockSegments.value.reduce((a, b) => a + b.minutes, 0);
+}
+
+function persistMockConfig() {
+	uni.setStorageSync(MOCK_CONFIG_KEY, mockSegments.value.map(s => ({ name: s.name, minutes: s.minutes })));
+}
 
 function applyPreset(total: number) {
-	const baseSum = MOCK_SEGMENTS_BASE.reduce((s, x) => s + x.minutes, 0);
-	// 等比缩放 + 最大余数法,保证各段之和恰等于 total
-	const raw = MOCK_SEGMENTS_BASE.map(s => (s.minutes / baseSum) * total);
+	// 按当前模块占比等比缩放 + 最大余数法，保证各段之和恰等于 total
+	const curSum = sumMockMinutes() || 1;
+	const raw = mockSegments.value.map(s => (s.minutes / curSum) * total);
 	const floored = raw.map(x => Math.max(1, Math.floor(x)));
 	let rest = total - floored.reduce((a, b) => a + b, 0);
 	const order = raw
@@ -325,20 +375,68 @@ function applyPreset(total: number) {
 		floored[i] += 1;
 		rest -= 1;
 	}
-	segMinutes.value = floored;
+	mockSegments.value = mockSegments.value.map((s, i) => ({ ...s, minutes: floored[i] }));
 	activePreset.value = total;
 	targetMinutes.value = total;
+	persistMockConfig();
 }
 
 function editSegment(i: number, delta: number) {
-	const next = [...segMinutes.value];
-	const v = next[i] + delta;
-	if (v < 1 || v > 90) return;
-	if (delta > 0 && next.reduce((a, b) => a + b, 0) >= MOCK_TOTAL_CAP) return;
-	next[i] = v;
-	segMinutes.value = next;
+	const seg = mockSegments.value[i];
+	if (!seg) return;
+	const v = seg.minutes + delta;
+	if (v < 1 || v > MOCK_SEG_MIN_CAP) return;
+	if (delta > 0 && sumMockMinutes() >= MOCK_TOTAL_CAP) return;
+	seg.minutes = v;
 	activePreset.value = null; // 手动编辑后脱离预设
-	targetMinutes.value = next.reduce((a, b) => a + b, 0);
+	targetMinutes.value = sumMockMinutes();
+	persistMockConfig();
+}
+
+/** 模块改名：失焦落盘；清空则回退为「模块N」 */
+function onSegNameBlur(i: number, e: any) {
+	const seg = mockSegments.value[i];
+	if (!seg) return;
+	const name = String(e?.detail?.value || "").trim().slice(0, MOCK_SEG_NAME_MAX);
+	if (!name) {
+		mockSegments.value[i] = { ...seg, name: `模块${i + 1}` };
+		persistMockConfig();
+		return;
+	}
+	if (name === seg.name) return;
+	mockSegments.value[i] = { ...seg, name };
+	persistMockConfig();
+}
+
+function addSegment() {
+	if (mockSegments.value.length >= MOCK_SEG_MAX_COUNT) {
+		uni.showToast({ title: `最多 ${MOCK_SEG_MAX_COUNT} 个模块`, icon: "none" });
+		return;
+	}
+	const minutes = Math.min(10, MOCK_SEG_MIN_CAP, MOCK_TOTAL_CAP - sumMockMinutes());
+	if (minutes < 1) {
+		uni.showToast({ title: "总时长已达上限", icon: "none" });
+		return;
+	}
+	mockSegments.value.push({ name: `模块${mockSegments.value.length + 1}`, minutes });
+	activePreset.value = null;
+	targetMinutes.value = sumMockMinutes();
+	persistMockConfig();
+}
+
+function removeSegment(i: number) {
+	if (mockSegments.value.length <= 1) return;
+	mockSegments.value.splice(i, 1);
+	activePreset.value = null;
+	targetMinutes.value = sumMockMinutes();
+	persistMockConfig();
+}
+
+/** 恢复国考行测默认模块与建议用时 */
+function resetSegments() {
+	mockSegments.value = MOCK_SEGMENTS_BASE.map(s => ({ ...s }));
+	persistMockConfig();
+	applyPreset(120);
 }
 
 const STORAGE_KEY = "focus_running_v1";
@@ -455,10 +553,7 @@ const examDaysLeft = computed(() => {
 	return diff;
 });
 
-// 模考分段:由 segMinutes 驱动(可自定义),名称固定
-const mockSegments = computed(() =>
-	MOCK_SEGMENTS_BASE.map((seg, i) => ({ name: seg.name, minutes: segMinutes.value[i] }))
-);
+// 模考分段进度：由可配置的 mockSegments 驱动
 const segmentOffsets = computed(() => {
 	let acc = 0;
 	return mockSegments.value.map(seg => {
@@ -485,7 +580,7 @@ const quote = computed(() => QUOTES[quoteIndex.value]);
 function switchMode(m: Mode) {
 	mode.value = m;
 	if (m === "pomodoro") targetMinutes.value = 25;
-	else if (m === "mock") applyPreset(120);
+	else if (m === "mock") targetMinutes.value = sumMockMinutes(); // 保留用户自定义配置，不重置
 	else targetMinutes.value = 60;
 }
 
@@ -640,7 +735,7 @@ function persistRunning() {
 	uni.setStorageSync(STORAGE_KEY, {
 		mode: mode.value,
 		targetMinutes: targetMinutes.value,
-		segMinutes: mode.value === "mock" ? segMinutes.value : undefined,
+		segs: mode.value === "mock" ? mockSegments.value.map(s => ({ name: s.name, minutes: s.minutes })) : undefined,
 		baseElapsed: baseElapsed.value,
 		runningSince: runningSince.value,
 		phase: phase.value,
@@ -654,8 +749,14 @@ function restoreRunning() {
 	if (!saved || !saved.targetMinutes) return;
 	mode.value = saved.mode;
 	targetMinutes.value = saved.targetMinutes;
-	if (mode.value === "mock" && Array.isArray(saved.segMinutes) && saved.segMinutes.length === MOCK_SEGMENTS_BASE.length) {
-		segMinutes.value = saved.segMinutes;
+	if (mode.value === "mock") {
+		const savedSegs = sanitizeSegments(saved.segs);
+		if (savedSegs.length) {
+			mockSegments.value = savedSegs;
+		} else if (Array.isArray(saved.segMinutes) && saved.segMinutes.length === MOCK_SEGMENTS_BASE.length) {
+			// 旧版本数据：仅存了分钟数，名称沿用国考默认
+			mockSegments.value = MOCK_SEGMENTS_BASE.map((s, i) => ({ name: s.name, minutes: Number(saved.segMinutes[i]) || s.minutes }));
+		}
 	}
 
 	const wasRunning = saved.phase === "running" || (saved.runningSince != null && saved.phase !== "paused");
@@ -960,9 +1061,35 @@ onUnmounted(() => {
 	border-radius: 12rpx;
 	padding: 12rpx 22rpx;
 }
-.seg-edit-name {
+/* 模块名行内输入：透明底融入行内，失焦保存 */
+.seg-name-input {
+	flex: 1;
+	min-width: 0;
+	height: 48rpx;
+	line-height: 48rpx;
 	font-size: 25rpx;
 	font-weight: 600;
+	color: var(--ink-900);
+	background: transparent;
+}
+.seg-del {
+	width: 44rpx;
+	height: 44rpx;
+	line-height: 40rpx;
+	text-align: center;
+	border-radius: 50%;
+	color: var(--ink-300);
+	font-size: 26rpx;
+	flex-shrink: 0;
+}
+.seg-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16rpx;
+	margin-top: 16rpx;
+}
+.seg-tools .opt-chip {
+	margin: 0;
 }
 .seg-edit-stepper {
 	display: flex;
