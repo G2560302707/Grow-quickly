@@ -7,8 +7,13 @@
 			<view class="user-row" hover-class="hv" @tap="onHeaderTap">
 				<view class="avatar"><text class="avatar-char">{{ avatarChar }}</text></view>
 				<view class="user-info">
-					<text class="user-name">{{ session?.user?.name || "游客" }}</text>
-					<text class="user-email">{{ displayEmail || "登录后同步网页端数据" }}</text>
+					<text class="user-name">{{ session?.user?.name || "未登录" }}</text>
+					<text class="user-email">{{ userSubtitle }}</text>
+				</view>
+				<!-- 游客态：头像旁给出明确的登录入口，避免把演示数据误认为个人数据 -->
+				<view v-if="!session?.user" class="login-chip" hover-class="hv" @tap.stop="goRelogin">
+					<text class="login-chip-text">点击登录</text>
+					<text class="login-chip-arrow">›</text>
 				</view>
 			</view>
 		</view>
@@ -119,6 +124,8 @@
 		</view>
 
 		<button v-if="session?.user" class="btn-outline logout-btn" hover-class="button-hover" @tap="handleLogout">退出登录</button>
+		<!-- 游客态：非退出，是引导补登录 -->
+		<button v-else class="btn-outline relogin-btn" hover-class="button-hover" @tap="goRelogin">立即登录</button>
 	</view>
 </template>
 
@@ -147,7 +154,7 @@ const overview = ref<OverviewStats>({
 });
 const practice = ref<PracticeSummary>({ total: 0, correct: 0, rate: 0 });
 
-const avatarChar = computed(() => (session.value?.user?.name || "游")[0]);
+const avatarChar = computed(() => (session.value?.user?.name || "未")[0]);
 
 /** 微信占位邮箱不展示 */
 const displayEmail = computed(() => {
@@ -156,16 +163,21 @@ const displayEmail = computed(() => {
 	return email;
 });
 
+const userSubtitle = computed(() => {
+	if (!session.value?.user) return "登录后同步网页端错题本数据";
+	return displayEmail.value || "微信账号已登录 · 数据已同步";
+});
+
 onShow(async () => {
 	currentThemeName.value = getThemeMeta().name;
 	themeDots.value = getThemeMeta().dots;
 	statsLoading.value = true;
-	const [sess, ov, pr] = await Promise.all([
-		getSession().catch(() => null),
+	// 先确认会话再读数据：getSession 会同步游客标记，避免统计接口抢跑拿到演示数据
+	session.value = await getSession().catch(() => null);
+	const [ov, pr] = await Promise.all([
 		getOverviewStats().catch(() => null),
 		getPracticeSummary().catch(() => null),
 	]);
-	session.value = sess;
 	if (ov) overview.value = ov;
 	if (pr) practice.value = pr;
 	statsLoading.value = false;
@@ -229,6 +241,11 @@ function handleLogout() {
 		},
 	});
 }
+
+/** 游客态「返回登录」：前往登录页（登录页同时提供游客浏览入口） */
+function goRelogin() {
+	uni.navigateTo({ url: "/pages/login/login" });
+}
 </script>
 
 <style scoped>
@@ -280,8 +297,32 @@ function handleLogout() {
 	font-weight: 700;
 }
 .user-info {
+	flex: 1;
+	min-width: 0;
 	display: flex;
 	flex-direction: column;
+}
+/* 游客登录入口：低调但可点，避免喧宾夺主 */
+.login-chip {
+	display: flex;
+	align-items: center;
+	gap: 6rpx;
+	flex-shrink: 0;
+	margin-left: 20rpx;
+	padding: 12rpx 22rpx;
+	border-radius: 999rpx;
+	background: rgba(255, 255, 255, 0.12);
+	border: 1rpx solid rgba(255, 255, 255, 0.22);
+}
+.login-chip-text {
+	font-size: 24rpx;
+	font-weight: 600;
+	color: #ffffff;
+}
+.login-chip-arrow {
+	font-size: 26rpx;
+	color: rgba(255, 255, 255, 0.65);
+	line-height: 1;
 }
 .user-name {
 	font-size: 38rpx;
@@ -534,5 +575,11 @@ function handleLogout() {
 	margin: 32rpx 24rpx calc(env(safe-area-inset-bottom) + 40rpx);
 	color: var(--danger-600);
 	border-color: rgba(217, 58, 69, 0.3);
+}
+/* 游客态「返回登录」：中性品牌色，与退出登录的警示红区分 */
+.relogin-btn {
+	margin: 32rpx 24rpx calc(env(safe-area-inset-bottom) + 40rpx);
+	color: var(--brand-600);
+	border-color: var(--brand-100);
 }
 </style>

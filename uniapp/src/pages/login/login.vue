@@ -55,8 +55,10 @@
 				<text class="to-register-tip">没有账号？</text>
 				<text class="to-register-link" @tap="goRegister">立即注册</text>
 			</view>
-			<view class="to-register">
-				<text class="browse-link" @tap="goBrowse">先逛逛，稍后登录 ›</text>
+			<!-- 游客入口：不登录也可浏览演示内容（启动页为登录页，此处提供第二种进入方式） -->
+			<view class="guest-entry">
+				<button class="guest-btn" hover-class="button-hover" @tap="goBrowse">游客浏览，暂不登录</button>
+				<text class="guest-tip">先体验演示内容，登录后同步网页端错题本数据</text>
 			</view>
 		</view>
 
@@ -69,13 +71,22 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import { login, loginWithWeChat } from "@/utils/auth";
+import { onShow } from "@dcloudio/uni-app";
+import { getSession, login, loginWithWeChat } from "@/utils/auth";
 
 const email = ref("");
 const password = ref("");
 const loading = ref(false);
 const wxLoading = ref(false);
 const errorMsg = ref("");
+
+/** 登录页为启动页：已登录用户冷启动时自动直达首页，不再停留登录页 */
+onShow(async () => {
+	const session = await getSession().catch(() => null);
+	if (session?.user) {
+		uni.switchTab({ url: "/pages/index/index" });
+	}
+});
 
 async function handleLogin() {
 	if (!email.value.trim() || !password.value) {
@@ -97,7 +108,7 @@ function goRegister() {
 	uni.redirectTo({ url: "/pages/register/register" });
 }
 
-/** 游客可跳过登录，先浏览演示内容 */
+/** 游客入口：跳过登录，进入首页浏览演示内容 */
 function goBrowse() {
 	uni.switchTab({ url: "/pages/index/index" });
 }
@@ -385,9 +396,37 @@ async function handleWeChatLogin() {
 	font-weight: 600;
 	margin-left: 8rpx;
 }
-.browse-link {
-	font-size: 24rpx;
-	color: var(--ink-400);
+/* ---------- 游客入口 ---------- */
+.guest-entry {
+	margin-top: 32rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+.guest-btn {
+	width: 100%;
+	height: 88rpx;
+	line-height: 88rpx;
+	border-radius: 20rpx;
+	background: var(--bg-fill);
+	color: var(--ink-600);
+	font-size: 28rpx;
+	font-weight: 500;
+	border: none;
+	letter-spacing: 2rpx;
+}
+.guest-btn::after {
+	border: none;
+}
+.guest-btn[disabled] {
+	opacity: 0.6;
+	color: var(--ink-600);
+	background: var(--bg-fill);
+}
+.guest-tip {
+	font-size: 22rpx;
+	color: var(--ink-300);
+	margin-top: 16rpx;
 }
 
 /* ---------- 页脚 ---------- */

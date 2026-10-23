@@ -11,7 +11,7 @@
  */
 import { request, postForm, clearAuthCookies } from "./request";
 import { BASE_URL } from "./config";
-import { resetGuestCache, setSessionFetcher } from "./guest";
+import { resetGuestCache, setSessionFetcher, syncGuestFromSession } from "./guest";
 
 // 注入会话查询，供游客判定使用（保持 guest → auth 单向依赖）
 setSessionFetcher(getSession);
@@ -31,8 +31,12 @@ export interface Session {
 export async function getSession(): Promise<Session | null> {
     try {
         const session = await request<Session>("/api/auth/session");
-        return session?.user ? session : null;
+        const user = session?.user ? session : null;
+        // 以服务端会话为唯一权威来源，同步游客判定，避免启动阶段的缓存与真实登录态不一致
+        syncGuestFromSession(user);
+        return user;
     } catch {
+        // 网络异常不改变既有判定，避免把"请求失败"误当成"未登录"
         return null;
     }
 }
@@ -111,7 +115,8 @@ export async function logout(): Promise<void> {
         });
     } finally {
         clearAuthCookies();
-        resetGuestCache(); // 回到游客浏览模式
-        uni.reLaunch({ url: "/pages/index/index" });
+        syncGuestFromSession(null); // 会话已清除，立即回到游客态
+        // 回到登录页（启动页）：由用户重新选择「账号登录」或「游客浏览」
+        uni.reLaunch({ url: "/pages/login/login" });
     }
 }

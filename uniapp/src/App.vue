@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { onLaunch } from "@dcloudio/uni-app";
 import { resolveGuest } from "./utils/guest";
+import { getSession } from "./utils/auth";
 import { enableShareMenu } from "./utils/share";
 
 onLaunch(async () => {
   // 分享能力：启动时先打开菜单项；「发送给朋友 / 分享到朋友圈」的具体内容
   // 必须由各页面的 onShareAppMessage / onShareTimeline 提供（写在 App.vue 无效）
   enableShareMenu();
-  // 合规整改：未登录不再强制跳登录页，允许先浏览（读接口返回演示数据），
-  // 仅预热会话判定，写操作时再按需引导登录
-  await resolveGuest();
+  // 合规整改：启动页为登录页，但提供「游客浏览」入口，未登录可自由浏览
+  // （读接口返回演示数据）；此处先预热会话判定，写操作时再按需引导登录。
+  // 必须显式传入 getSession：guest.ts 默认 fetcher 返回 null，
+  // 若依赖模块副作用注入，冷启动会把已登录用户误判为游客并缓存。
+  await resolveGuest(getSession);
 });
 </script>
 

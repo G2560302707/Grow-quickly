@@ -7,6 +7,7 @@
 import type { Session } from "./auth";
 
 let sessionPromise: Promise<boolean> | null = null;
+// 未确认前不预判游客：真正的未登录用户会先经过登录页，进入业务页前都会先同步会话
 let guest = false;
 
 let sessionFetcher: () => Promise<Session | null> = async () => null;
@@ -16,11 +17,25 @@ export function setSessionFetcher(fn: () => Promise<Session | null>): void {
 	sessionFetcher = fn;
 }
 
-/** 解析会话并判定是否游客（结果缓存；登录/登出后需 resetGuestCache） */
-export function resolveGuest(): Promise<boolean> {
+/**
+ * 用一次已确认的会话结果同步游客状态。
+ * auth.getSession() 每次拿到服务端权威结果后都会调用：
+ * 即使启动阶段判定有误，后续任意一次会话校验也能自动纠正。
+ */
+export function syncGuestFromSession(session: Session | null): void {
+	guest = !session?.user;
+	sessionPromise = Promise.resolve(guest);
+}
+
+/**
+ * 解析会话并判定是否游客。
+ * 可显式传入会话拉取函数（App 启动时传 auth.getSession，避免 auth 模块尚未加载时
+ * 使用默认的 null 结果把已登录用户误判为游客）。
+ */
+export function resolveGuest(fetcher?: () => Promise<Session | null>): Promise<boolean> {
 	const cached = sessionPromise;
 	if (cached) return cached.then(() => guest);
-	const p = sessionFetcher()
+	const p = (fetcher || sessionFetcher)()
 		.then((s) => {
 			guest = !s?.user;
 			return guest;
@@ -38,10 +53,13 @@ export function isGuest(): boolean {
 	return guest;
 }
 
-/** 登录/登出后重置缓存，下次 resolveGuest 重新拉会话 */
+/**
+ * 登录/登出后清空缓存，下次 resolveGuest 重新拉会话。
+ * 不直接改 guest 值：登录后由 getSession 的同步结果接管，
+ * 登出后由 syncGuestFromSession(null) 显式置为游客。
+ */
 export function resetGuestCache(): void {
 	sessionPromise = null;
-	guest = false;
 }
 
 /**
